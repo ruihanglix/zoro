@@ -1,0 +1,11 @@
+[package]
+name = "zoro-storage"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+zoro-core = { path = "../zoro-core" }
+zoro-db = { path = "../zoro-db" }
+serde_json.workspace = true
+tracing.workspace = true
+reqwest.workspace = true

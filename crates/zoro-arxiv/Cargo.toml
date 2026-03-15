@@ -1,0 +1,21 @@
+[package]
+name = "zoro-arxiv"
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0"
+description = "arXiv HTML fetching, cleaning, style fixing, and paragraph-level translation"
+
+[dependencies]
+zoro-ai = { path = "../zoro-ai" }
+zoro-core = { path = "../zoro-core" }
+serde = { workspace = true }
+serde_json = { workspace = true }
+reqwest = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+tokio = { workspace = true }
+regex = { workspace = true }
+scraper = { workspace = true }
+base64 = { workspace = true }
+url = { workspace = true }
+futures = { workspace = true }

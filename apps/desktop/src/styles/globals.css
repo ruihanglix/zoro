@@ -1,0 +1,148 @@
+/*
+ * Copyright (c) 2026 Ruihang Li and the Zoro Team
+ * Licensed under the AGPL-3.0 license.
+ * See LICENSE file in the project root for full license information.
+ */
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+	:root {
+		--background: 0 0% 100%;
+		--foreground: 0 0% 3.9%;
+		--card: 0 0% 100%;
+		--card-foreground: 0 0% 3.9%;
+		--popover: 0 0% 100%;
+		--popover-foreground: 0 0% 3.9%;
+		--primary: 221 83% 53%;
+		--primary-foreground: 210 40% 98%;
+		--secondary: 210 40% 96%;
+		--secondary-foreground: 222.2 47.4% 11.2%;
+		--muted: 210 40% 96%;
+		--muted-foreground: 215.4 16.3% 46.9%;
+		--accent: 210 40% 96%;
+		--accent-foreground: 222.2 47.4% 11.2%;
+		--destructive: 0 84.2% 60.2%;
+		--destructive-foreground: 210 40% 98%;
+		--border: 214.3 31.8% 91.4%;
+		--input: 214.3 31.8% 91.4%;
+		--ring: 221 83% 53%;
+		--radius: 0.5rem;
+	}
+
+	.dark {
+		--background: 222 47% 11%;
+		--foreground: 210 40% 98%;
+		--card: 222 47% 11%;
+		--card-foreground: 210 40% 98%;
+		--popover: 222 47% 11%;
+		--popover-foreground: 210 40% 98%;
+		--primary: 217 91% 60%;
+		--primary-foreground: 222 47% 11%;
+		--secondary: 217 33% 17%;
+		--secondary-foreground: 210 40% 98%;
+		--muted: 217 33% 17%;
+		--muted-foreground: 215 20% 65%;
+		--accent: 217 33% 17%;
+		--accent-foreground: 210 40% 98%;
+		--destructive: 0 63% 31%;
+		--destructive-foreground: 210 40% 98%;
+		--border: 217 33% 17%;
+		--input: 217 33% 17%;
+		--ring: 224 76% 48%;
+	}
+}
+
+@layer base {
+	* {
+		@apply border-border;
+	}
+	html,
+	body,
+	#root {
+		height: 100%;
+		overflow: hidden;
+	}
+	body {
+		@apply bg-background text-foreground;
+		font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+			sans-serif;
+	}
+}
+
+/* ─── Tab Bar ─────────────────────────────────────────────────────── */
+
+@layer components {
+	/* Root container — no-drag so the OS overlay title bar doesn't
+     intercept clicks; explicit drag regions are set via data-tauri-drag-region */
+	.tab-bar-root {
+		height: 40px;
+		-webkit-app-region: no-drag;
+	}
+
+	/* Tab items are interactive — not draggable */
+	.tab-item {
+		-webkit-app-region: no-drag;
+	}
+
+	/* Ensure all buttons inside tab bar are not draggable */
+	.tab-bar-root button {
+		-webkit-app-region: no-drag;
+	}
+
+	/* Hide scrollbar on tab overflow */
+	.scrollbar-none {
+		-ms-overflow-style: none;
+		scrollbar-width: none;
+	}
+	.scrollbar-none::-webkit-scrollbar {
+		display: none;
+	}
+}
+
+/* ─── PDF text selection ──────────────────────────────────────────── */
+
+/* Override react-pdf-highlighter's yellow ::selection so text selection
+   stays a neutral gray, clearly distinct from annotation highlights. */
+.textLayer ::selection {
+	background: rgba(0, 0, 0, 0.2) !important;
+	mix-blend-mode: normal !important;
+}
+
+.textLayer ::-moz-selection {
+	background: rgba(0, 0, 0, 0.2) !important;
+	mix-blend-mode: normal !important;
+}
+
+/* ─── Tiptap Note Editor ─────────────────────────────────────────── */
+
+.ProseMirror p.is-editor-empty:first-child::before {
+	content: attr(data-placeholder);
+	float: left;
+	color: hsl(var(--muted-foreground));
+	pointer-events: none;
+	height: 0;
+}
+
+.ProseMirror:focus {
+	outline: none;
+}
+
+.ProseMirror blockquote p:first-of-type::before,
+.ProseMirror blockquote p:last-of-type::after {
+	content: none;
+}
+
+/* ─── Drag and Drop ───────────────────────────────────────────────── */
+
+/* Make the dragged row slightly transparent */
+[draggable="true"]:active {
+	opacity: 0.7;
+}
+
+/* Smooth transition for drop target highlighting */
+.drop-target-transition {
+	transition: background-color 150ms ease, box-shadow 150ms ease;
+}

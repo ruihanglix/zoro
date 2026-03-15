@@ -1,0 +1,17 @@
+[package]
+name = "zoro-db"
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0"
+description = "Database layer for Zoro"
+
+[dependencies]
+zoro-core = { path = "../zoro-core" }
+rusqlite = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+chrono = { workspace = true }
+uuid = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+slug = { workspace = true }

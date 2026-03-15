@@ -1,0 +1,57 @@
+name: "📚 Documentation"
+description: Request improvements or report issues with documentation.
+labels: ["documentation"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for helping us improve the documentation!
+
+  - type: dropdown
+    id: doc-type
+    attributes:
+      label: Documentation Type
+      description: What type of documentation issue is this?
+      options:
+        - Missing documentation
+        - Incorrect / outdated documentation
+        - Unclear / confusing documentation
+        - New documentation request
+        - Typo / grammar fix
+    validations:
+      required: true
+
+  - type: input
+    id: doc-location
+    attributes:
+      label: Documentation Location
+      description: Where is the documentation located? (e.g., README, wiki page URL, code comments)
+      placeholder: e.g., README.md, docs/setup.md
+    validations:
+      required: false
+
+  - type: textarea
+    id: current-content
+    attributes:
+      label: Current Content
+      description: What does the current documentation say? (if applicable)
+      placeholder: Paste or describe the current documentation content...
+    validations:
+      required: false
+
+  - type: textarea
+    id: suggested-content
+    attributes:
+      label: Suggested Improvement
+      description: What would you like the documentation to say or cover?
+      placeholder: Describe the improvement or new content you'd like to see...
+    validations:
+      required: true
+
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: Additional Context
+      description: Any other context, screenshots, or references that might help.
+    validations:
+      required: false

@@ -1,0 +1,60 @@
+name: "\U0001F4C4 Translation Issue"
+description: Report a translation-related problem or request a new language
+title: "[Translation]: "
+labels: ["translation"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report a translation issue! Please fill out the form below.
+
+  - type: dropdown
+    id: issue-type
+    attributes:
+      label: Issue Type
+      description: What type of translation issue is this?
+      options:
+        - Translation quality (incorrect / awkward)
+        - Missing translation
+        - New language request
+        - Other
+    validations:
+      required: true
+
+  - type: input
+    id: language
+    attributes:
+      label: Language
+      description: Which language is this issue about?
+      placeholder: e.g., Chinese (Simplified), Japanese, French
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: Describe the translation issue in detail.
+      placeholder: |
+        For quality issues, please include:
+        - The original text
+        - The current translation
+        - Your suggested translation
+    validations:
+      required: true
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Context / Screenshots
+      description: Add any screenshots or context that help explain the issue.
+    validations:
+      required: false
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional Information
+      description: Any other information that might be helpful.
+    validations:
+      required: false

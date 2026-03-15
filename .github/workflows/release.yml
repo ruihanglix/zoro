@@ -1,0 +1,198 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+jobs:
+  create-release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    outputs:
+      release_id: ${{ steps.create.outputs.release_id }}
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Get version
+        id: version
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            echo "version=${GITHUB_REF#refs/tags/v}" >> "$GITHUB_OUTPUT"
+          else
+            VERSION=$(node -p "require('./apps/desktop/package.json').version")
+            echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Create or find draft release
+        id: create
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          TAG="v${VERSION}"
+          REPO="${{ github.repository }}"
+          DL="https://github.com/${REPO}/releases/download/${TAG}"
+
+          RELEASE_ID=$(gh api "repos/${REPO}/releases" --jq ".[] | select(.tag_name == \"${TAG}\") | .id" 2>/dev/null || true)
+
+          if [ -n "$RELEASE_ID" ]; then
+            echo "Found existing release: $RELEASE_ID"
+          else
+            BODY=$(cat <<EOF
+          ## Download Guide
+
+          **Windows (x86_64)** — Most Windows PCs
+          [Download .exe installer](${DL}/Zoro_${VERSION}_x64-setup.exe) | [Download .msi installer](${DL}/Zoro_${VERSION}_x64_en-US.msi)
+
+          **macOS (Universal)** — Supports both Intel & Apple Silicon
+          [Download .dmg](${DL}/Zoro_${VERSION}_universal.dmg)
+
+          **macOS (Apple Silicon)** — M1/M2/M3/M4 Mac
+          [Download .dmg](${DL}/Zoro_${VERSION}_aarch64.dmg)
+
+          **macOS (Intel)** — Intel Mac
+          [Download .dmg](${DL}/Zoro_${VERSION}_x64.dmg)
+
+          **Linux (x86_64)** — Debian/Ubuntu or generic Linux
+          [Download .deb](${DL}/zoro_${VERSION}_amd64.deb) | [Download .AppImage](${DL}/Zoro_${VERSION}_amd64.AppImage)
+
+          **Windows (ARM64)** — ARM devices like Surface Pro X
+          [Download .exe installer](${DL}/Zoro_${VERSION}_aarch64-setup.exe) | [Download .msi installer](${DL}/Zoro_${VERSION}_aarch64_en-US.msi)
+
+          ---
+
+          ## 下载指南
+
+          **Windows (x86_64)** — 大多数 Windows 电脑
+          [下载 .exe 安装包](${DL}/Zoro_${VERSION}_x64-setup.exe) | [下载 .msi 安装包](${DL}/Zoro_${VERSION}_x64_en-US.msi)
+
+          **macOS (Universal)** — 同时支持 Intel 与 Apple Silicon
+          [下载 .dmg](${DL}/Zoro_${VERSION}_universal.dmg)
+
+          **macOS (Apple Silicon)** — M1/M2/M3/M4 芯片 Mac
+          [下载 .dmg](${DL}/Zoro_${VERSION}_aarch64.dmg)
+
+          **macOS (Intel)** — Intel 芯片 Mac
+          [下载 .dmg](${DL}/Zoro_${VERSION}_x64.dmg)
+
+          **Linux (x86_64)** — Debian/Ubuntu 或通用 Linux
+          [下载 .deb](${DL}/zoro_${VERSION}_amd64.deb) | [下载 .AppImage](${DL}/Zoro_${VERSION}_amd64.AppImage)
+
+          **Windows (ARM64)** — Surface Pro X 等 ARM 设备
+          [下载 .exe 安装包](${DL}/Zoro_${VERSION}_aarch64-setup.exe) | [下载 .msi 安装包](${DL}/Zoro_${VERSION}_aarch64_en-US.msi)
+          EOF
+          )
+
+            RELEASE_ID=$(gh api "repos/${REPO}/releases" \
+              -f tag_name="$TAG" \
+              -f target_commitish="${GITHUB_SHA}" \
+              -f name="Zoro ${TAG}" \
+              -f body="$BODY" \
+              -F draft=true \
+              -F prerelease=false \
+              --jq '.id')
+            echo "Created draft release: $RELEASE_ID"
+          fi
+
+          echo "release_id=$RELEASE_ID" >> "$GITHUB_OUTPUT"
+
+  build:
+    needs: create-release
+    permissions:
+      contents: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: macos-latest
+            args: --target universal-apple-darwin
+            rust_targets: aarch64-apple-darwin,x86_64-apple-darwin
+            mcp_targets: aarch64-apple-darwin x86_64-apple-darwin
+          - platform: macos-latest
+            args: --target aarch64-apple-darwin
+            rust_targets: aarch64-apple-darwin,x86_64-apple-darwin
+            mcp_targets: aarch64-apple-darwin
+          - platform: macos-latest
+            args: --target x86_64-apple-darwin
+            rust_targets: aarch64-apple-darwin,x86_64-apple-darwin
+            mcp_targets: x86_64-apple-darwin
+          - platform: ubuntu-22.04
+            args: ""
+            rust_targets: ""
+            mcp_targets: x86_64-unknown-linux-gnu
+          - platform: windows-latest
+            args: ""
+            rust_targets: ""
+            mcp_targets: x86_64-pc-windows-msvc
+          - platform: windows-latest
+            args: --target aarch64-pc-windows-msvc
+            rust_targets: aarch64-pc-windows-msvc
+            mcp_targets: aarch64-pc-windows-msvc
+    runs-on: ${{ matrix.platform }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.rust_targets }}
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Install dependencies (Ubuntu only)
+        if: matrix.platform == 'ubuntu-22.04'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
+
+      - name: Sync version from git tag
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          VERSION="${GITHUB_REF#refs/tags/v}"
+          node -e "
+            const fs = require('fs');
+            for (const f of ['apps/desktop/package.json', 'apps/desktop/src-tauri/tauri.conf.json']) {
+              const j = JSON.parse(fs.readFileSync(f, 'utf8'));
+              j.version = '${VERSION}';
+              fs.writeFileSync(f, JSON.stringify(j, null, 2) + '\n');
+            }
+          "
+        shell: bash
+
+      - run: pnpm install
+
+      - name: Build MCP sidecar
+        shell: bash
+        run: |
+          for triple in ${{ matrix.mcp_targets }}; do
+            bash scripts/build-mcp-sidecar.sh --release --target "$triple"
+          done
+
+      - name: Create universal MCP sidecar (macOS universal only)
+        if: contains(matrix.args, 'universal-apple-darwin')
+        shell: bash
+        run: |
+          BINARIES_DIR="apps/desktop/src-tauri/binaries"
+          ARM_BIN="$BINARIES_DIR/zoro-mcp-aarch64-apple-darwin"
+          X86_BIN="$BINARIES_DIR/zoro-mcp-x86_64-apple-darwin"
+          UNI_BIN="$BINARIES_DIR/zoro-mcp-universal-apple-darwin"
+          lipo -create "$ARM_BIN" "$X86_BIN" -output "$UNI_BIN"
+          echo "Created universal sidecar at $UNI_BIN"
+
+      - uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          projectPath: apps/desktop
+          releaseId: ${{ needs.create-release.outputs.release_id }}
+          retryAttempts: 3
+          args: ${{ matrix.args }}

@@ -1,0 +1,9 @@
+packages:
+  - apps/*
+  - packages/*
+  - temp/advance-plugin
+  - temp/demo-plugin
+ignoredBuiltDependencies:
+  - '@biomejs/biome'
+  - canvas
+  - esbuild

@@ -1,0 +1,50 @@
+[package]
+name = "zoro-desktop"
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0"
+description = "Zoro desktop application"
+
+[build-dependencies]
+tauri-build = { workspace = true, features = [] }
+
+[dependencies]
+zoro-acp = { path = "../../../crates/zoro-acp" }
+zoro-ai = { path = "../../../crates/zoro-ai" }
+zoro-arxiv = { path = "../../../crates/zoro-arxiv" }
+zoro-core = { path = "../../../crates/zoro-core" }
+zoro-db = { path = "../../../crates/zoro-db" }
+zoro-metadata = { path = "../../../crates/zoro-metadata" }
+zoro-plugins = { path = "../../../crates/zoro-plugins" }
+zoro-storage = { path = "../../../crates/zoro-storage" }
+zoro-subscriptions = { path = "../../../crates/zoro-subscriptions" }
+zoro-webdav = { path = "../../../crates/zoro-webdav" }
+tauri = { workspace = true, features = ["protocol-asset"] }
+tauri-plugin-shell = { workspace = true }
+tauri-plugin-dialog = { workspace = true }
+tauri-plugin-fs = { workspace = true }
+tauri-plugin-clipboard-manager = { workspace = true }
+tauri-plugin-decorum = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tokio = { workspace = true }
+reqwest = { workspace = true }
+chrono = { workspace = true }
+uuid = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+axum = { workspace = true }
+tower-http = { workspace = true }
+slug = { workspace = true }
+sha2 = { workspace = true }
+async-trait = { workspace = true }
+toml = { workspace = true }
+tokio-util = { workspace = true }
+rusqlite = { workspace = true }
+portable-pty = { workspace = true }
+lopdf = { workspace = true }
+regex = { workspace = true }
+url = "2"
+which = "8.0.2"
+sys-locale = "0.3"

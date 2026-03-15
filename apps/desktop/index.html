@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Zoro</title>
+  </head>
+  <body>
+    <!-- Custom decorum titlebar: prevents the plugin from injecting its own
+         fixed 32px overlay (z-index:100) that blocks clicks on the tab bar.
+         Drag regions are handled by data-tauri-drag-region divs in TabBar. -->
+    <div data-tauri-decorum-tb style="display:none"></div>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

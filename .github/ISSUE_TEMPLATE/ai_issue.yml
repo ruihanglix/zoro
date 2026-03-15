@@ -1,0 +1,86 @@
+name: "🤖 AI Issue"
+description: Report issues related to the AI assistant
+title: "[AI] "
+labels: ["ai"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting an AI-related issue! Please fill out the form below to help us investigate.
+
+  - type: dropdown
+    id: ai-issue-type
+    attributes:
+      label: Issue Type
+      description: What kind of AI issue are you experiencing?
+      options:
+        - Incorrect or irrelevant response
+        - AI not responding / timeout
+        - Conversation context lost
+        - Unexpected behavior
+        - Performance issue (slow response)
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: A clear description of the AI issue you encountered.
+      placeholder: Describe the issue...
+    validations:
+      required: true
+
+  - type: textarea
+    id: input
+    attributes:
+      label: Your Input / Prompt
+      description: What did you ask or send to the AI assistant?
+      placeholder: Paste your input or prompt here...
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual-output
+    attributes:
+      label: Actual Output
+      description: What did the AI respond with?
+      placeholder: Paste the AI's response here...
+    validations:
+      required: false
+
+  - type: textarea
+    id: expected-output
+    attributes:
+      label: Expected Output
+      description: What did you expect the AI to respond with?
+      placeholder: Describe what you expected...
+    validations:
+      required: false
+
+  - type: input
+    id: ai-model
+    attributes:
+      label: AI Model / Provider
+      description: Which AI model or provider were you using (if known)?
+      placeholder: e.g., OpenAI GPT-4, Claude, etc.
+    validations:
+      required: false
+
+  - type: input
+    id: version
+    attributes:
+      label: App Version
+      description: What version of ZoteClaw are you using?
+      placeholder: e.g., 0.1.0
+    validations:
+      required: false
+
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: Additional Context
+      description: Add any other context, screenshots, or logs about the issue here.
+    validations:
+      required: false

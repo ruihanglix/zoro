@@ -1,0 +1,16 @@
+[package]
+name = "zoro-ai"
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0"
+description = "AI/LLM integration for Zoro (translation, summarization)"
+
+[dependencies]
+zoro-core = { path = "../zoro-core" }
+serde = { workspace = true }
+serde_json = { workspace = true }
+reqwest = { workspace = true, features = ["stream"] }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+tokio = { workspace = true }
+futures = { workspace = true }

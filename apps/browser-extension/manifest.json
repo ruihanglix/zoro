@@ -1,0 +1,39 @@
+{
+  "manifest_version": 3,
+  "name": "Zoro",
+  "version": "0.1.0",
+  "description": "Save papers to Zoro - AI-native literature manager",
+  "permissions": ["activeTab", "storage"],
+  "host_permissions": ["http://127.0.0.1:23120/*", "http://127.0.0.1:23119/*"],
+  "action": {
+    "default_popup": "src/popup/index.html",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "32": "icons/icon32.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "*://arxiv.org/*",
+        "*://www.arxiv.org/*",
+        "*://scholar.google.com/*",
+        "*://doi.org/*"
+      ],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "icons": {
+    "16": "icons/icon16.png",
+    "32": "icons/icon32.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  }
+}

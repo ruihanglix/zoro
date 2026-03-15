@@ -1,0 +1,89 @@
+#!/usr/bin/env bash
+# Pre-commit hook — mirrors the CI checks so commits never break the pipeline.
+# Install: bash scripts/setup-hooks.sh
+
+set -euo pipefail
+
+# Colors for output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[0;33m'
+NC='\033[0m' # No Color
+
+info()  { echo -e "${GREEN}[pre-commit]${NC} $*"; }
+warn()  { echo -e "${YELLOW}[pre-commit]${NC} $*"; }
+error() { echo -e "${RED}[pre-commit]${NC} $*"; }
+
+# Detect which files are staged
+STAGED_FILES=$(git diff --cached --name-only --diff-filter=ACM)
+
+HAS_RUST=false
+HAS_TS=false
+HAS_EXT=false
+
+if echo "$STAGED_FILES" | grep -qE '\.rs$'; then
+    HAS_RUST=true
+fi
+if echo "$STAGED_FILES" | grep -qE '^apps/desktop/.*\.(ts|tsx)$'; then
+    HAS_TS=true
+fi
+if echo "$STAGED_FILES" | grep -qE '^apps/browser-extension/'; then
+    HAS_EXT=true
+fi
+
+FAILED=false
+
+# --- Rust checks ---
+if $HAS_RUST; then
+    info "Checking Rust formatting..."
+    if ! cargo fmt --all -- --check; then
+        error "Rust formatting check failed. Run: cargo fmt --all"
+        FAILED=true
+    fi
+
+    info "Running Clippy..."
+    if ! cargo clippy --all-targets --all-features -- -D warnings; then
+        error "Clippy found issues. Fix them before committing."
+        FAILED=true
+    fi
+
+    info "Running Rust tests..."
+    if ! cargo test --all; then
+        error "Rust tests failed."
+        FAILED=true
+    fi
+fi
+
+# --- TypeScript desktop checks ---
+if $HAS_TS; then
+    info "Running TypeScript type check (desktop)..."
+    if ! pnpm --filter @zoro/desktop type-check; then
+        error "TypeScript type check failed."
+        FAILED=true
+    fi
+fi
+
+# --- Browser extension build check ---
+if $HAS_EXT; then
+    info "Building browser extension..."
+    if ! pnpm --filter @zoro/browser-extension build; then
+        error "Browser extension build failed."
+        FAILED=true
+    fi
+fi
+
+# --- Result ---
+if $FAILED; then
+    echo ""
+    error "Pre-commit checks failed. Please fix the issues above."
+    error "To bypass (not recommended): git commit --no-verify"
+    exit 1
+fi
+
+if ! $HAS_RUST && ! $HAS_TS && ! $HAS_EXT; then
+    info "No Rust/TS/Extension files staged, skipping checks."
+else
+    info "All checks passed! ✓"
+fi
+
+exit 0

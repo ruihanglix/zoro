@@ -1,0 +1,18 @@
+[package]
+name = "zoro-acp"
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0"
+description = "ACP (Agent Client Protocol) client for Zoro"
+
+[dependencies]
+agent-client-protocol = "0.10"
+async-trait = { workspace = true }
+futures = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+tokio = { workspace = true }
+tokio-util = { workspace = true }
+tracing = { workspace = true }
+toml = { workspace = true }

@@ -1,0 +1,16 @@
+[package]
+name = "zoro-metadata"
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0"
+description = "Metadata enrichment and citation formatting for Zoro"
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+reqwest = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+tokio = { workspace = true }
+lopdf = { workspace = true }
+regex = { workspace = true }

@@ -1,0 +1,20 @@
+[package]
+name = "zoro-subscriptions"
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0"
+description = "Subscription sources for Zoro"
+
+[dependencies]
+zoro-core = { path = "../zoro-core" }
+serde = { workspace = true }
+serde_json = { workspace = true }
+chrono = { workspace = true }
+reqwest = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+async-trait = { workspace = true }
+tokio = { workspace = true }
+uuid = { workspace = true }
+scraper.workspace = true
+urlencoding = "2.1.3"
