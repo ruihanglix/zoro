@@ -23,9 +23,9 @@ interface CitationPreviewProps {
 const LINK_SELECTOR = 'a[href^="#"]';
 const SHOW_DELAY = 250;
 const HIDE_DELAY = 150;
-const MAX_TEXT_LENGTH = 300;
-const MAX_LINES = 5;
-const TOOLTIP_TEXT_MAX_W = 380;
+const MAX_TEXT_LENGTH = 600;
+const MAX_LINES = 10;
+const TOOLTIP_TEXT_MAX_W = 420;
 const TOOLTIP_IMAGE_MAX_W = 480;
 
 const IMAGE_RENDER_SCALE = 1.5;
@@ -102,14 +102,23 @@ async function extractDestinationText(
 
 	lines.sort((a, b) => a.y - b.y);
 
+	// Find the first line at or just after the destination Y.
+	// PDF destinations usually point to the top of the target element,
+	// so we pick the first line whose Y >= targetY (with a small tolerance)
+	// to avoid starting from the middle of a reference entry.
 	let startIdx = 0;
-	let minDist = Number.POSITIVE_INFINITY;
+	const Y_SNAP_TOLERANCE = 5;
+	let found = false;
 	for (let i = 0; i < lines.length; i++) {
-		const dist = Math.abs(lines[i].y - dest.targetY);
-		if (dist < minDist) {
-			minDist = dist;
+		if (lines[i].y >= dest.targetY - Y_SNAP_TOLERANCE) {
 			startIdx = i;
+			found = true;
+			break;
 		}
+	}
+	if (!found) {
+		// Fallback: use the last line if targetY is beyond all lines
+		startIdx = lines.length - 1;
 	}
 
 	const collected: string[] = [];

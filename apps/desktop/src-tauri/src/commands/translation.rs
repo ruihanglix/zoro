@@ -1246,21 +1246,6 @@ pub async fn translate_pdf(
                                 let trimmed = line.trim();
                                 if !trimmed.is_empty() {
                                     tracing::debug!("[babeldoc] {}", trimmed);
-                                    // Forward progress-related lines to the UI
-                                    if trimmed.contains('%')
-                                        || trimmed.to_lowercase().contains("translat")
-                                    {
-                                        let _ = app_tail.emit(
-                                            "background-task",
-                                            serde_json::json!({
-                                                "task_id": task_id_tail,
-                                                "paper_id": pid_tail,
-                                                "task_type": "pdf-translation",
-                                                "status": "running",
-                                                "message": trimmed,
-                                            }),
-                                        );
-                                    }
                                 }
                             }
                             Err(_) => break,

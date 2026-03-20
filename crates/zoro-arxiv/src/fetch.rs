@@ -23,7 +23,8 @@ pub async fn fetch_arxiv_html(arxiv_id: &str) -> Result<String, ArxivError> {
     let (html, html_url) = fetch_html_with_fallback(&client, arxiv_id, &urls).await?;
 
     tracing::info!(arxiv_id = %arxiv_id, raw_len = html.len(), "Raw HTML fetched");
-    let base_url = ensure_directory_url(&html_url);
+    let fallback_base = ensure_directory_url(&html_url);
+    let base_url = extract_base_href(&html, &html_url).unwrap_or(fallback_base);
     tracing::info!(base_url = %base_url, "Base URL for resource resolution");
 
     let html = inline_images(&client, &html, &base_url).await;
@@ -93,6 +94,24 @@ fn build_client() -> reqwest::Client {
         .timeout(std::time::Duration::from_secs(60))
         .build()
         .unwrap_or_default()
+}
+
+/// Extract the effective base URL from a `<base href="...">` tag in the HTML.
+/// Resolves the href against the page URL to produce an absolute base URL.
+fn extract_base_href(html: &str, page_url: &str) -> Option<String> {
+    let doc = Html::parse_document(html);
+    let base_sel = Selector::parse("base[href]").ok()?;
+    let el = doc.select(&base_sel).next()?;
+    let href = el.value().attr("href")?;
+    // Resolve the base href against the page URL (handles both absolute and relative hrefs)
+    if let Ok(page) = url::Url::parse(page_url) {
+        if let Ok(resolved) = page.join(href) {
+            let s = resolved.to_string();
+            tracing::info!(base_href = %href, resolved = %s, "Found <base> tag");
+            return Some(ensure_directory_url(&s));
+        }
+    }
+    None
 }
 
 fn ensure_directory_url(url: &str) -> String {
