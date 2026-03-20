@@ -1058,26 +1058,41 @@ fn build_paper_context(
         ctx.push_str(&format!("\n### Abstract\n{}\n", abstract_text));
     }
 
-    // Try to read paper HTML content and include as full text context.
+    // Try to read paper content and include as full text context.
     // This allows the AI to answer questions about the paper's actual content,
     // not just the title/abstract.
+    //
+    // Strategy:
+    //   1. Try paper.html first (clean, structured text)
+    //   2. Fall back to extracting text from paper.pdf via lopdf
     let paper_dir = data_dir.join("library").join(&paper.dir_path);
     let html_path = paper_dir.join("paper.html");
+    let mut full_text_added = false;
+
     if html_path.exists() {
         if let Ok(html_content) = std::fs::read_to_string(&html_path) {
             let plain_text = strip_html_tags(&html_content);
             if !plain_text.is_empty() {
-                // Cap at ~60k chars to avoid exceeding context window limits
-                const MAX_CONTENT_CHARS: usize = 60_000;
-                let truncated = if plain_text.len() > MAX_CONTENT_CHARS {
-                    format!(
-                        "{}\n\n[Content truncated — showing first ~60k characters]",
-                        &plain_text[..MAX_CONTENT_CHARS]
-                    )
-                } else {
-                    plain_text
-                };
-                ctx.push_str(&format!("\n### Full Text\n{}\n", truncated));
+                ctx.push_str(&format!("\n### Full Text\n{}\n", plain_text));
+                full_text_added = true;
+            }
+        }
+    }
+
+    // Fall back to PDF text extraction if no HTML content was found
+    if !full_text_added {
+        let pdf_path = paper_dir.join("paper.pdf");
+        if pdf_path.exists() {
+            match extract_pdf_text(&pdf_path) {
+                Ok(text) if !text.is_empty() => {
+                    ctx.push_str(&format!("\n### Full Text (extracted from PDF)\n{}\n", text));
+                }
+                Ok(_) => {
+                    tracing::debug!("PDF text extraction returned empty for {}", paper_id);
+                }
+                Err(e) => {
+                    tracing::debug!("PDF text extraction failed for {}: {}", paper_id, e);
+                }
             }
         }
     }
@@ -1110,6 +1125,25 @@ fn build_paper_context(
     }
 
     Ok(ctx)
+}
+
+/// Extract text content from a PDF file using lopdf.
+/// Iterates over all pages and concatenates extracted text.
+fn extract_pdf_text(pdf_path: &std::path::Path) -> Result<String, String> {
+    let doc = lopdf::Document::load(pdf_path)
+        .map_err(|e| format!("Failed to load PDF: {}", e))?;
+
+    let mut text = String::new();
+    let page_count = doc.get_pages().len();
+
+    for page_num in 1..=page_count {
+        if let Ok(page_text) = doc.extract_text(&[page_num as u32]) {
+            text.push_str(&page_text);
+            text.push('\n');
+        }
+    }
+
+    Ok(text.trim().to_string())
 }
 
 /// Strip HTML tags and return plain text content.
