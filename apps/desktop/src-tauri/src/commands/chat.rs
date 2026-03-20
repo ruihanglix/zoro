@@ -306,7 +306,7 @@ pub async fn chat_send_message(
             .db
             .lock()
             .map_err(|e| format!("DB lock error: {}", e))?;
-        match build_paper_context(&db, paper_id) {
+        match build_paper_context(&db, paper_id, &state.data_dir) {
             Ok(ctx) => {
                 system_prompt = format!("{}\n\n{}", system_prompt, ctx);
             }
@@ -1010,7 +1010,11 @@ fn execute_tool(
 
 // ── Paper context ────────────────────────────────────────────────────────────
 
-fn build_paper_context(db: &zoro_db::Database, paper_id: &str) -> Result<String, String> {
+fn build_paper_context(
+    db: &zoro_db::Database,
+    paper_id: &str,
+    data_dir: &std::path::Path,
+) -> Result<String, String> {
     let paper =
         zoro_db::queries::papers::get_paper(&db.conn, paper_id).map_err(|e| format!("{}", e))?;
 
@@ -1054,6 +1058,30 @@ fn build_paper_context(db: &zoro_db::Database, paper_id: &str) -> Result<String,
         ctx.push_str(&format!("\n### Abstract\n{}\n", abstract_text));
     }
 
+    // Try to read paper HTML content and include as full text context.
+    // This allows the AI to answer questions about the paper's actual content,
+    // not just the title/abstract.
+    let paper_dir = data_dir.join("library").join(&paper.dir_path);
+    let html_path = paper_dir.join("paper.html");
+    if html_path.exists() {
+        if let Ok(html_content) = std::fs::read_to_string(&html_path) {
+            let plain_text = strip_html_tags(&html_content);
+            if !plain_text.is_empty() {
+                // Cap at ~60k chars to avoid exceeding context window limits
+                const MAX_CONTENT_CHARS: usize = 60_000;
+                let truncated = if plain_text.len() > MAX_CONTENT_CHARS {
+                    format!(
+                        "{}\n\n[Content truncated — showing first ~60k characters]",
+                        &plain_text[..MAX_CONTENT_CHARS]
+                    )
+                } else {
+                    plain_text
+                };
+                ctx.push_str(&format!("\n### Full Text\n{}\n", truncated));
+            }
+        }
+    }
+
     if !notes.is_empty() {
         ctx.push_str("\n### Notes\n");
         for note in &notes {
@@ -1084,6 +1112,92 @@ fn build_paper_context(db: &zoro_db::Database, paper_id: &str) -> Result<String,
     Ok(ctx)
 }
 
+/// Strip HTML tags and return plain text content.
+/// Handles common elements: collapses whitespace, converts block elements to
+/// newlines, and removes <script>/<style> blocks entirely.
+fn strip_html_tags(html: &str) -> String {
+    // Remove <script> and <style> blocks (case-insensitive)
+    let mut result = html.to_string();
+    // Simple iterative removal of script/style blocks
+    for tag in &["script", "style"] {
+        loop {
+            let open = format!("<{}", tag);
+            let close = format!("</{}>", tag);
+            if let Some(start) = result.to_lowercase().find(&open) {
+                if let Some(end) = result.to_lowercase()[start..].find(&close) {
+                    let end_abs = start + end + close.len();
+                    result.replace_range(start..end_abs, " ");
+                    continue;
+                }
+            }
+            break;
+        }
+    }
+
+    // Replace block-level tags with newlines
+    let block_tags = [
+        "<br", "<p ", "<p>", "</p>", "<div", "</div>", "<h1", "<h2", "<h3", "<h4", "<h5", "<h6",
+        "</h1>", "</h2>", "</h3>", "</h4>", "</h5>", "</h6>", "<li", "</li>", "<tr", "</tr>",
+    ];
+    let lower = result.to_lowercase();
+    let mut output = String::with_capacity(result.len());
+    let chars: Vec<char> = result.chars().collect();
+    let lower_chars: Vec<char> = lower.chars().collect();
+    let mut i = 0;
+    while i < chars.len() {
+        if chars[i] == '<' {
+            // Check if this is a block-level tag
+            let remaining: String = lower_chars[i..].iter().take(10).collect();
+            let is_block = block_tags.iter().any(|t| remaining.starts_with(t));
+            // Skip to end of tag
+            if let Some(end) = chars[i..].iter().position(|&c| c == '>') {
+                if is_block {
+                    output.push('\n');
+                }
+                i += end + 1;
+            } else {
+                i += 1;
+            }
+        } else {
+            output.push(chars[i]);
+            i += 1;
+        }
+    }
+
+    // Decode common HTML entities
+    let output = output
+        .replace("&amp;", "&")
+        .replace("&lt;", "<")
+        .replace("&gt;", ">")
+        .replace("&quot;", "\"")
+        .replace("&#39;", "'")
+        .replace("&nbsp;", " ");
+
+    // Collapse multiple whitespace/newlines
+    let mut collapsed = String::with_capacity(output.len());
+    let mut prev_newline = false;
+    let mut prev_space = false;
+    for ch in output.chars() {
+        if ch == '\n' {
+            if !prev_newline {
+                collapsed.push('\n');
+            }
+            prev_newline = true;
+            prev_space = false;
+        } else if ch.is_whitespace() {
+            if !prev_space && !prev_newline {
+                collapsed.push(' ');
+            }
+            prev_space = true;
+        } else {
+            collapsed.push(ch);
+            prev_newline = false;
+            prev_space = false;
+        }
+    }
+
+    collapsed.trim().to_string()
+}
 // ── JSON helpers ─────────────────────────────────────────────────────────────
 
 fn paper_row_to_brief_json(p: &zoro_db::queries::papers::PaperRow) -> serde_json::Value {

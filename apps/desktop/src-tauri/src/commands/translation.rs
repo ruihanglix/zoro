@@ -718,6 +718,7 @@ pub async fn reset_translation_prompts(state: State<'_, AppState>) -> Result<(),
 /// Resolve a command name to an absolute path by probing the user's login shell PATH.
 /// GUI apps on macOS / Linux don't inherit the interactive-shell PATH, so plain
 /// `Command::new("babeldoc")` fails with "No such file or directory".
+/// On Windows, use `where` command and probe Windows-specific install locations.
 /// If the command is already an absolute path we just check it exists.
 fn resolve_command_path(cmd: &str) -> Option<std::path::PathBuf> {
     let path = std::path::Path::new(cmd);
@@ -730,43 +731,112 @@ fn resolve_command_path(cmd: &str) -> Option<std::path::PathBuf> {
         return None;
     }
 
-    // First, try the current (restricted) process PATH
-    if let Ok(output) = std::process::Command::new("which").arg(cmd).output() {
-        if output.status.success() {
-            let p = String::from_utf8_lossy(&output.stdout).trim().to_string();
-            if !p.is_empty() {
-                return Some(std::path::PathBuf::from(p));
-            }
-        }
-    }
-
-    // Ask the user's login shell for PATH and re-try `which`
-    let shell = std::env::var("SHELL").unwrap_or_else(|_| "/bin/zsh".to_string());
-    if let Ok(output) = std::process::Command::new(&shell)
-        .arg("-lc")
-        .arg(format!("which {}", cmd))
-        .output()
+    #[cfg(windows)]
     {
-        if output.status.success() {
-            let p = String::from_utf8_lossy(&output.stdout).trim().to_string();
-            if !p.is_empty() {
-                return Some(std::path::PathBuf::from(p));
+        // On Windows, use `where` to locate the command on PATH
+        if let Ok(output) = std::process::Command::new("where").arg(cmd).output() {
+            if output.status.success() {
+                // `where` may return multiple lines; take the first one
+                let out = String::from_utf8_lossy(&output.stdout);
+                if let Some(first_line) = out.lines().next() {
+                    let p = first_line.trim().to_string();
+                    if !p.is_empty() {
+                        return Some(std::path::PathBuf::from(p));
+                    }
+                }
+            }
+        }
+
+        // Also try with common extensions appended (.exe, .cmd, .bat)
+        for ext in &[".exe", ".cmd", ".bat"] {
+            let cmd_with_ext = format!("{}{}", cmd, ext);
+            if let Ok(output) = std::process::Command::new("where")
+                .arg(&cmd_with_ext)
+                .output()
+            {
+                if output.status.success() {
+                    let out = String::from_utf8_lossy(&output.stdout);
+                    if let Some(first_line) = out.lines().next() {
+                        let p = first_line.trim().to_string();
+                        if !p.is_empty() {
+                            return Some(std::path::PathBuf::from(p));
+                        }
+                    }
+                }
+            }
+        }
+
+        // Probe well-known Windows locations where pip / pipx / uv install tools
+        let userprofile = std::env::var("USERPROFILE").unwrap_or_default();
+        let localappdata = std::env::var("LOCALAPPDATA").unwrap_or_default();
+        let candidates = [
+            format!(
+                "{}\\AppData\\Local\\Programs\\Python\\Scripts\\{}.exe",
+                userprofile, cmd
+            ),
+            format!("{}\\Programs\\Python\\Scripts\\{}.exe", localappdata, cmd),
+            format!(
+                "{}\\AppData\\Roaming\\Python\\Scripts\\{}.exe",
+                userprofile, cmd
+            ),
+            format!("{}\\.local\\bin\\{}.exe", userprofile, cmd),
+            format!("{}\\.cargo\\bin\\{}.exe", userprofile, cmd),
+            // pipx default install location
+            format!(
+                "{}\\pipx\\venvs\\{}\\Scripts\\{}.exe",
+                localappdata, cmd, cmd
+            ),
+            // uv tool install location
+            format!("{}\\uv\\tools\\{}\\Scripts\\{}.exe", localappdata, cmd, cmd),
+        ];
+        for c in &candidates {
+            let p = std::path::PathBuf::from(c);
+            if p.exists() {
+                return Some(p);
             }
         }
     }
 
-    // Probe well-known locations where uv / pipx typically install tools
-    let home = std::env::var("HOME").unwrap_or_default();
-    let candidates = [
-        format!("{}/.local/bin/{}", home, cmd),
-        format!("{}/.cargo/bin/{}", home, cmd),
-        format!("/usr/local/bin/{}", cmd),
-        format!("/opt/homebrew/bin/{}", cmd),
-    ];
-    for c in &candidates {
-        let p = std::path::PathBuf::from(c);
-        if p.exists() {
-            return Some(p);
+    #[cfg(not(windows))]
+    {
+        // First, try the current (restricted) process PATH
+        if let Ok(output) = std::process::Command::new("which").arg(cmd).output() {
+            if output.status.success() {
+                let p = String::from_utf8_lossy(&output.stdout).trim().to_string();
+                if !p.is_empty() {
+                    return Some(std::path::PathBuf::from(p));
+                }
+            }
+        }
+
+        // Ask the user's login shell for PATH and re-try `which`
+        let shell = std::env::var("SHELL").unwrap_or_else(|_| "/bin/zsh".to_string());
+        if let Ok(output) = std::process::Command::new(&shell)
+            .arg("-lc")
+            .arg(format!("which {}", cmd))
+            .output()
+        {
+            if output.status.success() {
+                let p = String::from_utf8_lossy(&output.stdout).trim().to_string();
+                if !p.is_empty() {
+                    return Some(std::path::PathBuf::from(p));
+                }
+            }
+        }
+
+        // Probe well-known locations where uv / pipx typically install tools
+        let home = std::env::var("HOME").unwrap_or_default();
+        let candidates = [
+            format!("{}/.local/bin/{}", home, cmd),
+            format!("{}/.cargo/bin/{}", home, cmd),
+            format!("/usr/local/bin/{}", cmd),
+            format!("/opt/homebrew/bin/{}", cmd),
+        ];
+        for c in &candidates {
+            let p = std::path::PathBuf::from(c);
+            if p.exists() {
+                return Some(p);
+            }
         }
     }
 
@@ -775,21 +845,31 @@ fn resolve_command_path(cmd: &str) -> Option<std::path::PathBuf> {
 
 /// Get the full shell PATH from the user's login shell.
 /// This is needed because GUI apps on macOS don't inherit the user's PATH.
+/// On Windows, GUI apps already inherit the user's PATH, so we just return it.
 fn get_shell_path() -> Option<String> {
-    let shell = std::env::var("SHELL").unwrap_or_else(|_| "/bin/zsh".to_string());
-    if let Ok(output) = std::process::Command::new(&shell)
-        .arg("-lc")
-        .arg("echo $PATH")
-        .output()
+    #[cfg(windows)]
     {
-        if output.status.success() {
-            let p = String::from_utf8_lossy(&output.stdout).trim().to_string();
-            if !p.is_empty() {
-                return Some(p);
+        // On Windows, the PATH is inherited from the user's environment
+        std::env::var("PATH").ok()
+    }
+
+    #[cfg(not(windows))]
+    {
+        let shell = std::env::var("SHELL").unwrap_or_else(|_| "/bin/zsh".to_string());
+        if let Ok(output) = std::process::Command::new(&shell)
+            .arg("-lc")
+            .arg("echo $PATH")
+            .output()
+        {
+            if output.status.success() {
+                let p = String::from_utf8_lossy(&output.stdout).trim().to_string();
+                if !p.is_empty() {
+                    return Some(p);
+                }
             }
         }
+        None
     }
-    None
 }
 
 /// Test whether the configured babeldoc command is reachable.
