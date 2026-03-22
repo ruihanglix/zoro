@@ -23,7 +23,6 @@ import { cn } from "@/lib/utils";
 import { createPluginSDK } from "@/plugins/PluginManager";
 import { usePluginStore } from "@/plugins/pluginStore";
 import {
-	FREE_MODELS,
 	FREE_PROVIDERS,
 	useLabStore,
 } from "@/stores/labStore";
@@ -4383,6 +4382,13 @@ function LabSection() {
 
 	const availableModels = getAvailableModels();
 	const configuredCount = configuredProviderIds.length;
+
+	// Auto-fetch models from all configured providers on mount
+	useEffect(() => {
+		if (configuredCount > 0) {
+			fetchAllProviderModels();
+		}
+	}, [configuredCount, fetchAllProviderModels]);
 
 	const handleSaveKey = (providerId: string) => {
 		const key = editingKeys[providerId]?.trim();

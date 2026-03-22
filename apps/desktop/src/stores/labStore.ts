@@ -92,66 +92,13 @@ export const FREE_PROVIDERS: FreeProvider[] = [
 	},
 ];
 
-// ── Recommended free models per provider ────────────────────────────────────
+// ── Model type (all models are fetched dynamically from provider APIs) ───────
 
 export interface FreeModel {
 	id: string;
 	provider: string;
 	displayName: string;
 }
-
-export const FREE_MODELS: FreeModel[] = [
-	{
-		id: "google/gemini-2.0-flash-exp:free",
-		provider: "openrouter",
-		displayName: "Gemini 2.0 Flash (OpenRouter)",
-	},
-	{
-		id: "meta-llama/llama-4-maverick:free",
-		provider: "openrouter",
-		displayName: "Llama 4 Maverick (OpenRouter)",
-	},
-	{
-		id: "llama-3.3-70b-versatile",
-		provider: "groq",
-		displayName: "Llama 3.3 70B (Groq)",
-	},
-	{
-		id: "gemini-2.0-flash",
-		provider: "gemini",
-		displayName: "Gemini 2.0 Flash",
-	},
-	{
-		id: "mistral-small-latest",
-		provider: "mistral",
-		displayName: "Mistral Small",
-	},
-	{
-		id: "Meta-Llama-3.1-8B-Instruct",
-		provider: "github",
-		displayName: "Llama 3.1 8B (GitHub)",
-	},
-	{
-		id: "deepseek-ai/DeepSeek-V3-0324",
-		provider: "opencode",
-		displayName: "DeepSeek V3 (OpenCode Zen)",
-	},
-	{
-		id: "Qwen/Qwen2.5-Coder-32B-Instruct",
-		provider: "opencode",
-		displayName: "Qwen 2.5 Coder 32B (OpenCode Zen)",
-	},
-	{
-		id: "llama-3.3-70b",
-		provider: "cerebras",
-		displayName: "Llama 3.3 70B (Cerebras)",
-	},
-	{
-		id: "Meta-Llama-3.1-8B-Instruct",
-		provider: "sambanova",
-		displayName: "Llama 3.1 8B (SambaNova)",
-	},
-];
 
 // ── localStorage helpers (same pattern as uiStore) ──────────────────────────
 
@@ -281,22 +228,28 @@ function getHealthyAvailableModels(
 	state: LabState,
 	now: number,
 ): { model: FreeModel; provider: FreeProvider; apiKey: string }[] {
-	const configured = state.configuredProviderIds;
-	return FREE_MODELS.filter((m) => configured.includes(m.provider))
-		.map((m) => {
-			const provider = FREE_PROVIDERS.find((p) => p.id === m.provider);
-			if (!provider) return null;
-			const apiKey = state.providerKeys[provider.id];
-			if (!apiKey?.trim()) return null;
-			if (!isProviderHealthy(state.providerHealth[provider.id], now))
-				return null;
-			return { model: m, provider, apiKey };
-		})
-		.filter(Boolean) as {
-		model: FreeModel;
-		provider: FreeProvider;
-		apiKey: string;
-	}[];
+	const results: { model: FreeModel; provider: FreeProvider; apiKey: string }[] = [];
+	for (const providerId of state.configuredProviderIds) {
+		const provider = FREE_PROVIDERS.find((p) => p.id === providerId);
+		if (!provider) continue;
+		const apiKey = state.providerKeys[providerId]?.trim();
+		if (!apiKey) continue;
+		if (!isProviderHealthy(state.providerHealth[providerId], now)) continue;
+		const fetched = state.fetchedModels[providerId];
+		if (!fetched) continue;
+		for (const modelId of fetched) {
+			results.push({
+				model: {
+					id: modelId,
+					provider: providerId,
+					displayName: `${modelId} (${provider.displayName})`,
+				},
+				provider,
+				apiKey,
+			});
+		}
+	}
+	return results;
 }
 
 // ── Store ───────────────────────────────────────────────────────────────────
@@ -311,10 +264,7 @@ export const useLabStore = create<LabState>((set, get) => {
 	return {
 		freeLlmEnabled: loadSetting<boolean>("free-llm-enabled", true),
 		providerKeys: savedKeys,
-		defaultFreeModel: loadSetting<string>(
-			"default-free-model",
-			"google/gemini-2.0-flash-exp:free",
-		),
+	defaultFreeModel: loadSetting<string>("default-free-model", ""),
 		port: loadSetting<number>("port", 8765),
 
 		routingStrategy: loadSetting<RoutingStrategy>(
@@ -546,34 +496,27 @@ export const useLabStore = create<LabState>((set, get) => {
 
 		getAvailableModels: () => {
 			const state = get();
-			const configured = state.configuredProviderIds;
+			const models: FreeModel[] = [];
+			const seen = new Set<string>();
 
-			// Start with static models for configured providers
-			const staticModels = FREE_MODELS.filter((m) =>
-				configured.includes(m.provider),
-			);
-			const staticIds = new Set(staticModels.map((m) => m.id));
-
-			// Merge dynamically fetched models (skip duplicates)
-			const dynamicModels: FreeModel[] = [];
-			for (const providerId of configured) {
+			for (const providerId of state.configuredProviderIds) {
 				const fetched = state.fetchedModels[providerId];
 				if (!fetched) continue;
 				const provider = FREE_PROVIDERS.find((p) => p.id === providerId);
 				if (!provider) continue;
 				for (const modelId of fetched) {
-					if (!staticIds.has(modelId)) {
-						dynamicModels.push({
+					if (!seen.has(modelId)) {
+						models.push({
 							id: modelId,
 							provider: providerId,
 							displayName: `${modelId} (${provider.displayName})`,
 						});
-						staticIds.add(modelId); // prevent cross-provider dupes
+						seen.add(modelId);
 					}
 				}
 			}
 
-			return [...staticModels, ...dynamicModels];
+			return models;
 		},
 
 		isProviderConfigured: (providerId) => {
