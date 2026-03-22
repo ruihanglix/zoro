@@ -1932,9 +1932,6 @@ function TranslateToolbar({
 	const pdfTranslating = useTranslationStore((s) =>
 		s.isPdfTranslating(paperId),
 	);
-	const pdfMessage = useTranslationStore((s) =>
-		s.getPdfTranslationMessage(paperId),
-	);
 	const setPdfTranslating = useTranslationStore((s) => s.setPdfTranslating);
 
 	const startHtmlTranslation = useTranslationStore(
@@ -2026,14 +2023,6 @@ function TranslateToolbar({
 				)}
 				{translating ? t("paper.translating") : t("paper.translate")}
 			</Button>
-			{readerMode === "pdf" && pdfTranslating && pdfMessage && (
-				<span
-					className="text-[10px] text-muted-foreground tabular-nums max-w-[200px] truncate"
-					title={pdfMessage}
-				>
-					{pdfMessage}
-				</span>
-			)}
 			{readerMode === "html" &&
 				htmlTranslating &&
 				progress &&

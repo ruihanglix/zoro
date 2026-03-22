@@ -604,7 +604,7 @@
 		"syncAnnotationsLabel": "Anmerkungen & Hervorhebungen",
 		"syncReaderStateLabel": "Lesefortschritt",
 		"syncNotesLabel": "Notizen",
-"syncAttachmentsLabel": "Anhänge (PDF, Bilder usw.)",
+		"syncAttachmentsLabel": "Anhänge (PDF, Bilder usw.)",
 		"maxFileSizeLabel": "Max. Dateigröße (MB)",
 		"maxFileSizeHint": "0 = unbegrenzt",
 		"pdfDownloadMode": "PDF-Download",
@@ -641,7 +641,7 @@
 		"customLangPlaceholder": "e.g. Traditional Chinese",
 		"providersDesc": "Manage your AI providers.",
 		"noUrlSet": "No URL set",
-"apiKeyKeepPlaceholder": "Leave blank to keep current key",
+		"apiKeyKeepPlaceholder": "Leave blank to keep current key",
 		"passwordKeepPlaceholder": "Leer lassen, um das aktuelle Passwort beizubehalten",
 		"modelNamePlaceholder": "Model name",
 		"modelsDesc": "One model per line",
@@ -801,7 +801,7 @@
 		"tipDragDrop": "PDF-Dateien per Drag & Drop importieren",
 		"tipBrowserExtension": "Verwenden Sie die Browser-Erweiterung, um Artikel aus dem Web zu speichern",
 		"tipBilingualReading": "Übersetzen Sie PDF- und HTML-Dokumente für zweisprachiges Lesen nebeneinander",
-"tipRightClick": "Klicken Sie mit der rechten Maustaste auf Text im Reader für KI-Übersetzung",
+		"tipRightClick": "Klicken Sie mit der rechten Maustaste auf Text im Reader für KI-Übersetzung",
 		"tipZoteroImport": "Nutzen Sie bereits Zotero? Klicken Sie hier, um Ihre gesamte Bibliothek zu importieren",
 		"skip": "Überspringen",
 		"getStarted": "Loslegen"
@@ -823,7 +823,7 @@
 		"developerModeDesc": "Plugins aus einem lokalen Ordner für Entwicklung und Tests laden.",
 		"loadFolder": "Ordner laden",
 		"securityNote": "Installieren Sie nur Plugins aus vertrauenswürdigen Quellen. Plugins haben Zugriff auf Ihre Artikel und KI-Konfiguration.",
-"noPluginViews": "Keine aktivierten Plugin-Ansichten."
+		"noPluginViews": "Keine aktivierten Plugin-Ansichten."
 	},
 	"zoteroImport": {
 		"title": "Aus Zotero importieren",

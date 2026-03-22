@@ -234,52 +234,6 @@ importers:
         specifier: ^5.6.0
         version: 5.9.3
 
-  temp/advance-plugin:
-    dependencies:
-      zustand:
-        specifier: ^5.0.0
-        version: 5.0.11(@types/react@19.2.14)(react@19.2.4)(use-sync-external-store@1.6.0(react@19.2.4))
-    devDependencies:
-      '@types/react':
-        specifier: ^19.0.0
-        version: 19.2.14
-      '@zoro/plugin-sdk':
-        specifier: workspace:*
-        version: link:../../packages/plugin-sdk
-      react:
-        specifier: ^19.0.0
-        version: 19.2.4
-      react-dom:
-        specifier: ^19.0.0
-        version: 19.2.4(react@19.2.4)
-      typescript:
-        specifier: ^5.6.0
-        version: 5.9.3
-      vite:
-        specifier: ^6.0.0
-        version: 6.4.1(jiti@1.21.7)
-
-  temp/demo-plugin:
-    devDependencies:
-      '@types/react':
-        specifier: ^19.0.0
-        version: 19.2.14
-      '@zoro/plugin-sdk':
-        specifier: workspace:*
-        version: link:../../packages/plugin-sdk
-      react:
-        specifier: ^19.0.0
-        version: 19.2.4
-      react-dom:
-        specifier: ^19.0.0
-        version: 19.2.4(react@19.2.4)
-      typescript:
-        specifier: ^5.6.0
-        version: 5.9.3
-      vite:
-        specifier: ^6.0.0
-        version: 6.4.1(jiti@1.21.7)
-
 packages:
 
   '@alloc/quick-lru@5.2.0':
