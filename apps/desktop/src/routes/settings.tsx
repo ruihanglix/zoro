@@ -895,7 +895,9 @@ export function Settings() {
 				isDefault: true,
 			};
 			const additionalProviders = (config.providers || [])
-				.filter((p) => !p.id.startsWith("__lab_")) // Lab providers are auto-managed
+				// Hide internal lab providers (__lab_openrouter, __lab_groq, etc.)
+				// but keep __lab_router visible — it's the user-facing "Lab Smart Router 🧪"
+				.filter((p) => !p.id.startsWith("__lab_") || p.id === "__lab_router")
 				.map((p) => ({
 					...p,
 					isDefault: false,
@@ -1236,7 +1238,7 @@ export function Settings() {
 			// Find the default provider from the unified list
 			const defaultP = aiProviders.find((p) => p.id === defaultProviderId);
 			const otherProviders = aiProviders.filter(
-				(p) => p.id !== defaultProviderId,
+				(p) => p.id !== defaultProviderId && !p.id.startsWith("__lab_"),
 			);
 
 			await commands.updateAiConfig({
@@ -2276,7 +2278,13 @@ export function Settings() {
 															)}
 														</div>
 													</div>
-													<div className="flex items-center gap-1 ml-2 shrink-0">
+											<div className="flex items-center gap-1 ml-2 shrink-0">
+												{p.id === "__lab_router" ? (
+													<Badge variant="outline" className="text-[10px] h-5 px-1.5">
+														Auto
+													</Badge>
+												) : (
+													<>
 														{p.id !== defaultProviderId && (
 															<Button
 																variant="ghost"
@@ -2317,7 +2325,6 @@ export function Settings() {
 																		(x) => x.id !== p.id,
 																	);
 																	setAiProviders(remaining);
-																	// If we deleted the default, pick the first remaining
 																	if (
 																		p.id === defaultProviderId &&
 																		remaining.length > 0
@@ -2329,7 +2336,9 @@ export function Settings() {
 																<Trash2 className="h-3.5 w-3.5" />
 															</Button>
 														)}
-													</div>
+													</>
+												)}
+											</div>
 												</div>
 											))}
 										</div>
@@ -2605,9 +2614,9 @@ export function Settings() {
 														{t("settings.noModelsConfigured")}
 													</option>
 												)}
-												{providerModels.map((m) => (
+											{providerModels.map((m) => (
 													<option key={m} value={m}>
-														{m}
+														{m === "__lab_auto__" ? "🧪 Lab Smart Router (Auto)" : m}
 													</option>
 												))}
 												{freeModels.length > 0 && providerModels.length > 0 && (
@@ -2643,9 +2652,9 @@ export function Settings() {
 													(m) => !providerModels.includes(m.id),
 												)
 											: [];
-										const modelOptions = [
+									const modelOptions = [
 											{ value: "", label: t("settings.useGlobalDefault") },
-											...providerModels.map((m) => ({ value: m, label: m })),
+											...providerModels.map((m) => ({ value: m, label: m === "__lab_auto__" ? "🧪 Lab Smart Router (Auto)" : m })),
 										...freeModels.map((m) => ({
 											value: m.id,
 											label: m.displayName,
