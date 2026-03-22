@@ -2264,17 +2264,23 @@ export function Settings() {
 																</Badge>
 															)}
 														</div>
-														<div className="text-[11px] text-muted-foreground truncate">
-															{p.baseUrl || t("settings.noUrlSet")}
-															{p.models.length > 0 && (
-																<span className="ml-2">
-																	· {p.models.join(", ")}
-																</span>
-															)}
-															{(p.apiKeySet || pendingProviderKeys[p.id]) && (
-																<span className="ml-2 text-green-600">
-																	· {t("settings.keySet")}
-																</span>
+													<div className="text-[11px] text-muted-foreground truncate">
+															{p.id === "__lab_router" ? (
+																<span>{t("settings.labSmartRouterDesc")}</span>
+															) : (
+																<>
+																	{p.baseUrl || t("settings.noUrlSet")}
+																	{p.models.length > 0 && (
+																		<span className="ml-2">
+																			· {p.models.join(", ")}
+																		</span>
+																	)}
+																	{(p.apiKeySet || pendingProviderKeys[p.id]) && (
+																		<span className="ml-2 text-green-600">
+																			· {t("settings.keySet")}
+																		</span>
+																	)}
+																</>
 															)}
 														</div>
 													</div>
