@@ -67,7 +67,6 @@ import {
 	Rss,
 	Search,
 	SlidersHorizontal,
-	Share2,
 	Square,
 	Star,
 	Sun,
@@ -998,19 +997,29 @@ export function Settings() {
 					(p) => !p.id.startsWith("__lab_"),
 				);
 				// Build lab providers if enabled (only include enabled models)
-				const labProviders = labFreeLlmEnabled
-					? labConfiguredProviderIds.map((pid) => {
-							const fp = FREE_PROVIDERS.find((p) => p.id === pid);
-							const enabledModels = labGetEnabledModelsForProvider(pid);
-							return {
-								id: `__lab_${pid}`,
-								name: `${fp?.displayName || pid} 🧪`,
-								baseUrl: fp?.baseURL || "",
-								apiKey: labProviderKeys[pid] || undefined,
-								models: enabledModels,
-							};
-						})
-					: [];
+				const labProviders: { id: string; name: string; baseUrl: string; apiKey?: string; models: string[] }[] = [];
+				if (labFreeLlmEnabled) {
+					for (const pid of labConfiguredProviderIds) {
+						const fp = FREE_PROVIDERS.find((p) => p.id === pid);
+						const enabledModels = labGetEnabledModelsForProvider(pid);
+						labProviders.push({
+							id: `__lab_${pid}`,
+							name: `${fp?.displayName || pid} 🧪`,
+							baseUrl: fp?.baseURL || "",
+							apiKey: labProviderKeys[pid] || undefined,
+							models: enabledModels,
+						});
+					}
+					// Virtual router provider — gives users a single "__lab_auto__" model
+					// that triggers round-robin across all lab providers in the backend
+					labProviders.push({
+						id: "__lab_router",
+						name: "Lab Smart Router 🧪",
+						baseUrl: "",
+						apiKey: "",
+						models: ["__lab_auto__"],
+					});
+				}
 				// Merge and save
 				await commands.updateAiConfig({
 					providers: [...existingProviders.map((p) => ({
@@ -1259,17 +1268,26 @@ export function Settings() {
 					})),
 					// Auto-inject lab providers (when lab is enabled)
 					...(labFreeLlmEnabled
-						? labConfiguredProviderIds.map((pid) => {
-								const fp = FREE_PROVIDERS.find((p) => p.id === pid);
-								const enabledModels = labGetEnabledModelsForProvider(pid);
-								return {
-									id: `__lab_${pid}`,
-									name: `${fp?.displayName || pid} 🧪`,
-									baseUrl: fp?.baseURL || "",
-									apiKey: labProviderKeys[pid] || undefined,
-									models: enabledModels,
-								};
-							})
+						? [
+								...labConfiguredProviderIds.map((pid) => {
+									const fp = FREE_PROVIDERS.find((p) => p.id === pid);
+									const enabledModels = labGetEnabledModelsForProvider(pid);
+									return {
+										id: `__lab_${pid}`,
+										name: `${fp?.displayName || pid} 🧪`,
+										baseUrl: fp?.baseURL || "",
+										apiKey: labProviderKeys[pid] || undefined,
+										models: enabledModels,
+									};
+								}),
+								{
+									id: "__lab_router",
+									name: "Lab Smart Router 🧪",
+									baseUrl: "",
+									apiKey: "",
+									models: ["__lab_auto__"],
+								},
+							]
 						: []),
 				],
 				taskModelDefaults: {
@@ -2575,7 +2593,7 @@ export function Settings() {
 													(m) => !providerModels.includes(m.id),
 												)
 											: [];
-										const hasModels = providerModels.length > 0 || freeModels.length > 0 || labFreeLlmEnabled;
+										const hasModels = providerModels.length > 0 || freeModels.length > 0;
 										return (
 											<select
 												value={globalDefaultModel}
@@ -2592,13 +2610,8 @@ export function Settings() {
 														{m}
 													</option>
 												))}
-												{labFreeLlmEnabled && (providerModels.length > 0 || freeModels.length > 0) && (
+												{freeModels.length > 0 && providerModels.length > 0 && (
 													<option disabled>────────────</option>
-												)}
-												{labFreeLlmEnabled && (
-													<option value="__lab_auto__">
-														🧪 Lab Auto ({t("settings.labRouting_auto")})
-													</option>
 												)}
 										{freeModels.map((m) => (
 											<option key={m.id} value={m.id}>
@@ -2633,9 +2646,6 @@ export function Settings() {
 										const modelOptions = [
 											{ value: "", label: t("settings.useGlobalDefault") },
 											...providerModels.map((m) => ({ value: m, label: m })),
-											...(labFreeLlmEnabled
-												? [{ value: "__lab_auto__", label: `🧪 Lab Auto (${t("settings.labRouting_auto")})` }]
-												: []),
 										...freeModels.map((m) => ({
 											value: m.id,
 											label: m.displayName,
@@ -4465,7 +4475,6 @@ function LabSection() {
 	const {
 		freeLlmEnabled,
 		setFreeLlmEnabled,
-		providerKeys,
 		setProviderKey,
 		defaultFreeModel,
 		setDefaultFreeModel,
