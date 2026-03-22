@@ -563,6 +563,8 @@ export const useLabStore = create<LabState>((set, get) => {
 				const provider = FREE_PROVIDERS.find((p) => p.id === providerId);
 				if (!provider) continue;
 				for (const modelId of fetched) {
+					// Skip models the user has disabled
+					if (state.disabledModels.has(`${providerId}:${modelId}`)) continue;
 					if (!seen.has(modelId)) {
 						models.push({
 							id: modelId,

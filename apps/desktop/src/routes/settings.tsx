@@ -726,8 +726,8 @@ export function Settings() {
 	const [aiProviders, setAiProviders] = useState<
 		(AiProviderResponse & { isDefault?: boolean })[]
 	>([]);
-	const [defaultProviderId, setDefaultProviderId] =
-		useState<string>("__main__");
+	// NOTE: defaultProviderId removed — the global default model is the
+	// single source of truth; providers are all treated equally.
 	const [editingProvider, setEditingProvider] = useState<{
 		id: string;
 		name: string;
@@ -892,7 +892,7 @@ export function Settings() {
 				baseUrl: config.baseUrl,
 				apiKeySet: config.apiKeySet,
 				models: config.model ? [config.model] : [],
-				isDefault: true,
+				isDefault: false,
 			};
 			const additionalProviders = (config.providers || [])
 				// Hide internal lab providers (__lab_openrouter, __lab_groq, etc.)
@@ -903,7 +903,6 @@ export function Settings() {
 					isDefault: false,
 				}));
 			setAiProviders([mainProvider, ...additionalProviders]);
-			setDefaultProviderId("__main__");
 
 			// Detect if native lang is a custom (non-preset) value
 			const presetLangs = [
@@ -1235,20 +1234,23 @@ export function Settings() {
 	const handleAiSave = async () => {
 		setAiSaving(true);
 		try {
-			// Find the default provider from the unified list
-			const defaultP = aiProviders.find((p) => p.id === defaultProviderId);
-			const otherProviders = aiProviders.filter(
-				(p) => p.id !== defaultProviderId && !p.id.startsWith("__lab_"),
+			// All user-configured providers (exclude internal lab providers and __main__)
+			const userProviders = aiProviders.filter(
+				(p) => p.id !== "__main__" && !p.id.startsWith("__lab_"),
 			);
 
+			// __main__ provider holds the primary (fallback) base_url and api_key.
+			// The backend's resolve_for_model() will override these when the global
+			// default model belongs to a different provider.
+			const mainP = aiProviders.find((p) => p.id === "__main__");
+
 			await commands.updateAiConfig({
-				// Main config comes from the default provider
 				provider: "",
-				baseUrl: defaultP?.baseUrl || "",
-				apiKey: defaultP
-					? pendingProviderKeys[defaultP.id] || undefined
+				baseUrl: mainP?.baseUrl || "",
+				apiKey: mainP
+					? pendingProviderKeys[mainP.id] || undefined
 					: undefined,
-				model: globalDefaultModel || defaultP?.models[0] || "",
+				model: globalDefaultModel || "",
 				nativeLang:
 					aiNativeLang === "__custom__" ? customNativeLang : aiNativeLang,
 				autoTranslate: aiAutoTranslate,
@@ -1259,9 +1261,9 @@ export function Settings() {
 					abstractSystem: promptAbstractSystem,
 					abstractUser: promptAbstractUser,
 				},
-				providers: [
-					// User-configured providers
-					...otherProviders.map((p) => ({
+			providers: [
+					// All user-configured providers (treated equally)
+					...userProviders.map((p) => ({
 						id: p.id,
 						name: p.name,
 						baseUrl: p.baseUrl,
@@ -1324,15 +1326,15 @@ export function Settings() {
 		setAiTesting(true);
 		setAiTestResult(null);
 		try {
-			const defaultP = aiProviders.find((p) => p.id === defaultProviderId);
+			const mainP = aiProviders.find((p) => p.id === "__main__");
 			// Save first so the backend has the latest config
 			await commands.updateAiConfig({
 				provider: "",
-				baseUrl: defaultP?.baseUrl || "",
-				apiKey: defaultP
-					? pendingProviderKeys[defaultP.id] || undefined
+				baseUrl: mainP?.baseUrl || "",
+				apiKey: mainP
+					? pendingProviderKeys[mainP.id] || undefined
 					: undefined,
-				model: globalDefaultModel || defaultP?.models[0] || "",
+				model: globalDefaultModel || "",
 			});
 			const msg = await commands.testAiConnection();
 			setAiTestResult({ ok: true, msg: `Connection OK: ${msg}` });
@@ -2243,26 +2245,15 @@ export function Settings() {
 										<div className="space-y-2 mb-3">
 											{aiProviders.map((p) => (
 												<div
-													key={p.id}
-													className={`flex items-center justify-between rounded-md border p-2.5 ${
-														p.id === defaultProviderId
-															? "border-primary/50 bg-primary/5"
-															: ""
-													}`}
+									key={p.id}
+									className="flex items-center justify-between rounded-md border p-2.5"
 												>
 													<div className="min-w-0 flex-1">
 														<div className="flex items-center gap-1.5">
 															<span className="text-sm font-medium truncate">
 																{p.name || t("settings.unnamed")}
 															</span>
-															{p.id === defaultProviderId && (
-																<Badge
-																	variant="secondary"
-																	className="text-[10px] h-4 px-1.5 shrink-0"
-																>
-																	{t("settings.default")}
-																</Badge>
-															)}
+
 														</div>
 													<div className="text-[11px] text-muted-foreground truncate">
 															{p.id === "__lab_router" ? (
@@ -2291,20 +2282,6 @@ export function Settings() {
 													</Badge>
 												) : (
 													<>
-														{p.id !== defaultProviderId && (
-															<Button
-																variant="ghost"
-																size="sm"
-																className="h-7 w-7 p-0"
-																title={t("settings.setAsDefault")}
-																onClick={() => setDefaultProviderId(p.id)}
-															>
-																<Star className="h-3.5 w-3.5" />
-															</Button>
-														)}
-														{p.id === defaultProviderId && (
-															<Star className="h-3.5 w-3.5 text-primary fill-primary mx-1.5" />
-														)}
 														<Button
 															variant="ghost"
 															size="sm"
@@ -2330,13 +2307,7 @@ export function Settings() {
 																	const remaining = aiProviders.filter(
 																		(x) => x.id !== p.id,
 																	);
-																	setAiProviders(remaining);
-																	if (
-																		p.id === defaultProviderId &&
-																		remaining.length > 0
-																	) {
-																		setDefaultProviderId(remaining[0].id);
-																	}
+															setAiProviders(remaining);
 																}}
 															>
 																<Trash2 className="h-3.5 w-3.5" />
@@ -2776,15 +2747,9 @@ export function Settings() {
 										variant="outline"
 										size="sm"
 										onClick={handleAiTest}
-										disabled={
+									disabled={
 											aiTesting ||
-											!aiProviders.find((p) => p.id === defaultProviderId)
-												?.baseUrl ||
-											(aiProviders.find((p) => p.id === defaultProviderId)
-												?.models.length ?? 0) === 0 ||
-											(!aiProviders.find((p) => p.id === defaultProviderId)
-												?.apiKeySet &&
-												!pendingProviderKeys[defaultProviderId])
+											!globalDefaultModel
 										}
 									>
 										{aiTesting ? (
