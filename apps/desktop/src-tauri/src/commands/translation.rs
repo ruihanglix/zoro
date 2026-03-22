@@ -1199,9 +1199,6 @@ pub async fn translate_pdf(
                 // Spawn an async task that tails the log file, reading complete
                 // lines and forwarding them via tracing::debug!
                 let tail_log_path = log_file_path.clone();
-                let app_tail = app.clone();
-                let task_id_tail = task_id.clone();
-                let pid_tail = pid.clone();
                 let stop_flag = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
                 let stop_flag_clone = stop_flag.clone();
 
