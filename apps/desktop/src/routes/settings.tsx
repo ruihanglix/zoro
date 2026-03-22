@@ -1326,16 +1326,9 @@ export function Settings() {
 		setAiTesting(true);
 		setAiTestResult(null);
 		try {
-			const mainP = aiProviders.find((p) => p.id === "__main__");
-			// Save first so the backend has the latest config
-			await commands.updateAiConfig({
-				provider: "",
-				baseUrl: mainP?.baseUrl || "",
-				apiKey: mainP
-					? pendingProviderKeys[mainP.id] || undefined
-					: undefined,
-				model: globalDefaultModel || "",
-			});
+			// Save the full config (including providers) first so the backend
+			// has everything it needs for resolve_for_model() to route correctly
+			await handleAiSave();
 			const msg = await commands.testAiConnection();
 			setAiTestResult({ ok: true, msg: `Connection OK: ${msg}` });
 		} catch (err) {

@@ -593,27 +593,26 @@ pub struct UpdateTranslationPromptsInput {
 /// Test the AI connection by sending a simple request.
 #[tauri::command]
 pub async fn test_ai_connection(state: State<'_, AppState>) -> Result<String, String> {
-    let (base_url, api_key, model) = {
+    let resolved = {
         let config = state
             .config
             .lock()
             .map_err(|e| format!("Config lock error: {}", e))?;
 
-        if config.ai.base_url.is_empty()
-            || config.ai.api_key.is_empty()
-            || config.ai.model.is_empty()
-        {
-            return Err("AI not configured. Set base URL, API key, and model first.".into());
+        if config.ai.model.is_empty() {
+            return Err("AI not configured. Set a default model first.".into());
         }
 
-        (
-            config.ai.base_url.clone(),
-            config.ai.api_key.clone(),
-            config.ai.model.clone(),
-        )
+        // Resolve the correct base_url/api_key for the selected model
+        // (e.g. lab free models route to their own provider endpoints)
+        config.ai.resolve_for_model(&config.ai.model)
     };
 
-    let client = zoro_ai::client::ChatClient::new(&base_url, &api_key, &model);
+    if resolved.base_url.is_empty() || resolved.api_key.is_empty() {
+        return Err("AI not configured. Set base URL, API key, and model first.".into());
+    }
+
+    let client = zoro_ai::client::ChatClient::new(&resolved.base_url, &resolved.api_key, &resolved.model);
 
     client
         .test_connection()
@@ -1015,9 +1014,11 @@ pub async fn translate_pdf(
         };
 
         let pdf_cfg = config.ai.pdf_translation.clone();
-        let ai_base_url = config.ai.base_url.clone();
-        let ai_api_key = config.ai.api_key.clone();
-        let ai_model = config.ai.model.clone();
+        // Resolve the correct provider base_url/api_key for the current model
+        let resolved_ai = config.ai.resolve_for_model(&config.ai.model);
+        let ai_base_url = resolved_ai.base_url.clone();
+        let ai_api_key = resolved_ai.api_key.clone();
+        let ai_model = resolved_ai.model.clone();
 
         (
             pdf_path,
