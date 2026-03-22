@@ -702,7 +702,8 @@
 		"labCopyAddress": "Copiar dirección",
 		"labShareWarning": "Al compartir, cualquier dispositivo en la red local puede usar esta API.",
 		"labSaveSettings": "Guardar configuración del laboratorio",
-		"labProvidersConfiguredCount": "{{configured}}/{{total}} proveedores configurados"
+		"labProvidersConfiguredCount": "{{configured}}/{{total}} proveedores configurados",
+		"labRefreshModels": "Actualizar modelos"
 	},
 	"backgroundTasks": {
 		"title": "Tareas en segundo plano",

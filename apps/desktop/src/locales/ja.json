@@ -702,7 +702,8 @@
 		"labCopyAddress": "アドレスをコピー",
 		"labShareWarning": "共有を有効にすると、ローカルネットワーク上のデバイスがこのAPIにアクセスできます。",
 		"labSaveSettings": "ラボ設定を保存",
-		"labProvidersConfiguredCount": "{{configured}}/{{total}} プロバイダー設定済み"
+		"labProvidersConfiguredCount": "{{configured}}/{{total}} プロバイダー設定済み",
+		"labRefreshModels": "モデルを更新"
 	},
 	"backgroundTasks": {
 		"title": "バックグラウンドタスク",

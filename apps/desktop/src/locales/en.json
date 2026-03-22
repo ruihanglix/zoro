@@ -703,7 +703,18 @@
 		"labCopyAddress": "Copy Address",
 		"labShareWarning": "When sharing is enabled, any device on the local network can call this API. Make sure you trust the current network.",
 		"labSaveSettings": "Save Lab Settings",
-		"labProvidersConfiguredCount": "{{configured}}/{{total}} providers configured"
+		"labProvidersConfiguredCount": "{{configured}}/{{total}} providers configured",
+		"labRoutingStrategy": "Routing Strategy",
+		"labRoutingStrategyDesc": "Choose how requests are distributed across your configured free providers.",
+		"labRouting_auto": "Auto",
+		"labRouting_auto_desc": "Use preferred model first, auto-fallback to any healthy provider on failure.",
+		"labRouting_round-robin": "Round Robin",
+		"labRouting_round-robin_desc": "Cycle through all available models evenly. Great for balancing free quotas.",
+		"labRouting_manual": "Manual",
+		"labRouting_manual_desc": "Fixed model, no auto-switch. Fails immediately if the provider is down.",
+		"labDefaultModelDesc": "The preferred model used by Auto and Manual strategies.",
+		"labDefaultModelDescRR": "Round Robin cycles all models. This setting has no effect.",
+		"labRefreshModels": "Refresh Models"
 	},
 	"backgroundTasks": {
 		"title": "Background Tasks",

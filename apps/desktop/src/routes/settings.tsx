@@ -4363,6 +4363,10 @@ function LabSection() {
 		serviceRunning,
 		configuredProviderIds,
 		getAvailableModels,
+		routingStrategy,
+		setRoutingStrategy,
+		fetchAllProviderModels,
+		modelFetchLoading,
 	} = useLabStore();
 
 	const [showMoreProviders, setShowMoreProviders] = useState(false);
@@ -4607,19 +4611,77 @@ function LabSection() {
 						)}
 					</div>
 
+				<Separator />
+
+					{/* Routing Strategy */}
+					<div className="space-y-2">
+						<div>
+							<h4 className="text-sm font-medium">
+								{t("settings.labRoutingStrategy")}
+							</h4>
+							<p className="text-[11px] text-muted-foreground mt-0.5">
+								{t("settings.labRoutingStrategyDesc")}
+							</p>
+						</div>
+						<div className="grid grid-cols-3 gap-2">
+							{(["auto", "round-robin", "manual"] as const).map((strategy) => (
+								<button
+									key={strategy}
+									type="button"
+									onClick={() => setRoutingStrategy(strategy)}
+									className={cn(
+										"flex flex-col items-start gap-0.5 rounded-lg border-2 p-2.5 text-left transition-all",
+										routingStrategy === strategy
+											? "border-primary bg-primary/5"
+											: "border-border hover:border-muted-foreground/40",
+									)}
+								>
+									<span className="text-xs font-semibold">
+										{t(`settings.labRouting_${strategy}`)}
+									</span>
+									<span className="text-[10px] text-muted-foreground leading-tight">
+										{t(`settings.labRouting_${strategy}_desc`)}
+									</span>
+								</button>
+							))}
+						</div>
+					</div>
+
 					<Separator />
 
 					{/* Default Free Model */}
 					<div className="space-y-2">
-						<div>
-							<h4 className="text-sm font-medium">
-								{t("settings.labDefaultModel")}
-							</h4>
+						<div className="flex items-center justify-between">
+							<div>
+								<h4 className="text-sm font-medium">
+									{t("settings.labDefaultModel")}
+								</h4>
+								<p className="text-[11px] text-muted-foreground mt-0.5">
+									{routingStrategy === "round-robin"
+										? t("settings.labDefaultModelDescRR")
+										: t("settings.labDefaultModelDesc")}
+								</p>
+							</div>
+							<Button
+								variant="outline"
+								size="sm"
+								onClick={() => fetchAllProviderModels()}
+								disabled={modelFetchLoading}
+								className="h-7 text-xs shrink-0"
+							>
+								{modelFetchLoading ? (
+									<Loader2 className="mr-1 h-3 w-3 animate-spin" />
+								) : (
+									<RefreshCw className="mr-1 h-3 w-3" />
+								)}
+								{t("settings.labRefreshModels")}
+							</Button>
 						</div>
 						<select
 							value={defaultFreeModel}
 							onChange={(e) => setDefaultFreeModel(e.target.value)}
 							className="h-8 w-full rounded-md border bg-transparent px-2 text-sm"
+							disabled={routingStrategy === "round-robin"}
 						>
 							{availableModels.length === 0 && (
 								<option value="">{t("settings.noModelsConfigured")}</option>

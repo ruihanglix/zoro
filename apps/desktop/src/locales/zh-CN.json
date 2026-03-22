@@ -703,7 +703,18 @@
 		"labCopyAddress": "复制地址",
 		"labShareWarning": "启用共享后，局域网内的任何设备都可以调用此 API。请确保你信任当前网络环境。",
 		"labSaveSettings": "保存实验室设置",
-		"labProvidersConfiguredCount": "{{configured}}/{{total}} 个提供商已配置"
+		"labProvidersConfiguredCount": "{{configured}}/{{total}} 个提供商已配置",
+		"labRoutingStrategy": "路由策略",
+		"labRoutingStrategyDesc": "选择请求在已配置的免费提供商之间如何分发。",
+		"labRouting_auto": "自动",
+		"labRouting_auto_desc": "优先使用首选模型，失败时自动切换到任意健康的提供商。",
+		"labRouting_round-robin": "轮询",
+		"labRouting_round-robin_desc": "在所有可用模型之间均匀轮转，适合均衡消耗免费额度。",
+		"labRouting_manual": "手动",
+		"labRouting_manual_desc": "固定使用选定模型，不自动切换。提供商宕机时直接报错。",
+		"labDefaultModelDesc": "Auto 和 Manual 策略使用的首选模型。",
+		"labDefaultModelDescRR": "轮询模式会遍历所有模型，此设置无效。",
+		"labRefreshModels": "刷新模型列表"
 	},
 	"backgroundTasks": {
 		"title": "后台任务",

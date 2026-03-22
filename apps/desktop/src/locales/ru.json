@@ -702,7 +702,8 @@
 		"labCopyAddress": "Скопировать адрес",
 		"labShareWarning": "При включении любое устройство в локальной сети может использовать этот API.",
 		"labSaveSettings": "Сохранить настройки лаборатории",
-		"labProvidersConfiguredCount": "{{configured}}/{{total}} провайдеров настроено"
+		"labProvidersConfiguredCount": "{{configured}}/{{total}} провайдеров настроено",
+		"labRefreshModels": "Обновить модели"
 	},
 	"backgroundTasks": {
 		"title": "Фоновые задачи",

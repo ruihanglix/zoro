@@ -702,7 +702,8 @@
 		"labCopyAddress": "Adresse kopieren",
 		"labShareWarning": "Bei aktivierter Freigabe kann jedes Gerät im lokalen Netzwerk diese API nutzen.",
 		"labSaveSettings": "Labor-Einstellungen speichern",
-		"labProvidersConfiguredCount": "{{configured}}/{{total}} Anbieter konfiguriert"
+		"labProvidersConfiguredCount": "{{configured}}/{{total}} Anbieter konfiguriert",
+		"labRefreshModels": "Modelle aktualisieren"
 	},
 	"backgroundTasks": {
 		"title": "Hintergrundaufgaben",
