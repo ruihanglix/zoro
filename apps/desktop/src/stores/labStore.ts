@@ -125,8 +125,6 @@ function saveSetting<T>(key: string, value: T): void {
 
 // ── Store types ─────────────────────────────────────────────────────────────
 
-export type ListenAddress = "127.0.0.1" | "0.0.0.0";
-
 // ── Routing strategy ────────────────────────────────────────────────────────
 
 export type RoutingStrategy = "auto" | "round-robin" | "manual";
@@ -159,18 +157,14 @@ interface LabState {
 	freeLlmEnabled: boolean;
 	providerKeys: Record<string, string>; // providerId → API key (stored locally)
 	defaultFreeModel: string;
-	port: number;
 
 	// Routing
 	routingStrategy: RoutingStrategy;
 	roundRobinIndex: number;
 
-	// Share API
-	shareEnabled: boolean;
-	listenAddress: ListenAddress;
+	// Model exclusion list — models the user has disabled from auto-routing
+	disabledModels: Set<string>; // "providerId:modelId" composite keys
 
-	// Service status (runtime, not persisted)
-	serviceRunning: boolean;
 	configuredProviderIds: string[]; // derived from providerKeys
 
 	// Provider health (runtime, not persisted)
@@ -185,11 +179,11 @@ interface LabState {
 	setProviderKey: (providerId: string, key: string) => void;
 	removeProviderKey: (providerId: string) => void;
 	setDefaultFreeModel: (model: string) => void;
-	setPort: (port: number) => void;
-	setShareEnabled: (enabled: boolean) => void;
-	setListenAddress: (addr: ListenAddress) => void;
-	setServiceRunning: (running: boolean) => void;
 	setRoutingStrategy: (strategy: RoutingStrategy) => void;
+
+	// Model exclusion actions
+	toggleModelDisabled: (providerId: string, modelId: string) => void;
+	isModelDisabled: (providerId: string, modelId: string) => boolean;
 
 	// Routing actions
 	/**
@@ -211,6 +205,8 @@ interface LabState {
 	// Derived helpers
 	getConfiguredCount: () => number;
 	getAvailableModels: () => FreeModel[];
+	/** Get available models excluding disabled ones (for sync to AI config) */
+	getEnabledModelsForProvider: (providerId: string) => string[];
 	isProviderConfigured: (providerId: string) => boolean;
 }
 
@@ -239,6 +235,8 @@ function getHealthyAvailableModels(
 		const fetched = state.fetchedModels[providerId];
 		if (!fetched) continue;
 		for (const modelId of fetched) {
+			// Skip models the user has disabled
+			if (state.disabledModels.has(`${providerId}:${modelId}`)) continue;
 			results.push({
 				model: {
 					id: modelId,
@@ -265,8 +263,7 @@ export const useLabStore = create<LabState>((set, get) => {
 	return {
 		freeLlmEnabled: loadSetting<boolean>("free-llm-enabled", true),
 		providerKeys: savedKeys,
-	defaultFreeModel: loadSetting<string>("default-free-model", ""),
-		port: loadSetting<number>("port", 8765),
+		defaultFreeModel: loadSetting<string>("default-free-model", ""),
 
 		routingStrategy: loadSetting<RoutingStrategy>(
 			"routing-strategy",
@@ -274,13 +271,10 @@ export const useLabStore = create<LabState>((set, get) => {
 		),
 		roundRobinIndex: loadSetting<number>("round-robin-index", 0),
 
-		shareEnabled: loadSetting<boolean>("share-enabled", false),
-		listenAddress: loadSetting<ListenAddress>(
-			"listen-address",
-			"127.0.0.1",
+		disabledModels: new Set<string>(
+			loadSetting<string[]>("disabled-models", []),
 		),
 
-		serviceRunning: false,
 		configuredProviderIds: configuredIds,
 		providerHealth: {},
 		fetchedModels: {},
@@ -313,25 +307,6 @@ export const useLabStore = create<LabState>((set, get) => {
 		setDefaultFreeModel: (model) => {
 			saveSetting("default-free-model", model);
 			set({ defaultFreeModel: model });
-		},
-
-		setPort: (port) => {
-			saveSetting("port", port);
-			set({ port });
-		},
-
-		setShareEnabled: (enabled) => {
-			saveSetting("share-enabled", enabled);
-			set({ shareEnabled: enabled });
-		},
-
-		setListenAddress: (addr) => {
-			saveSetting("listen-address", addr);
-			set({ listenAddress: addr });
-		},
-
-		setServiceRunning: (running) => {
-			set({ serviceRunning: running });
 		},
 
 		setRoutingStrategy: (strategy) => {
@@ -520,6 +495,22 @@ export const useLabStore = create<LabState>((set, get) => {
 			return get().configuredProviderIds.length;
 		},
 
+		toggleModelDisabled: (providerId, modelId) => {
+			const key = `${providerId}:${modelId}`;
+			const disabled = new Set(get().disabledModels);
+			if (disabled.has(key)) {
+				disabled.delete(key);
+			} else {
+				disabled.add(key);
+			}
+			saveSetting("disabled-models", Array.from(disabled));
+			set({ disabledModels: disabled });
+		},
+
+		isModelDisabled: (providerId, modelId) => {
+			return get().disabledModels.has(`${providerId}:${modelId}`);
+		},
+
 		getAvailableModels: () => {
 			const state = get();
 			const models: FreeModel[] = [];
@@ -543,6 +534,14 @@ export const useLabStore = create<LabState>((set, get) => {
 			}
 
 			return models;
+		},
+
+		getEnabledModelsForProvider: (providerId) => {
+			const state = get();
+			const fetched = state.fetchedModels[providerId] || [];
+			return fetched.filter(
+				(modelId) => !state.disabledModels.has(`${providerId}:${modelId}`),
+			);
 		},
 
 		isProviderConfigured: (providerId) => {

@@ -26,7 +26,6 @@ import {
 	FREE_PROVIDERS,
 	useLabStore,
 } from "@/stores/labStore";
-import type { ListenAddress } from "@/stores/labStore";
 import { useLibraryStore } from "@/stores/libraryStore";
 import { useTranslationStore } from "@/stores/translationStore";
 import { useUiStore } from "@/stores/uiStore";
@@ -653,6 +652,8 @@ export function Settings() {
 	const labProviderKeys = useLabStore((s) => s.providerKeys);
 	const labConfiguredProviderIds = useLabStore((s) => s.configuredProviderIds);
 	const labFetchedModels = useLabStore((s) => s.fetchedModels);
+	const labDisabledModels = useLabStore((s) => s.disabledModels);
+	const labGetEnabledModelsForProvider = useLabStore((s) => s.getEnabledModelsForProvider);
 
 	const subscriptions = useLibraryStore((s) => s.subscriptions);
 	const fetchSubscriptions = useLibraryStore((s) => s.fetchSubscriptions);
@@ -739,6 +740,7 @@ export function Settings() {
 	const [pendingProviderKeys, setPendingProviderKeys] = useState<
 		Record<string, string>
 	>({});
+	const [fetchingProviderModels, setFetchingProviderModels] = useState(false);
 	const [customNativeLang, setCustomNativeLang] = useState("");
 	const [promptTitleSystem, setPromptTitleSystem] = useState("");
 	const [promptTitleUser, setPromptTitleUser] = useState("");
@@ -986,7 +988,7 @@ export function Settings() {
 	]);
 
 	// Auto-sync lab providers to Rust backend AiConfig.providers
-	// when lab configuration changes (enabled/disabled, keys, models)
+	// when lab configuration changes (enabled/disabled, keys, models, disabled models)
 	useEffect(() => {
 		const syncLabProviders = async () => {
 			try {
@@ -995,17 +997,17 @@ export function Settings() {
 				const existingProviders = (config.providers || []).filter(
 					(p) => !p.id.startsWith("__lab_"),
 				);
-				// Build lab providers if enabled
+				// Build lab providers if enabled (only include enabled models)
 				const labProviders = labFreeLlmEnabled
 					? labConfiguredProviderIds.map((pid) => {
 							const fp = FREE_PROVIDERS.find((p) => p.id === pid);
-							const modelsForProvider = labFetchedModels[pid] || [];
+							const enabledModels = labGetEnabledModelsForProvider(pid);
 							return {
 								id: `__lab_${pid}`,
 								name: `${fp?.displayName || pid} 🧪`,
 								baseUrl: fp?.baseURL || "",
 								apiKey: labProviderKeys[pid] || undefined,
-								models: modelsForProvider,
+								models: enabledModels,
 							};
 						})
 					: [];
@@ -1024,7 +1026,7 @@ export function Settings() {
 			}
 		};
 		syncLabProviders();
-	}, [labFreeLlmEnabled, labConfiguredProviderIds, labProviderKeys, labFetchedModels]);
+	}, [labFreeLlmEnabled, labConfiguredProviderIds, labProviderKeys, labFetchedModels, labDisabledModels, labGetEnabledModelsForProvider]);
 
 	const handleExportAll = async () => {
 		try {
@@ -1259,13 +1261,13 @@ export function Settings() {
 					...(labFreeLlmEnabled
 						? labConfiguredProviderIds.map((pid) => {
 								const fp = FREE_PROVIDERS.find((p) => p.id === pid);
-								const modelsForProvider = labFetchedModels[pid] || [];
+								const enabledModels = labGetEnabledModelsForProvider(pid);
 								return {
 									id: `__lab_${pid}`,
 									name: `${fp?.displayName || pid} 🧪`,
 									baseUrl: fp?.baseURL || "",
 									apiKey: labProviderKeys[pid] || undefined,
-									models: modelsForProvider,
+									models: enabledModels,
 								};
 							})
 						: []),
@@ -2436,9 +2438,52 @@ export function Settings() {
 														}}
 													/>
 												</div>
-												<p className="text-[11px] text-muted-foreground mt-0.5">
-													{t("settings.modelsDesc")}
-												</p>
+										<p className="text-[11px] text-muted-foreground mt-0.5">
+											{t("settings.modelsDesc")}
+										</p>
+										<Button
+											variant="outline"
+											size="sm"
+											className="mt-1.5 h-7 text-xs"
+											disabled={!editingProvider.baseUrl || fetchingProviderModels}
+											onClick={async () => {
+												setFetchingProviderModels(true);
+												try {
+													const baseUrl = editingProvider.baseUrl.replace(/\/$/, "");
+													const apiKey = editingProvider.apiKey || pendingProviderKeys[editingProvider.id] || "";
+													const headers: Record<string, string> = { "Content-Type": "application/json" };
+													if (apiKey) {
+														headers.Authorization = `Bearer ${apiKey}`;
+													}
+													const resp = await commands.httpProxyGet(`${baseUrl}/models`, headers);
+													if (resp.status >= 200 && resp.status < 300) {
+														const json = JSON.parse(resp.body);
+														let modelIds: string[] = [];
+														if (Array.isArray(json.data)) {
+															modelIds = json.data.map((m: { id?: string }) => m.id ?? "").filter(Boolean);
+														} else if (Array.isArray(json.models)) {
+															modelIds = json.models.map((m: { name?: string; id?: string }) => m.id || m.name?.replace("models/", "") || "").filter(Boolean);
+														}
+														if (modelIds.length > 0) {
+															const existing = editingProvider.models.split(",").map((m) => m.trim()).filter(Boolean);
+															const merged = Array.from(new Set([...existing, ...modelIds]));
+															setEditingProvider({ ...editingProvider, models: merged.join(", ") });
+														}
+													}
+												} catch (err) {
+													console.error("Failed to fetch models:", err);
+												} finally {
+													setFetchingProviderModels(false);
+												}
+											}}
+										>
+											{fetchingProviderModels ? (
+												<Loader2 className="mr-1 h-3 w-3 animate-spin" />
+											) : (
+												<RefreshCw className="mr-1 h-3 w-3" />
+											)}
+											{t("settings.fetchModels")}
+										</Button>
 											</div>
 											<div className="flex items-center gap-2 pt-1">
 												<Button
@@ -2530,7 +2575,7 @@ export function Settings() {
 													(m) => !providerModels.includes(m.id),
 												)
 											: [];
-										const hasModels = providerModels.length > 0 || freeModels.length > 0;
+										const hasModels = providerModels.length > 0 || freeModels.length > 0 || labFreeLlmEnabled;
 										return (
 											<select
 												value={globalDefaultModel}
@@ -2547,8 +2592,13 @@ export function Settings() {
 														{m}
 													</option>
 												))}
-												{freeModels.length > 0 && providerModels.length > 0 && (
+												{labFreeLlmEnabled && (providerModels.length > 0 || freeModels.length > 0) && (
 													<option disabled>────────────</option>
+												)}
+												{labFreeLlmEnabled && (
+													<option value="__lab_auto__">
+														🧪 Lab Auto ({t("settings.labRouting_auto")})
+													</option>
 												)}
 										{freeModels.map((m) => (
 											<option key={m.id} value={m.id}>
@@ -2583,6 +2633,9 @@ export function Settings() {
 										const modelOptions = [
 											{ value: "", label: t("settings.useGlobalDefault") },
 											...providerModels.map((m) => ({ value: m, label: m })),
+											...(labFreeLlmEnabled
+												? [{ value: "__lab_auto__", label: `🧪 Lab Auto (${t("settings.labRouting_auto")})` }]
+												: []),
 										...freeModels.map((m) => ({
 											value: m.id,
 											label: m.displayName,
@@ -4416,24 +4469,19 @@ function LabSection() {
 		setProviderKey,
 		defaultFreeModel,
 		setDefaultFreeModel,
-		port,
-		setPort,
-		shareEnabled,
-		setShareEnabled,
-		listenAddress,
-		setListenAddress,
-		serviceRunning,
 		configuredProviderIds,
 		getAvailableModels,
 		routingStrategy,
 		setRoutingStrategy,
 		fetchAllProviderModels,
 		modelFetchLoading,
+		fetchedModels,
+		toggleModelDisabled,
+		isModelDisabled,
 	} = useLabStore();
 
 	const [showMoreProviders, setShowMoreProviders] = useState(false);
 	const [editingKeys, setEditingKeys] = useState<Record<string, string>>({});
-	const [copied, setCopied] = useState(false);
 
 	const primaryProviders = FREE_PROVIDERS.filter((p) => p.tier === "primary");
 	const secondaryProviders = FREE_PROVIDERS.filter(
@@ -4463,14 +4511,6 @@ function LabSection() {
 				return next;
 			});
 		}
-	};
-
-	const apiEndpoint = `http://${listenAddress === "0.0.0.0" ? listenAddress : "127.0.0.1"}:${port}/v1`;
-
-	const handleCopy = async () => {
-		await navigator.clipboard.writeText(apiEndpoint);
-		setCopied(true);
-		setTimeout(() => setCopied(false), 2000);
 	};
 
 	return (
@@ -4748,102 +4788,61 @@ function LabSection() {
 									{m.displayName}
 								</option>
 							))}
-						</select>
+					</select>
 					</div>
 
 					<Separator />
 
-					{/* Share API */}
-					<div className="space-y-3">
+					{/* Model Management — disable/enable individual models */}
+					<div className="space-y-2">
 						<div>
 							<h4 className="text-sm font-medium">
-								{t("settings.labShareApi")}
+								{t("settings.labModelManagement")}
 							</h4>
 							<p className="text-[11px] text-muted-foreground mt-0.5">
-								{t("settings.labShareApiDesc")}
+								{t("settings.labModelManagementDesc")}
 							</p>
 						</div>
 
-						<div className="flex items-center gap-3">
-							<button
-								type="button"
-								onClick={() => setShareEnabled(!shareEnabled)}
-								className={cn(
-									"relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors",
-									shareEnabled ? "bg-primary" : "bg-muted-foreground/30",
-								)}
-							>
-								<span
-									className={cn(
-										"pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow-sm transition-transform",
-										shareEnabled ? "translate-x-4" : "translate-x-0",
-									)}
-								/>
-							</button>
-							<span className="text-xs font-medium">
-								{t("settings.labShareEnabled")}
-							</span>
-						</div>
-
-						{shareEnabled && (
-							<div className="space-y-2 rounded-md border p-3 bg-muted/30">
-								<div className="flex items-center gap-3">
-									<label className="text-xs font-medium w-28 shrink-0">
-										{t("settings.labListenAddress")}
-									</label>
-									<select
-										value={listenAddress}
-										onChange={(e) =>
-											setListenAddress(e.target.value as ListenAddress)
-										}
-										className="h-7 flex-1 rounded-md border bg-transparent px-2 text-xs"
-									>
-										<option value="127.0.0.1">
-											{t("settings.labLocalOnly")}
-										</option>
-										<option value="0.0.0.0">
-											{t("settings.labAllInterfaces")}
-										</option>
-									</select>
-								</div>
-
-								<div className="flex items-center gap-3">
-									<label className="text-xs font-medium w-28 shrink-0">
-										{t("settings.labPort")}
-									</label>
-									<input
-										type="number"
-										value={port}
-										onChange={(e) =>
-											setPort(Math.max(1024, Math.min(65535, Number(e.target.value))))
-										}
-										className="h-7 w-24 rounded-md border bg-transparent px-2 text-xs"
-									/>
-								</div>
-
-								<div className="flex items-center gap-3">
-									<label className="text-xs font-medium w-28 shrink-0">
-										{t("settings.labApiEndpoint")}
-									</label>
-									<code className="flex-1 text-xs bg-muted rounded px-2 py-1 font-mono truncate">
-										{apiEndpoint}
-									</code>
-									<Button
-										variant="outline"
-										size="sm"
-										className="h-7 px-2 text-xs shrink-0"
-										onClick={handleCopy}
-									>
-										{copied ? t("common.copied") : t("settings.labCopyAddress")}
-									</Button>
-								</div>
-
-								{listenAddress === "0.0.0.0" && (
-									<div className="flex items-start gap-2 rounded-md border border-yellow-500/30 bg-yellow-50 dark:bg-yellow-950/20 p-2 text-xs text-yellow-700 dark:text-yellow-400">
-										<AlertCircle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
-										<span>{t("settings.labShareWarning")}</span>
-									</div>
-								)}
+						{configuredProviderIds.length === 0 ? (
+							<p className="text-xs text-muted-foreground italic">
+								{t("settings.noModelsConfigured")}
+							</p>
+						) : (
+							<div className="space-y-3">
+								{configuredProviderIds.map((providerId) => {
+									const provider = FREE_PROVIDERS.find((p) => p.id === providerId);
+									const models = fetchedModels[providerId] || [];
+									if (models.length === 0) return null;
+									return (
+										<div key={providerId}>
+											<p className="text-xs font-medium mb-1.5">
+												{provider?.displayName || providerId} 🧪
+											</p>
+											<div className="flex flex-wrap gap-1.5">
+												{models.map((modelId) => {
+													const disabled = isModelDisabled(providerId, modelId);
+													return (
+														<button
+															key={modelId}
+															type="button"
+															onClick={() => toggleModelDisabled(providerId, modelId)}
+															className={cn(
+																"px-2 py-0.5 rounded-md text-[11px] border transition-all cursor-pointer",
+																disabled
+																	? "border-border bg-muted/30 text-muted-foreground line-through opacity-50"
+																	: "border-primary/30 bg-primary/5 text-foreground",
+															)}
+															title={disabled ? t("settings.labModelDisabled") : t("settings.labModelEnabled")}
+														>
+															{modelId}
+														</button>
+													);
+												})}
+											</div>
+										</div>
+									);
+								})}
 							</div>
 						)}
 					</div>
