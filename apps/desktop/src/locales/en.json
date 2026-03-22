@@ -701,6 +701,7 @@
 		"labDefaultModelDesc": "The preferred model used by Auto and Manual strategies.",
 		"labDefaultModelDescRR": "Round Robin cycles all models. This setting has no effect.",
 		"labRefreshModels": "Refresh Models",
+		"labSmartRouterDesc": "Auto-routes requests across all enabled lab models",
 		"labModelManagement": "Model Management",
 		"labModelManagementDesc": "Click a model to enable or disable it. Disabled models won't be used in auto-routing or synced to AI settings.",
 		"labModelDisabled": "Model disabled — click to enable",

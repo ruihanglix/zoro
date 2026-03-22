@@ -690,6 +690,7 @@
 		"labSaveSettings": "Labor-Einstellungen speichern",
 		"labProvidersConfiguredCount": "{{configured}}/{{total}} Anbieter konfiguriert",
 		"labRefreshModels": "Modelle aktualisieren",
+		"labSmartRouterDesc": "Automatisches Routing über alle Lab-Anbieter",
 		"labModelManagement": "Modellverwaltung",
 		"labModelManagementDesc": "Klicken Sie auf einen Modellnamen zum Aktivieren/Deaktivieren. Deaktivierte Modelle werden nicht für Auto-Routing verwendet.",
 		"labModelDisabled": "Modell deaktiviert — klicken zum Aktivieren",

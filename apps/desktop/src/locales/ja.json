@@ -690,6 +690,7 @@
 		"labSaveSettings": "ラボ設定を保存",
 		"labProvidersConfiguredCount": "{{configured}}/{{total}} プロバイダー設定済み",
 		"labRefreshModels": "モデルを更新",
+		"labSmartRouterDesc": "実験室の有効なプロバイダー間で自動ルーティング",
 		"labModelManagement": "モデル管理",
 		"labModelManagementDesc": "モデル名をクリックして有効/無効を切り替えます。無効なモデルは自動ルーティングに使用されず、AI設定にも同期されません。",
 		"labModelDisabled": "モデル無効 — クリックで有効化",

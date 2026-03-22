@@ -690,6 +690,7 @@
 		"labSaveSettings": "Сохранить настройки лаборатории",
 		"labProvidersConfiguredCount": "{{configured}}/{{total}} провайдеров настроено",
 		"labRefreshModels": "Обновить модели",
+		"labSmartRouterDesc": "Автоматический выбор из лабораторных провайдеров",
 		"labModelManagement": "Управление моделями",
 		"labModelManagementDesc": "Нажмите на модель для включения/отключения. Отключённые модели не используются в автоматической маршрутизации.",
 		"labModelDisabled": "Модель отключена — нажмите для включения",

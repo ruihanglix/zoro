@@ -690,6 +690,7 @@
 		"labSaveSettings": "실험실 설정 저장",
 		"labProvidersConfiguredCount": "{{configured}}/{{total}} 제공업체 설정됨",
 		"labRefreshModels": "모델 새로고침",
+		"labSmartRouterDesc": "실험실의 무료 AI 제공자를 자동으로 순환합니다",
 		"labModelManagement": "모델 관리",
 		"labModelManagementDesc": "모델 이름을 클릭하여 활성화/비활성화합니다. 비활성화된 모델은 자동 라우팅에 사용되지 않습니다.",
 		"labModelDisabled": "모델 비활성화됨 — 클릭하여 활성화",
