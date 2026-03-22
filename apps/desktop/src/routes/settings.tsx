@@ -4751,7 +4751,7 @@ function LabSection() {
 							<Button
 								variant="outline"
 								size="sm"
-								onClick={() => fetchAllProviderModels()}
+								onClick={() => fetchAllProviderModels(true)}
 								disabled={modelFetchLoading}
 								className="h-7 text-xs shrink-0"
 							>

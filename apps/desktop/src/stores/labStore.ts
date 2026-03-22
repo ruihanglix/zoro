@@ -170,9 +170,11 @@ interface LabState {
 	// Provider health (runtime, not persisted)
 	providerHealth: Record<string, ProviderHealth>;
 
-	// Dynamically fetched models (runtime, not persisted)
+	// Dynamically fetched models (persisted as cache, refreshed in background)
 	fetchedModels: Record<string, string[]>; // providerId → model id list
 	modelFetchLoading: boolean;
+	/** Timestamp (ms) of the last successful full model refresh */
+	modelCacheTime: number;
 
 	// Actions
 	setFreeLlmEnabled: (enabled: boolean) => void;
@@ -194,8 +196,8 @@ interface LabState {
 	resolveProvider: (requestedModelId?: string) => ResolvedRoute | null;
 	/** Fetch models from a provider's /models endpoint */
 	fetchModelsForProvider: (providerId: string) => Promise<void>;
-	/** Fetch models from all configured providers */
-	fetchAllProviderModels: () => Promise<void>;
+	/** Fetch models from all configured providers (skips if cache is fresh) */
+	fetchAllProviderModels: (force?: boolean) => Promise<void>;
 
 	/** Call after a successful request to update health */
 	reportSuccess: (providerId: string) => void;
@@ -277,8 +279,9 @@ export const useLabStore = create<LabState>((set, get) => {
 
 		configuredProviderIds: configuredIds,
 		providerHealth: {},
-		fetchedModels: {},
+		fetchedModels: loadSetting<Record<string, string[]>>("fetched-models-cache", {}),
 		modelFetchLoading: false,
+		modelCacheTime: loadSetting<number>("model-cache-time", 0),
 
 		setFreeLlmEnabled: (enabled) => {
 			saveSetting("free-llm-enabled", enabled);
@@ -301,7 +304,11 @@ export const useLabStore = create<LabState>((set, get) => {
 			const configuredIds = Object.keys(keys).filter(
 				(k) => keys[k]?.trim().length > 0,
 			);
-			set({ providerKeys: keys, configuredProviderIds: configuredIds });
+			// Also clean up cached models for this provider
+			const fetched = { ...get().fetchedModels };
+			delete fetched[providerId];
+			saveSetting("fetched-models-cache", fetched);
+			set({ providerKeys: keys, configuredProviderIds: configuredIds, fetchedModels: fetched });
 		},
 
 		setDefaultFreeModel: (model) => {
@@ -421,6 +428,7 @@ export const useLabStore = create<LabState>((set, get) => {
 
 					saveSetting("disabled-models", Array.from(disabled));
 					const fetched = { ...currentState.fetchedModels, [providerId]: modelIds };
+					saveSetting("fetched-models-cache", fetched);
 					set({ fetchedModels: fetched, disabledModels: disabled });
 				} else {
 					console.warn(`[lab]   No models parsed from response. Full response (first 500 chars): ${resp.body.slice(0, 500)}`);
@@ -430,19 +438,33 @@ export const useLabStore = create<LabState>((set, get) => {
 			}
 		},
 
-		fetchAllProviderModels: async () => {
+		fetchAllProviderModels: async (force?: boolean) => {
 			const state = get();
-			set({ modelFetchLoading: true });
 			const configured = state.configuredProviderIds;
-			console.log(`[lab] Refreshing models for ${configured.length} configured provider(s): ${configured.join(", ") || "(none)"}`);
+
+			// Skip network requests if cache is fresh (< 1 hour) and not forced
+			const CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour
+			const cacheAge = Date.now() - state.modelCacheTime;
+			const hasCachedData = Object.keys(state.fetchedModels).length > 0;
+
+			if (!force && hasCachedData && cacheAge < CACHE_TTL_MS) {
+				const totalCached = Object.values(state.fetchedModels).reduce((sum, arr) => sum + arr.length, 0);
+				console.log(`[lab] Using cached models (${totalCached} model(s), age: ${Math.round(cacheAge / 1000)}s). Skip network refresh.`);
+				return;
+			}
+
+			set({ modelFetchLoading: true });
+			console.log(`[lab] Refreshing models for ${configured.length} configured provider(s): ${configured.join(", ") || "(none)"}${hasCachedData ? " (incremental update)" : " (first fetch)"}`);
 			const promises = configured.map((id) =>
 				get().fetchModelsForProvider(id),
 			);
 			await Promise.allSettled(promises);
+			const now = Date.now();
+			saveSetting("model-cache-time", now);
 			const finalState = get();
 			const totalModels = Object.values(finalState.fetchedModels).reduce((sum, arr) => sum + arr.length, 0);
 			console.log(`[lab] Model refresh complete. Total: ${totalModels} model(s) across ${Object.keys(finalState.fetchedModels).length} provider(s)`);
-			set({ modelFetchLoading: false });
+			set({ modelFetchLoading: false, modelCacheTime: now });
 		},
 
 		// ── Core routing logic ─────────────────────────────────────────
