@@ -3,6 +3,7 @@
 // See LICENSE file in the project root for full license information.
 
 import { create } from "zustand";
+import { httpProxyGet } from "@/lib/commands";
 
 // ── Free provider definitions ──────────────────────────────────────────────
 
@@ -242,7 +243,7 @@ function getHealthyAvailableModels(
 				model: {
 					id: modelId,
 					provider: providerId,
-					displayName: `${modelId} (${provider.displayName})`,
+					displayName: `${modelId} (${provider.displayName} 🧪)`,
 				},
 				provider,
 				apiKey,
@@ -343,10 +344,16 @@ export const useLabStore = create<LabState>((set, get) => {
 		fetchModelsForProvider: async (providerId: string) => {
 			const state = get();
 			const apiKey = state.providerKeys[providerId]?.trim();
-			if (!apiKey) return;
+			if (!apiKey) {
+				console.warn(`[lab] Skip fetching models for ${providerId}: no API key configured`);
+				return;
+			}
 
 			const provider = FREE_PROVIDERS.find((p) => p.id === providerId);
-			if (!provider) return;
+			if (!provider) {
+				console.warn(`[lab] Skip fetching models for ${providerId}: unknown provider`);
+				return;
+			}
 
 			try {
 				// Gemini uses a different endpoint format
@@ -362,13 +369,25 @@ export const useLabStore = create<LabState>((set, get) => {
 					headers.Authorization = `Bearer ${apiKey}`;
 				}
 
-				const resp = await fetch(url, { headers, signal: AbortSignal.timeout(15000) });
-				if (!resp.ok) {
-					console.warn(`[lab] Failed to fetch models from ${providerId}: ${resp.status}`);
+				// Debug: log the request details (mask the API key)
+				const maskedKey = apiKey.length > 8
+					? `${apiKey.slice(0, 4)}...${apiKey.slice(-4)}`
+					: "****";
+				console.log(`[lab] Fetching models from ${providerId}:`);
+				console.log(`[lab]   URL: ${url.replace(apiKey, maskedKey)}`);
+				console.log(`[lab]   Headers: ${JSON.stringify({ ...headers, Authorization: headers.Authorization ? `Bearer ${maskedKey}` : undefined })}`);
+
+				// Use Rust backend proxy to bypass browser CORS restrictions
+				const resp = await httpProxyGet(url, headers);
+				console.log(`[lab]   Response status: ${resp.status}`);
+
+				if (resp.status < 200 || resp.status >= 300) {
+					console.warn(`[lab]   Response body: ${resp.body.slice(0, 500)}`);
 					return;
 				}
 
-				const json = await resp.json();
+				const json = JSON.parse(resp.body);
+				console.log(`[lab]   Response keys: ${Object.keys(json).join(", ")}`);
 
 				// Parse model list (OpenAI-compatible vs Gemini format)
 				let modelIds: string[] = [];
@@ -382,13 +401,16 @@ export const useLabStore = create<LabState>((set, get) => {
 						.filter(Boolean);
 				}
 
+				console.log(`[lab]   Parsed ${modelIds.length} model(s)${modelIds.length > 0 ? `: ${modelIds.slice(0, 5).join(", ")}${modelIds.length > 5 ? ` ... +${modelIds.length - 5} more` : ""}` : ""}`);
+
 				if (modelIds.length > 0) {
 					const fetched = { ...get().fetchedModels, [providerId]: modelIds };
 					set({ fetchedModels: fetched });
-					console.log(`[lab] Fetched ${modelIds.length} models from ${providerId}`);
+				} else {
+					console.warn(`[lab]   No models parsed from response. Full response (first 500 chars): ${resp.body.slice(0, 500)}`);
 				}
 			} catch (err) {
-				console.warn(`[lab] Error fetching models from ${providerId}:`, err);
+				console.error(`[lab] Error fetching models from ${providerId}:`, err);
 			}
 		},
 
@@ -396,10 +418,14 @@ export const useLabStore = create<LabState>((set, get) => {
 			const state = get();
 			set({ modelFetchLoading: true });
 			const configured = state.configuredProviderIds;
+			console.log(`[lab] Refreshing models for ${configured.length} configured provider(s): ${configured.join(", ") || "(none)"}`);
 			const promises = configured.map((id) =>
 				get().fetchModelsForProvider(id),
 			);
 			await Promise.allSettled(promises);
+			const finalState = get();
+			const totalModels = Object.values(finalState.fetchedModels).reduce((sum, arr) => sum + arr.length, 0);
+			console.log(`[lab] Model refresh complete. Total: ${totalModels} model(s) across ${Object.keys(finalState.fetchedModels).length} provider(s)`);
 			set({ modelFetchLoading: false });
 		},
 
@@ -509,7 +535,7 @@ export const useLabStore = create<LabState>((set, get) => {
 						models.push({
 							id: modelId,
 							provider: providerId,
-							displayName: `${modelId} (${provider.displayName})`,
+							displayName: `${modelId} (${provider.displayName} 🧪)`,
 						});
 						seen.add(modelId);
 					}

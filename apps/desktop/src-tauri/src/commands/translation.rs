@@ -139,16 +139,12 @@ pub async fn translate_fields(
         );
     }
 
-    if ai_config.base_url.is_empty() || ai_config.api_key.is_empty() || ai_config.model.is_empty() {
-        return Err("AI not configured. Set base URL, API key, and model in Settings.".into());
-    }
-
     // Resolve the per-task model for title/abstract ("normal" translation)
     let normal_model = ai_config
         .task_model_defaults
         .resolve("normal", &ai_config.model);
-    let mut task_ai_config = ai_config.clone();
-    task_ai_config.model = normal_model;
+    // resolve_for_model also resolves provider-specific base_url/api_key
+    let task_ai_config = ai_config.resolve_for_model(&normal_model);
 
     // Load glossary terms if enabled
     let glossary = if ai_config.glossary_enabled {
@@ -233,10 +229,10 @@ pub async fn translate_fields(
     // Auto-extract glossary terms in the background
     if ai_config.glossary_enabled && !all_original_text.trim().is_empty() {
         let db = std::sync::Arc::clone(&state.db);
-        let mut glossary_ai = ai_config.clone();
-        glossary_ai.model = ai_config
-            .task_model_defaults
-            .resolve("glossary", &ai_config.model);
+        // resolve_for_model also resolves provider-specific base_url/api_key
+        let glossary_ai = ai_config.resolve_for_model(
+            &ai_config.task_model_defaults.resolve("glossary", &ai_config.model),
+        );
         let lang = target_lang.clone();
         let eid = entity_id.clone();
         tokio::spawn(async move {
@@ -648,19 +644,15 @@ pub async fn translate_selection(
         );
     }
 
-    if ai_config.base_url.is_empty() || ai_config.api_key.is_empty() || ai_config.model.is_empty() {
-        return Err("AI not configured. Set base URL, API key, and model in Settings.".into());
-    }
-
     if text.trim().is_empty() {
         return Ok(String::new());
     }
 
     // Resolve the per-task model for quick (inline) translation
-    let mut quick_config = ai_config.clone();
-    quick_config.model = ai_config
-        .task_model_defaults
-        .resolve("quick", &ai_config.model);
+    // resolve_for_model also resolves provider-specific base_url/api_key
+    let quick_config = ai_config.resolve_for_model(
+        &ai_config.task_model_defaults.resolve("quick", &ai_config.model),
+    );
 
     let glossary = if ai_config.glossary_enabled {
         let db = state

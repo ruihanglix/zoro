@@ -22,4 +22,5 @@ pub mod subscription;
 pub mod sync;
 pub mod terminal;
 pub mod translation;
+pub mod http_proxy;
 pub mod zotero_import;

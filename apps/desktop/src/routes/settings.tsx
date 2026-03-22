@@ -650,6 +650,9 @@ export function Settings() {
 	// Lab store — Free LLM Proxy
 	const labFreeLlmEnabled = useLabStore((s) => s.freeLlmEnabled);
 	const labAvailableModels = useLabStore((s) => s.getAvailableModels)();
+	const labProviderKeys = useLabStore((s) => s.providerKeys);
+	const labConfiguredProviderIds = useLabStore((s) => s.configuredProviderIds);
+	const labFetchedModels = useLabStore((s) => s.fetchedModels);
 
 	const subscriptions = useLibraryStore((s) => s.subscriptions);
 	const fetchSubscriptions = useLibraryStore((s) => s.fetchSubscriptions);
@@ -890,10 +893,12 @@ export function Settings() {
 				models: config.model ? [config.model] : [],
 				isDefault: true,
 			};
-			const additionalProviders = (config.providers || []).map((p) => ({
-				...p,
-				isDefault: false,
-			}));
+			const additionalProviders = (config.providers || [])
+				.filter((p) => !p.id.startsWith("__lab_")) // Lab providers are auto-managed
+				.map((p) => ({
+					...p,
+					isDefault: false,
+				}));
 			setAiProviders([mainProvider, ...additionalProviders]);
 			setDefaultProviderId("__main__");
 
@@ -979,6 +984,47 @@ export function Settings() {
 		fetchCollections,
 		fetchTags,
 	]);
+
+	// Auto-sync lab providers to Rust backend AiConfig.providers
+	// when lab configuration changes (enabled/disabled, keys, models)
+	useEffect(() => {
+		const syncLabProviders = async () => {
+			try {
+				const config = await commands.getAiConfig();
+				// Get existing non-lab providers
+				const existingProviders = (config.providers || []).filter(
+					(p) => !p.id.startsWith("__lab_"),
+				);
+				// Build lab providers if enabled
+				const labProviders = labFreeLlmEnabled
+					? labConfiguredProviderIds.map((pid) => {
+							const fp = FREE_PROVIDERS.find((p) => p.id === pid);
+							const modelsForProvider = labFetchedModels[pid] || [];
+							return {
+								id: `__lab_${pid}`,
+								name: `${fp?.displayName || pid} 🧪`,
+								baseUrl: fp?.baseURL || "",
+								apiKey: labProviderKeys[pid] || undefined,
+								models: modelsForProvider,
+							};
+						})
+					: [];
+				// Merge and save
+				await commands.updateAiConfig({
+					providers: [...existingProviders.map((p) => ({
+						id: p.id,
+						name: p.name,
+						baseUrl: p.baseUrl,
+						apiKey: undefined, // preserve existing
+						models: p.models,
+					})), ...labProviders],
+				});
+			} catch (err) {
+				console.error("[lab] Failed to sync lab providers to AI config:", err);
+			}
+		};
+		syncLabProviders();
+	}, [labFreeLlmEnabled, labConfiguredProviderIds, labProviderKeys, labFetchedModels]);
 
 	const handleExportAll = async () => {
 		try {
@@ -1200,13 +1246,30 @@ export function Settings() {
 					abstractSystem: promptAbstractSystem,
 					abstractUser: promptAbstractUser,
 				},
-				providers: otherProviders.map((p) => ({
-					id: p.id,
-					name: p.name,
-					baseUrl: p.baseUrl,
-					apiKey: pendingProviderKeys[p.id] || undefined,
-					models: p.models,
-				})),
+				providers: [
+					// User-configured providers
+					...otherProviders.map((p) => ({
+						id: p.id,
+						name: p.name,
+						baseUrl: p.baseUrl,
+						apiKey: pendingProviderKeys[p.id] || undefined,
+						models: p.models,
+					})),
+					// Auto-inject lab providers (when lab is enabled)
+					...(labFreeLlmEnabled
+						? labConfiguredProviderIds.map((pid) => {
+								const fp = FREE_PROVIDERS.find((p) => p.id === pid);
+								const modelsForProvider = labFetchedModels[pid] || [];
+								return {
+									id: `__lab_${pid}`,
+									name: `${fp?.displayName || pid} 🧪`,
+									baseUrl: fp?.baseURL || "",
+									apiKey: labProviderKeys[pid] || undefined,
+									models: modelsForProvider,
+								};
+							})
+						: []),
+				],
 				taskModelDefaults: {
 					quickTranslation: taskQuickModel,
 					normalTranslation: taskNormalModel,
@@ -2487,10 +2550,10 @@ export function Settings() {
 												{freeModels.length > 0 && providerModels.length > 0 && (
 													<option disabled>────────────</option>
 												)}
-												{freeModels.map((m) => (
-													<option key={m.id} value={m.id}>
-														🆓 {m.displayName}
-													</option>
+										{freeModels.map((m) => (
+											<option key={m.id} value={m.id}>
+												{m.displayName}
+											</option>
 												))}
 											</select>
 										);
@@ -2520,10 +2583,10 @@ export function Settings() {
 										const modelOptions = [
 											{ value: "", label: t("settings.useGlobalDefault") },
 											...providerModels.map((m) => ({ value: m, label: m })),
-											...freeModels.map((m) => ({
-												value: m.id,
-												label: `🆓 ${m.displayName}`,
-											})),
+										...freeModels.map((m) => ({
+											value: m.id,
+											label: m.displayName,
+										})),
 										];
 										return (
 											<div className="grid gap-2.5">
@@ -4442,21 +4505,9 @@ function LabSection() {
 
 			{freeLlmEnabled && (
 				<>
-					{/* Service Status */}
+					{/* Provider count */}
 					<div className="flex items-center gap-2 text-xs">
-						<span className="text-muted-foreground">{t("settings.labServiceStatus")}:</span>
-						{serviceRunning ? (
-							<span className="flex items-center gap-1 text-green-600">
-								<CheckCircle className="h-3 w-3" />
-								{t("settings.labServiceRunning")}
-							</span>
-						) : (
-							<span className="flex items-center gap-1 text-muted-foreground">
-								<Square className="h-3 w-3" />
-								{t("settings.labServiceStopped")}
-							</span>
-						)}
-						<span className="ml-auto text-muted-foreground">
+						<span className="text-muted-foreground">
 							{t("settings.labProvidersConfiguredCount", {
 								configured: configuredCount,
 								total: FREE_PROVIDERS.length,
@@ -4694,7 +4745,7 @@ function LabSection() {
 							)}
 							{availableModels.map((m) => (
 								<option key={m.id} value={m.id}>
-									🆓 {m.displayName}
+									{m.displayName}
 								</option>
 							))}
 						</select>

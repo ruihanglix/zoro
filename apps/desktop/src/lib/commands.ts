@@ -1473,3 +1473,16 @@ export const pluginAiChatStream = (
 
 export const pluginAiGetModels = () =>
 	invoke<PluginModelInfo[]>("plugin_ai_get_models");
+
+// ── HTTP Proxy (bypass browser CORS) ─────────────────────────────────────────
+
+export interface ProxyResponse {
+	status: number;
+	headers: Record<string, string>;
+	body: string;
+}
+
+export const httpProxyGet = (
+	url: string,
+	headers?: Record<string, string>,
+) => invoke<ProxyResponse>("http_proxy_get", { url, headers: headers ?? null });

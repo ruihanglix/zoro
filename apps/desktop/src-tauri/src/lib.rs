@@ -418,6 +418,8 @@ pub fn run() {
             commands::plugins::plugin_ai_chat,
             commands::plugins::plugin_ai_chat_stream,
             commands::plugins::plugin_ai_get_models,
+            // HTTP Proxy (bypass browser CORS)
+            commands::http_proxy::http_proxy_get,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
