@@ -379,8 +379,49 @@ export const useLabStore = create<LabState>((set, get) => {
 				console.log(`[lab]   Parsed ${modelIds.length} model(s)${modelIds.length > 0 ? `: ${modelIds.slice(0, 5).join(", ")}${modelIds.length > 5 ? ` ... +${modelIds.length - 5} more` : ""}` : ""}`);
 
 				if (modelIds.length > 0) {
-					const fetched = { ...get().fetchedModels, [providerId]: modelIds };
-					set({ fetchedModels: fetched });
+					const currentState = get();
+					const prevModels = currentState.fetchedModels[providerId]; // undefined on first fetch
+					const disabled = new Set(currentState.disabledModels);
+					const newModelSet = new Set(modelIds);
+
+					if (!prevModels) {
+						// ── First fetch for this provider ──
+						// Only enable models whose id contains "free" (case-insensitive)
+						for (const mid of modelIds) {
+							if (!mid.toLowerCase().includes("free")) {
+								disabled.add(`${providerId}:${mid}`);
+							}
+						}
+					} else {
+						// ── Subsequent fetch ──
+						const prevSet = new Set(prevModels);
+						const userTouched = new Set<string>(); // models that existed before → preserve user choice
+						for (const mid of prevModels) {
+							userTouched.add(`${providerId}:${mid}`);
+						}
+
+						// 1) Remove stale entries for models that no longer exist
+						for (const mid of prevModels) {
+							if (!newModelSet.has(mid)) {
+								disabled.delete(`${providerId}:${mid}`);
+							}
+						}
+
+						// 2) For newly appeared models, default-disable if not "free"
+						for (const mid of modelIds) {
+							if (!prevSet.has(mid)) {
+								// Brand new model — user has never touched it
+								if (!mid.toLowerCase().includes("free")) {
+									disabled.add(`${providerId}:${mid}`);
+								}
+							}
+							// Existing models: do NOT touch — preserve user's choice
+						}
+					}
+
+					saveSetting("disabled-models", Array.from(disabled));
+					const fetched = { ...currentState.fetchedModels, [providerId]: modelIds };
+					set({ fetchedModels: fetched, disabledModels: disabled });
 				} else {
 					console.warn(`[lab]   No models parsed from response. Full response (first 500 chars): ${resp.body.slice(0, 500)}`);
 				}
