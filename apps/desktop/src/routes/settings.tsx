@@ -22,6 +22,12 @@ import type { SupportedLanguage } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 import { createPluginSDK } from "@/plugins/PluginManager";
 import { usePluginStore } from "@/plugins/pluginStore";
+import {
+	FREE_MODELS,
+	FREE_PROVIDERS,
+	useLabStore,
+} from "@/stores/labStore";
+import type { ListenAddress } from "@/stores/labStore";
 import { useLibraryStore } from "@/stores/libraryStore";
 import { useTranslationStore } from "@/stores/translationStore";
 import { useUiStore } from "@/stores/uiStore";
@@ -41,7 +47,9 @@ import {
 	ChevronRight,
 	Cloud,
 	Download,
+	ExternalLink,
 	FileText,
+	FlaskConical,
 	FolderOpen,
 	Globe,
 	GraduationCap,
@@ -61,6 +69,7 @@ import {
 	Rss,
 	Search,
 	SlidersHorizontal,
+	Share2,
 	Square,
 	Star,
 	Sun,
@@ -77,6 +86,7 @@ type SettingsSection =
 	| "ai-translation"
 	| "ai-pdf-translation"
 	| "ai-mcp"
+	| "ai-lab"
 	| "general"
 	| "connector"
 	| "subscriptions"
@@ -107,6 +117,7 @@ const NAV_GROUPS: NavGroup[] = [
 				icon: FileText,
 			},
 			{ id: "ai-mcp", labelKey: "settings.navMcpServer", icon: Terminal },
+			{ id: "ai-lab", labelKey: "settings.navLab", icon: FlaskConical },
 		],
 	},
 	{
@@ -636,6 +647,10 @@ export function Settings() {
 	const resetHtmlReaderTypography = useUiStore(
 		(s) => s.resetHtmlReaderTypography,
 	);
+
+	// Lab store — Free LLM Proxy
+	const labFreeLlmEnabled = useLabStore((s) => s.freeLlmEnabled);
+	const labAvailableModels = useLabStore((s) => s.getAvailableModels)();
 
 	const subscriptions = useLibraryStore((s) => s.subscriptions);
 	const fetchSubscriptions = useLibraryStore((s) => s.fetchSubscriptions);
@@ -2434,7 +2449,7 @@ export function Settings() {
 									)}
 								</div>
 
-								{/* --- Global Default Model --- */}
+							{/* --- Global Default Model --- */}
 								<div className="space-y-2 border rounded-lg p-3">
 									<div>
 										<h4 className="text-sm font-medium">
@@ -2445,23 +2460,37 @@ export function Settings() {
 										</p>
 									</div>
 									{(() => {
-										const allModels = Array.from(
+										const providerModels = Array.from(
 											new Set(aiProviders.flatMap((p) => p.models)),
 										).sort();
+										const freeModels = labFreeLlmEnabled
+											? labAvailableModels.filter(
+													(m) => !providerModels.includes(m.id),
+												)
+											: [];
+										const hasModels = providerModels.length > 0 || freeModels.length > 0;
 										return (
 											<select
 												value={globalDefaultModel}
 												onChange={(e) => setGlobalDefaultModel(e.target.value)}
 												className="h-8 w-full rounded-md border bg-transparent px-2 text-sm"
 											>
-												{allModels.length === 0 && (
+												{!hasModels && (
 													<option value="">
 														{t("settings.noModelsConfigured")}
 													</option>
 												)}
-												{allModels.map((m) => (
+												{providerModels.map((m) => (
 													<option key={m} value={m}>
 														{m}
+													</option>
+												))}
+												{freeModels.length > 0 && providerModels.length > 0 && (
+													<option disabled>────────────</option>
+												)}
+												{freeModels.map((m) => (
+													<option key={m.id} value={m.id}>
+														🆓 {m.displayName}
 													</option>
 												))}
 											</select>
@@ -2481,12 +2510,21 @@ export function Settings() {
 									</div>
 									{(() => {
 										// Collect all unique model names across all providers
-										const allModels = Array.from(
+										const providerModels = Array.from(
 											new Set(aiProviders.flatMap((p) => p.models)),
 										).sort();
+										const freeModels = labFreeLlmEnabled
+											? labAvailableModels.filter(
+													(m) => !providerModels.includes(m.id),
+												)
+											: [];
 										const modelOptions = [
 											{ value: "", label: t("settings.useGlobalDefault") },
-											...allModels.map((m) => ({ value: m, label: m })),
+											...providerModels.map((m) => ({ value: m, label: m })),
+											...freeModels.map((m) => ({
+												value: m.id,
+												label: `🆓 ${m.displayName}`,
+											})),
 										];
 										return (
 											<div className="grid gap-2.5">
@@ -4277,6 +4315,8 @@ export function Settings() {
 							</div>
 						)}
 
+						{section === "ai-lab" && <LabSection />}
+
 						{section === "plugins-general" && <PluginsGeneralSection />}
 
 						{/* Dynamic plugin settings sections */}
@@ -4305,6 +4345,395 @@ export function Settings() {
 }
 
 /** Plugins General section — manage installed + dev plugins. */
+function LabSection() {
+	const { t } = useTranslation();
+	const {
+		freeLlmEnabled,
+		setFreeLlmEnabled,
+		providerKeys,
+		setProviderKey,
+		defaultFreeModel,
+		setDefaultFreeModel,
+		port,
+		setPort,
+		shareEnabled,
+		setShareEnabled,
+		listenAddress,
+		setListenAddress,
+		serviceRunning,
+		configuredProviderIds,
+		getAvailableModels,
+	} = useLabStore();
+
+	const [showMoreProviders, setShowMoreProviders] = useState(false);
+	const [editingKeys, setEditingKeys] = useState<Record<string, string>>({});
+	const [copied, setCopied] = useState(false);
+
+	const primaryProviders = FREE_PROVIDERS.filter((p) => p.tier === "primary");
+	const secondaryProviders = FREE_PROVIDERS.filter(
+		(p) => p.tier === "secondary",
+	);
+	const visibleProviders = showMoreProviders
+		? FREE_PROVIDERS
+		: primaryProviders;
+
+	const availableModels = getAvailableModels();
+	const configuredCount = configuredProviderIds.length;
+
+	const handleSaveKey = (providerId: string) => {
+		const key = editingKeys[providerId]?.trim();
+		if (key) {
+			setProviderKey(providerId, key);
+			setEditingKeys((prev) => {
+				const next = { ...prev };
+				delete next[providerId];
+				return next;
+			});
+		}
+	};
+
+	const apiEndpoint = `http://${listenAddress === "0.0.0.0" ? listenAddress : "127.0.0.1"}:${port}/v1`;
+
+	const handleCopy = async () => {
+		await navigator.clipboard.writeText(apiEndpoint);
+		setCopied(true);
+		setTimeout(() => setCopied(false), 2000);
+	};
+
+	return (
+		<div className="space-y-5">
+			{/* Title + Toggle */}
+			<div>
+				<h3 className="text-sm font-semibold">{t("settings.labFreeLlmTitle")}</h3>
+				<p className="text-[11px] text-muted-foreground mt-1">
+					{t("settings.labFreeLlmDesc")}
+				</p>
+				<div className="flex items-center gap-3 mt-3">
+					<button
+						type="button"
+						onClick={() => setFreeLlmEnabled(!freeLlmEnabled)}
+						className={cn(
+							"relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors",
+							freeLlmEnabled ? "bg-primary" : "bg-muted-foreground/30",
+						)}
+					>
+						<span
+							className={cn(
+								"pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow-sm transition-transform",
+								freeLlmEnabled ? "translate-x-4" : "translate-x-0",
+							)}
+						/>
+					</button>
+					<span className="text-xs font-medium">
+						{t("settings.labFreeLlmEnabled")}
+					</span>
+				</div>
+			</div>
+
+			{freeLlmEnabled && (
+				<>
+					{/* Service Status */}
+					<div className="flex items-center gap-2 text-xs">
+						<span className="text-muted-foreground">{t("settings.labServiceStatus")}:</span>
+						{serviceRunning ? (
+							<span className="flex items-center gap-1 text-green-600">
+								<CheckCircle className="h-3 w-3" />
+								{t("settings.labServiceRunning")}
+							</span>
+						) : (
+							<span className="flex items-center gap-1 text-muted-foreground">
+								<Square className="h-3 w-3" />
+								{t("settings.labServiceStopped")}
+							</span>
+						)}
+						<span className="ml-auto text-muted-foreground">
+							{t("settings.labProvidersConfiguredCount", {
+								configured: configuredCount,
+								total: FREE_PROVIDERS.length,
+							})}
+						</span>
+					</div>
+
+					<Separator />
+
+					{/* Provider Configuration */}
+					<div>
+						<h4 className="text-sm font-medium mb-1">
+							{t("settings.labProviderConfig")}
+						</h4>
+						<p className="text-[11px] text-muted-foreground mb-3">
+							{t("settings.labProviderConfigHint")}
+						</p>
+
+						<div className="space-y-2">
+							{visibleProviders.map((provider) => {
+								const isConfigured = configuredProviderIds.includes(provider.id);
+								const isEditing = editingKeys[provider.id] !== undefined;
+								return (
+									<div
+										key={provider.id}
+										className={cn(
+											"flex items-center gap-3 rounded-md border p-2.5 transition-colors",
+											isConfigured
+												? "border-green-500/30 bg-green-50/50 dark:bg-green-950/20"
+												: "border-border",
+										)}
+									>
+										<div className="min-w-0 flex-1">
+											<div className="flex items-center gap-2">
+												<span className="text-sm font-medium">
+													{provider.displayName}
+												</span>
+												{isConfigured && (
+													<Badge
+														variant="secondary"
+														className="text-[10px] h-4 px-1.5 text-green-700 dark:text-green-400 bg-green-100 dark:bg-green-900/40"
+													>
+														{t("settings.labConfigured")}
+													</Badge>
+												)}
+											</div>
+
+											{isEditing ? (
+												<div className="flex items-center gap-1.5 mt-1.5">
+													<input
+														type="password"
+														placeholder={provider.keyPrefix ? `${provider.keyPrefix}...` : t("onboarding.freeProviderApiKeyPlaceholder")}
+														value={editingKeys[provider.id] || ""}
+														onChange={(e) =>
+															setEditingKeys((prev) => ({
+																...prev,
+																[provider.id]: e.target.value,
+															}))
+														}
+														onKeyDown={(e) => {
+															if (e.key === "Enter") handleSaveKey(provider.id);
+														}}
+														className="h-7 flex-1 rounded-md border bg-transparent px-2 text-xs"
+														autoFocus
+													/>
+													<Button
+														variant="default"
+														size="sm"
+														className="h-7 px-2 text-xs"
+														disabled={!editingKeys[provider.id]?.trim()}
+														onClick={() => handleSaveKey(provider.id)}
+													>
+														{t("common.save")}
+													</Button>
+													<Button
+														variant="ghost"
+														size="sm"
+														className="h-7 px-2 text-xs"
+														onClick={() =>
+															setEditingKeys((prev) => {
+																const next = { ...prev };
+																delete next[provider.id];
+																return next;
+															})
+														}
+													>
+														{t("common.cancel")}
+													</Button>
+												</div>
+											) : (
+												<div className="flex items-center gap-1.5 mt-0.5">
+													{!isConfigured && (
+														<Button
+															variant="outline"
+															size="sm"
+															className="h-6 px-2 text-[11px]"
+															onClick={() =>
+																setEditingKeys((prev) => ({
+																	...prev,
+																	[provider.id]: "",
+																}))
+															}
+														>
+															{t("settings.apiKey")}
+														</Button>
+													)}
+													{isConfigured && (
+														<Button
+															variant="ghost"
+															size="sm"
+															className="h-6 px-2 text-[11px]"
+															onClick={() =>
+																setEditingKeys((prev) => ({
+																	...prev,
+																	[provider.id]: "",
+																}))
+															}
+														>
+															<Pencil className="h-3 w-3 mr-1" />
+															{t("common.update")}
+														</Button>
+													)}
+												</div>
+											)}
+										</div>
+										<a
+											href={provider.signUpUrl}
+											target="_blank"
+											rel="noopener noreferrer"
+											className="flex items-center gap-1 text-[11px] text-primary hover:underline shrink-0"
+										>
+											{t("settings.labGetKey")}
+											<ExternalLink className="h-3 w-3" />
+										</a>
+									</div>
+								);
+							})}
+						</div>
+
+						{secondaryProviders.length > 0 && (
+							<button
+								type="button"
+								className="flex items-center gap-1 mt-2 text-xs text-muted-foreground hover:text-foreground transition-colors"
+								onClick={() => setShowMoreProviders(!showMoreProviders)}
+							>
+								{showMoreProviders ? (
+									<>
+										<ChevronDown className="h-3 w-3" />
+										{t("settings.labShowLess")}
+									</>
+								) : (
+									<>
+										<ChevronRight className="h-3 w-3" />
+										{t("settings.labShowMore")} ({secondaryProviders.length})
+									</>
+								)}
+							</button>
+						)}
+					</div>
+
+					<Separator />
+
+					{/* Default Free Model */}
+					<div className="space-y-2">
+						<div>
+							<h4 className="text-sm font-medium">
+								{t("settings.labDefaultModel")}
+							</h4>
+						</div>
+						<select
+							value={defaultFreeModel}
+							onChange={(e) => setDefaultFreeModel(e.target.value)}
+							className="h-8 w-full rounded-md border bg-transparent px-2 text-sm"
+						>
+							{availableModels.length === 0 && (
+								<option value="">{t("settings.noModelsConfigured")}</option>
+							)}
+							{availableModels.map((m) => (
+								<option key={m.id} value={m.id}>
+									🆓 {m.displayName}
+								</option>
+							))}
+						</select>
+					</div>
+
+					<Separator />
+
+					{/* Share API */}
+					<div className="space-y-3">
+						<div>
+							<h4 className="text-sm font-medium">
+								{t("settings.labShareApi")}
+							</h4>
+							<p className="text-[11px] text-muted-foreground mt-0.5">
+								{t("settings.labShareApiDesc")}
+							</p>
+						</div>
+
+						<div className="flex items-center gap-3">
+							<button
+								type="button"
+								onClick={() => setShareEnabled(!shareEnabled)}
+								className={cn(
+									"relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors",
+									shareEnabled ? "bg-primary" : "bg-muted-foreground/30",
+								)}
+							>
+								<span
+									className={cn(
+										"pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow-sm transition-transform",
+										shareEnabled ? "translate-x-4" : "translate-x-0",
+									)}
+								/>
+							</button>
+							<span className="text-xs font-medium">
+								{t("settings.labShareEnabled")}
+							</span>
+						</div>
+
+						{shareEnabled && (
+							<div className="space-y-2 rounded-md border p-3 bg-muted/30">
+								<div className="flex items-center gap-3">
+									<label className="text-xs font-medium w-28 shrink-0">
+										{t("settings.labListenAddress")}
+									</label>
+									<select
+										value={listenAddress}
+										onChange={(e) =>
+											setListenAddress(e.target.value as ListenAddress)
+										}
+										className="h-7 flex-1 rounded-md border bg-transparent px-2 text-xs"
+									>
+										<option value="127.0.0.1">
+											{t("settings.labLocalOnly")}
+										</option>
+										<option value="0.0.0.0">
+											{t("settings.labAllInterfaces")}
+										</option>
+									</select>
+								</div>
+
+								<div className="flex items-center gap-3">
+									<label className="text-xs font-medium w-28 shrink-0">
+										{t("settings.labPort")}
+									</label>
+									<input
+										type="number"
+										value={port}
+										onChange={(e) =>
+											setPort(Math.max(1024, Math.min(65535, Number(e.target.value))))
+										}
+										className="h-7 w-24 rounded-md border bg-transparent px-2 text-xs"
+									/>
+								</div>
+
+								<div className="flex items-center gap-3">
+									<label className="text-xs font-medium w-28 shrink-0">
+										{t("settings.labApiEndpoint")}
+									</label>
+									<code className="flex-1 text-xs bg-muted rounded px-2 py-1 font-mono truncate">
+										{apiEndpoint}
+									</code>
+									<Button
+										variant="outline"
+										size="sm"
+										className="h-7 px-2 text-xs shrink-0"
+										onClick={handleCopy}
+									>
+										{copied ? t("common.copied") : t("settings.labCopyAddress")}
+									</Button>
+								</div>
+
+								{listenAddress === "0.0.0.0" && (
+									<div className="flex items-start gap-2 rounded-md border border-yellow-500/30 bg-yellow-50 dark:bg-yellow-950/20 p-2 text-xs text-yellow-700 dark:text-yellow-400">
+										<AlertCircle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+										<span>{t("settings.labShareWarning")}</span>
+									</div>
+								)}
+							</div>
+						)}
+					</div>
+				</>
+			)}
+		</div>
+	);
+}
+
 function PluginsGeneralSection() {
 	const { t } = useTranslation();
 	const plugins = usePluginStore((s) => s.plugins);
