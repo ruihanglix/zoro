@@ -644,7 +644,6 @@ export function Settings() {
 
 	// Lab store — Free LLM Proxy
 	const labEnabled = useLabStore((s) => s.enabled);
-	const labEnabledModels = useLabStore((s) => s.getEnabledModels)();
 	const labProxyStatus = useLabStore((s) => s.proxyStatus);
 	const labInitialize = useLabStore((s) => s.initialize);
 
@@ -889,8 +888,8 @@ export function Settings() {
 				isDefault: false,
 			};
 			const additionalProviders = (config.providers || [])
-				// Hide all internal lab providers (__lab_proxy__, __lab_opencode_zen, __lab_router, etc.)
-				.filter((p) => !p.id.startsWith("__lab_"))
+				// Hide old internal lab providers, but keep __lab_proxy__ visible
+				.filter((p) => !p.id.startsWith("__lab_") || p.id === "__lab_proxy__")
 				.map((p) => ({
 					...p,
 					isDefault: false,
@@ -1007,14 +1006,26 @@ export function Settings() {
 				const labProviders: { id: string; name: string; baseUrl: string; apiKey?: string; models: string[] }[] = [];
 				if (labEnabled && labProxyStatus?.running) {
 					const proxyBaseUrl = `http://127.0.0.1:${labProxyStatus.port}/v1`;
-					const enabledModelIds = labEnabledModels.map((m) => m.id);
-					if (enabledModelIds.length > 0) {
+					// Fetch models from the proxy's /v1/models endpoint (same as regular providers)
+					let modelIds: string[] = [];
+					try {
+						const resp = await commands.httpProxyGet(`${proxyBaseUrl}/models`, {});
+						if (resp.status >= 200 && resp.status < 300) {
+							const json = JSON.parse(resp.body);
+							if (Array.isArray(json.data)) {
+								modelIds = json.data.map((m: { id?: string }) => m.id ?? "").filter(Boolean);
+							}
+						}
+					} catch (fetchErr) {
+						console.warn("[lab] Failed to fetch models from proxy /v1/models:", fetchErr);
+					}
+					if (modelIds.length > 0) {
 						labProviders.push({
 							id: "__lab_proxy__",
 							name: "Lab LLM Proxy 🧪",
 							baseUrl: proxyBaseUrl,
 							apiKey: "", // no auth needed for local proxy
-							models: enabledModelIds,
+							models: modelIds,
 						});
 					}
 				}
@@ -1028,12 +1039,14 @@ export function Settings() {
 						models: p.models,
 					})), ...labProviders],
 				});
+				// Reload AI config to pick up the new models in UI
+				await loadAiConfig();
 			} catch (err) {
 				console.error("[lab] Failed to sync lab proxy provider to AI config:", err);
 			}
 		};
 		syncLabProxyProvider();
-	}, [labEnabled, labProxyStatus, labEnabledModels]);
+	}, [labEnabled, labProxyStatus, loadAiConfig]);
 
 	const handleExportAll = async () => {
 		try {
@@ -1241,6 +1254,23 @@ export function Settings() {
 			// default model belongs to a different provider.
 			const mainP = aiProviders.find((p) => p.id === "__main__");
 
+			// Fetch lab proxy models from /v1/models endpoint (same as regular providers)
+			let labProxyModels: string[] = [];
+			if (labEnabled && labProxyStatus?.running) {
+				try {
+					const proxyBaseUrl = `http://127.0.0.1:${labProxyStatus.port}/v1`;
+					const resp = await commands.httpProxyGet(`${proxyBaseUrl}/models`, {});
+					if (resp.status >= 200 && resp.status < 300) {
+						const json = JSON.parse(resp.body);
+						if (Array.isArray(json.data)) {
+							labProxyModels = json.data.map((m: { id?: string }) => m.id ?? "").filter(Boolean);
+						}
+					}
+				} catch (fetchErr) {
+					console.warn("[lab] Failed to fetch proxy models during save:", fetchErr);
+				}
+			}
+
 			await commands.updateAiConfig({
 				provider: "",
 				baseUrl: mainP?.baseUrl || "",
@@ -1267,14 +1297,14 @@ export function Settings() {
 						apiKey: pendingProviderKeys[p.id] || undefined,
 						models: p.models,
 					})),
-					// Auto-inject lab proxy provider (when lab is enabled and proxy is running)
-					...(labEnabled && labProxyStatus?.running
+				// Auto-inject lab proxy provider (when lab is enabled and proxy is running)
+					...(labEnabled && labProxyStatus?.running && labProxyModels.length > 0
 						? [{
 								id: "__lab_proxy__",
 								name: "Lab LLM Proxy 🧪",
 								baseUrl: `http://127.0.0.1:${labProxyStatus.port}/v1`,
 								apiKey: "",
-								models: labEnabledModels.map((m) => m.id),
+								models: labProxyModels,
 							}]
 						: []),
 				],
@@ -2539,37 +2569,23 @@ export function Settings() {
 									</div>
 									{(() => {
 										const providerModels = Array.from(
-											new Set(aiProviders.flatMap((p) => p.models)),
-										).sort();
-										const freeModels = labEnabled && labProxyStatus?.running
-											? labEnabledModels.filter(
-													(m) => !providerModels.includes(m.id),
-												)
-											: [];
-										const hasModels = providerModels.length > 0 || freeModels.length > 0;
-										return (
-											<select
-												value={globalDefaultModel}
-												onChange={(e) => setGlobalDefaultModel(e.target.value)}
-												className="h-8 w-full rounded-md border bg-transparent px-2 text-sm"
-											>
-												{!hasModels && (
-													<option value="">
-														{t("settings.noModelsConfigured")}
-													</option>
-												)}
-											{providerModels.map((m) => (
+												new Set(aiProviders.flatMap((p) => p.models)),
+											).sort();
+											return (
+												<select
+													value={globalDefaultModel}
+													onChange={(e) => setGlobalDefaultModel(e.target.value)}
+													className="h-8 w-full rounded-md border bg-transparent px-2 text-sm"
+												>
+													{providerModels.length === 0 && (
+														<option value="">
+															{t("settings.noModelsConfigured")}
+														</option>
+													)}
+												{providerModels.map((m) => (
 													<option key={m} value={m}>
 														{m}
 													</option>
-												))}
-												{freeModels.length > 0 && providerModels.length > 0 && (
-													<option disabled>────────────</option>
-												)}
-								{freeModels.map((m) => (
-									<option key={m.id} value={m.id}>
-										{m.name || m.id}
-									</option>
 												))}
 											</select>
 										);
@@ -2591,19 +2607,10 @@ export function Settings() {
 										const providerModels = Array.from(
 											new Set(aiProviders.flatMap((p) => p.models)),
 										).sort();
-										const freeModels = labEnabled && labProxyStatus?.running
-											? labEnabledModels.filter(
-													(m) => !providerModels.includes(m.id),
-												)
-											: [];
-									const modelOptions = [
-											{ value: "", label: t("settings.useGlobalDefault") },
-...providerModels.map((m) => ({ value: m, label: m })),
-									...freeModels.map((m) => ({
-										value: m.id,
-										label: m.name || m.id,
-									})),
-										];
+										const modelOptions = [
+												{ value: "", label: t("settings.useGlobalDefault") },
+												...providerModels.map((m) => ({ value: m, label: m })),
+												];
 										return (
 											<div className="grid gap-2.5">
 												<div className="flex items-center gap-3">

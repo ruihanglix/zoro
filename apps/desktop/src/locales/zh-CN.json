@@ -56,6 +56,12 @@
 		"test": "测试",
 		"more": "更多",
 		"collapse": "收起",
+		"expand": "展开",
+		"forward": "前进",
+		"logs": "日志",
+		"noEntries": "暂无条目",
+		"openInBrowser": "在浏览器中打开",
+		"unableToLoadPage": "无法加载页面",
 		"showAllAuthors": "展开全部 {{count}} 位隐藏作者"
 	},
 	"sidebar": {
@@ -109,7 +115,14 @@
 		"tableView": "表格视图",
 		"cardView": "卡片视图",
 		"listView": "列表视图",
-		"resetColumns": "重置列"
+		"resetColumns": "重置列",
+		"importingFiles": "正在导入文件...",
+		"importedPapers": "已导入 {{count}} 篇论文",
+		"importedAndSkipped": "已导入 {{imported}} 篇论文，跳过 {{skipped}} 篇重复",
+		"noPapersImported": "未导入论文（跳过 {{skipped}} 篇重复）",
+		"importFailed": "导入失败：{{error}}",
+		"addedAttachments": "已添加 {{count}} 个附件",
+		"failedAddAttachment": "添加附件失败：{{error}}"
 	},
 	"paper": {
 		"abstract": "摘要",
@@ -283,7 +296,13 @@
 		"noPapersFound": "未找到论文",
 		"selectCategoryOrVenue": "选择一个类别或会议来浏览",
 		"adding": "添加中...",
-		"pdfOpens": "PDF 打开次数"
+		"pdfOpens": "PDF 打开次数",
+		"addBookmark": "添加书签",
+		"removeBookmark": "移除书签",
+		"searchPapers": "搜索论文",
+		"openArxiv": "在 arXiv 上打开",
+		"openPapersCool": "在 Papers.cool 上打开",
+		"today": "今日"
 	},
 	"reader": {
 		"eraser": "橡皮擦",
@@ -360,7 +379,9 @@
 		"noAnnotationsYet": "暂无批注",
 		"selectTextToHighlight": "选择文本进行高亮",
 		"typographySettings": "排版设置",
-		"resetToDefault": "恢复默认"
+		"resetToDefault": "恢复默认",
+		"originalOnly": "仅显示原文",
+		"translatedOnly": "仅显示译文"
 	},
 	"agent": {
 		"showHistory": "显示历史",
@@ -402,10 +423,15 @@
 		"typeToSearch": "输入以搜索论文",
 		"enterUrl": "输入 URL：",
 		"enterVideoUrl": "输入视频 URL（YouTube、Vimeo 或直链）：",
-		"heading": "标题 {{level}}"
+		"heading": "标题 {{level}}",
+		"addTag": "添加标签",
+		"clickToRename": "点击重命名",
+		"noteNotFound": "未找到笔记",
+		"searchPapers": "搜索论文...",
+		"tagPlaceholder": "添加标签...",
+		"typeToSearchPapers": "输入以搜索论文"
 	},
-	"settings": {
-		"title": "设置",
+	"settings": {		"title": "设置",
 		"appearance": "外观",
 		"startupDefaults": "启动默认设置",
 		"behavior": "行为",

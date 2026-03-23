@@ -55,7 +55,13 @@
 		"adding": "Adding...",
 		"test": "Test",
 		"more": "더보기",
-		"collapse": "접기",
+"collapse": "접기",
+		"expand": "펼치기",
+		"forward": "앞으로",
+		"logs": "로그",
+		"noEntries": "항목 없음",
+		"openInBrowser": "브라우저에서 열기",
+		"unableToLoadPage": "페이지를 로드할 수 없습니다",
 		"showAllAuthors": "숨겨진 저자 {{count}}명 표시"
 	},
 	"sidebar": {
@@ -109,7 +115,14 @@
 		"tableView": "테이블 보기",
 		"cardView": "카드 보기",
 		"listView": "목록 보기",
-		"resetColumns": "열 초기화"
+"resetColumns": "열 초기화",
+		"importingFiles": "파일 가져오는 중...",
+		"importedPapers": "{{count}}개 논문 가져옴",
+		"importedAndSkipped": "{{imported}}개 논문 가져옴, {{skipped}}개 중복 건너뜀",
+		"noPapersImported": "가져온 논문 없음 ({{skipped}}개 중복 건너뜀)",
+		"importFailed": "가져오기 실패: {{error}}",
+		"addedAttachments": "{{count}}개 첨부파일 추가됨",
+		"failedAddAttachment": "첨부파일 추가 실패: {{error}}"
 	},
 	"paper": {
 		"abstract": "초록",
@@ -282,7 +295,13 @@
 		"noPapersFound": "논문을 찾을 수 없습니다",
 		"selectCategoryOrVenue": "카테고리 또는 학회를 선택하여 탐색",
 		"adding": "추가 중...",
-		"pdfOpens": "PDF 열람 수"
+"pdfOpens": "PDF 열람 수",
+		"addBookmark": "북마크 추가",
+		"removeBookmark": "북마크 제거",
+		"searchPapers": "논문 검색",
+		"openArxiv": "arXiv에서 열기",
+		"openPapersCool": "Papers.cool에서 열기",
+		"today": "오늘"
 	},
 	"reader": {
 		"eraser": "지우개",
@@ -358,8 +377,10 @@
 		"noMatchingAnnotations": "No matching annotations",
 		"noAnnotationsYet": "No annotations yet",
 		"selectTextToHighlight": "Select text to highlight",
-		"typographySettings": "타이포그래피 설정",
-		"resetToDefault": "기본값으로 재설정"
+"typographySettings": "타이포그래피 설정",
+		"resetToDefault": "기본값으로 재설정",
+		"originalOnly": "원문만 표시",
+		"translatedOnly": "번역만 표시"
 	},
 	"agent": {
 		"showHistory": "기록 보기",
@@ -401,7 +422,13 @@
 		"typeToSearch": "입력하여 논문 검색",
 		"enterUrl": "URL을 입력하세요:",
 		"enterVideoUrl": "비디오 URL을 입력하세요 (YouTube, Vimeo 또는 직접 링크):",
-		"heading": "제목 {{level}}"
+"heading": "제목 {{level}}",
+		"addTag": "태그 추가",
+		"clickToRename": "클릭하여 이름 변경",
+		"noteNotFound": "노트를 찾을 수 없습니다",
+		"searchPapers": "논문 검색...",
+		"tagPlaceholder": "태그 추가...",
+		"typeToSearchPapers": "입력하여 논문 검색"
 	},
 	"settings": {
 		"title": "설정",
@@ -690,6 +717,16 @@
 		"labSaveSettings": "실험실 설정 저장",
 		"labProvidersConfiguredCount": "{{configured}}/{{total}} 제공업체 설정됨",
 		"labRefreshModels": "모델 새로고침",
+"labRoutingStrategy": "라우팅 전략",
+		"labRoutingStrategyDesc": "설정된 무료 제공업체 간에 요청을 어떻게 분배할지 선택합니다.",
+		"labRouting_auto": "자동",
+		"labRouting_auto_desc": "우선 모델을 먼저 사용하고, 실패 시 자동으로 정상 제공업체로 전환합니다.",
+		"labRouting_round-robin": "라운드 로빈",
+		"labRouting_round-robin_desc": "모든 사용 가능한 모델을 균등하게 순환합니다. 무료 할당량 균형에 적합합니다.",
+		"labRouting_manual": "수동",
+		"labRouting_manual_desc": "고정 모델, 자동 전환 없음. 제공업체가 다운되면 즉시 실패합니다.",
+		"labDefaultModelDesc": "자동 및 수동 전략에서 사용되는 우선 모델입니다.",
+		"labDefaultModelDescRR": "라운드 로빈은 모든 모델을 순환합니다. 이 설정은 효과가 없습니다.",
 		"labSmartRouterDesc": "실험실의 무료 AI 제공자를 자동으로 순환합니다",
 		"labModelManagement": "모델 관리",
 		"labModelManagementDesc": "모델 이름을 클릭하여 활성화/비활성화합니다. 비활성화된 모델은 자동 라우팅에 사용되지 않습니다.",

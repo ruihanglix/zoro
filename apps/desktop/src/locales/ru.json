@@ -55,7 +55,13 @@
 		"adding": "Adding...",
 		"test": "Test",
 		"more": "ещё",
-		"collapse": "Свернуть",
+"collapse": "Свернуть",
+		"expand": "Развернуть",
+		"forward": "Вперёд",
+		"logs": "Журналы",
+		"noEntries": "Нет записей",
+		"openInBrowser": "Открыть в браузере",
+		"unableToLoadPage": "Не удалось загрузить страницу",
 		"showAllAuthors": "Показать {{count}} скрытых авторов"
 	},
 	"sidebar": {
@@ -109,7 +115,14 @@
 		"tableView": "Таблица",
 		"cardView": "Карточки",
 		"listView": "Список",
-		"resetColumns": "Сбросить столбцы"
+"resetColumns": "Сбросить столбцы",
+		"importingFiles": "Импорт файлов...",
+		"importedPapers": "Импортировано {{count}} статей",
+		"importedAndSkipped": "Импортировано {{imported}} статей, пропущено {{skipped}} дубликатов",
+		"noPapersImported": "Статьи не импортированы (пропущено {{skipped}} дубликатов)",
+		"importFailed": "Ошибка импорта: {{error}}",
+		"addedAttachments": "Добавлено {{count}} вложений",
+		"failedAddAttachment": "Ошибка добавления вложения: {{error}}"
 	},
 	"paper": {
 		"abstract": "Аннотация",
@@ -282,7 +295,13 @@
 		"noPapersFound": "Статьи не найдены",
 		"selectCategoryOrVenue": "Выберите категорию или конференцию для просмотра",
 		"adding": "Добавление...",
-		"pdfOpens": "Открытий PDF"
+"pdfOpens": "Открытий PDF",
+		"addBookmark": "Добавить закладку",
+		"removeBookmark": "Удалить закладку",
+		"searchPapers": "Поиск статей",
+		"openArxiv": "Открыть на arXiv",
+		"openPapersCool": "Открыть на Papers.cool",
+		"today": "Сегодня"
 	},
 	"reader": {
 		"eraser": "Ластик",
@@ -358,8 +377,10 @@
 		"noMatchingAnnotations": "No matching annotations",
 		"noAnnotationsYet": "No annotations yet",
 		"selectTextToHighlight": "Select text to highlight",
-		"typographySettings": "Настройки типографики",
-		"resetToDefault": "Сбросить по умолчанию"
+"typographySettings": "Настройки типографики",
+		"resetToDefault": "Сбросить по умолчанию",
+		"originalOnly": "Только оригинал",
+		"translatedOnly": "Только перевод"
 	},
 	"agent": {
 		"showHistory": "Показать историю",
@@ -401,7 +422,13 @@
 		"typeToSearch": "Введите для поиска статей",
 		"enterUrl": "Введите URL:",
 		"enterVideoUrl": "Введите URL видео (YouTube, Vimeo или прямая ссылка):",
-		"heading": "Заголовок {{level}}"
+"heading": "Заголовок {{level}}",
+		"addTag": "Добавить тег",
+		"clickToRename": "Нажмите для переименования",
+		"noteNotFound": "Заметка не найдена",
+		"searchPapers": "Поиск статей...",
+		"tagPlaceholder": "Добавить тег...",
+		"typeToSearchPapers": "Введите для поиска статей"
 	},
 	"settings": {
 		"title": "Настройки",
@@ -690,7 +717,26 @@
 		"labSaveSettings": "Сохранить настройки лаборатории",
 		"labProvidersConfiguredCount": "{{configured}}/{{total}} провайдеров настроено",
 		"labRefreshModels": "Обновить модели",
+"labRoutingStrategy": "Стратегия маршрутизации",
+		"labRoutingStrategyDesc": "Выберите, как распределяются запросы между настроенными бесплатными провайдерами.",
+		"labRouting_auto": "Автоматически",
+		"labRouting_auto_desc": "Сначала использует предпочтительную модель, при ошибке автоматически переключается на доступного провайдера.",
+		"labRouting_round-robin": "Round Robin",
+		"labRouting_round-robin_desc": "Равномерно чередует все доступные модели. Идеально для балансировки бесплатных квот.",
+		"labRouting_manual": "Вручную",
+		"labRouting_manual_desc": "Фиксированная модель, без автопереключения. Мгновенно завершается ошибкой, если провайдер недоступен.",
+		"labDefaultModelDesc": "Предпочтительная модель для стратегий Авто и Вручную.",
+		"labDefaultModelDescRR": "Round Robin чередует все модели. Эта настройка не действует.",
 		"labSmartRouterDesc": "Автоматический выбор из лабораторных провайдеров",
+		"labProxyRunning": "Прокси запущен",
+		"labProxyStopped": "Прокси остановлен",
+		"labProxyProviders": "провайдеров",
+		"labProxyModels": "моделей",
+		"labProxySettings": "Настройки прокси",
+		"labProxyPort": "Порт:",
+		"labLanAccess": "Разрешить доступ по LAN (0.0.0.0)",
+		"labProviderHealth": "Состояние провайдера",
+		"labOnCooldown": "Ожидание",
 		"labModelManagement": "Управление моделями",
 		"labModelManagementDesc": "Нажмите на модель для включения/отключения. Отключённые модели не используются в автоматической маршрутизации.",
 		"labModelDisabled": "Модель отключена — нажмите для включения",

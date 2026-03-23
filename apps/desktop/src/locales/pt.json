@@ -55,7 +55,13 @@
 		"adding": "Adding...",
 		"test": "Test",
 		"more": "mais",
-		"collapse": "Recolher",
+"collapse": "Recolher",
+		"expand": "Expandir",
+		"forward": "Avançar",
+		"logs": "Registros",
+		"noEntries": "Sem entradas",
+		"openInBrowser": "Abrir no navegador",
+		"unableToLoadPage": "Não foi possível carregar a página",
 		"showAllAuthors": "Mostrar {{count}} autores ocultos"
 	},
 	"sidebar": {
@@ -109,7 +115,14 @@
 		"tableView": "Visão em tabela",
 		"cardView": "Visão em cartões",
 		"listView": "Visão em lista",
-		"resetColumns": "Redefinir colunas"
+"resetColumns": "Redefinir colunas",
+		"importingFiles": "Importando arquivos...",
+		"importedPapers": "{{count}} artigo(s) importado(s)",
+		"importedAndSkipped": "{{imported}} artigo(s) importado(s), {{skipped}} duplicata(s) ignorada(s)",
+		"noPapersImported": "Nenhum artigo importado ({{skipped}} duplicata(s) ignorada(s))",
+		"importFailed": "Falha na importação: {{error}}",
+		"addedAttachments": "{{count}} anexo(s) adicionado(s)",
+		"failedAddAttachment": "Falha ao adicionar anexo: {{error}}"
 	},
 	"paper": {
 		"abstract": "Resumo",
@@ -282,7 +295,13 @@
 		"noPapersFound": "Nenhum artigo encontrado",
 		"selectCategoryOrVenue": "Selecione uma categoria ou conferência para navegar",
 		"adding": "Adicionando...",
-		"pdfOpens": "Aberturas de PDF"
+"pdfOpens": "Aberturas de PDF",
+		"addBookmark": "Adicionar favorito",
+		"removeBookmark": "Remover favorito",
+		"searchPapers": "Pesquisar artigos",
+		"openArxiv": "Abrir no arXiv",
+		"openPapersCool": "Abrir no Papers.cool",
+		"today": "Hoje"
 	},
 	"reader": {
 		"eraser": "Borracha",
@@ -358,8 +377,10 @@
 		"noMatchingAnnotations": "No matching annotations",
 		"noAnnotationsYet": "No annotations yet",
 		"selectTextToHighlight": "Select text to highlight",
-		"typographySettings": "Configurações de tipografia",
-		"resetToDefault": "Redefinir para padrão"
+"typographySettings": "Configurações de tipografia",
+		"resetToDefault": "Redefinir para padrão",
+		"originalOnly": "Apenas original",
+		"translatedOnly": "Apenas tradução"
 	},
 	"agent": {
 		"showHistory": "Mostrar histórico",
@@ -401,7 +422,13 @@
 		"typeToSearch": "Digite para pesquisar artigos",
 		"enterUrl": "Insira a URL:",
 		"enterVideoUrl": "Insira a URL do vídeo (YouTube, Vimeo ou link direto):",
-		"heading": "Título {{level}}"
+"heading": "Título {{level}}",
+		"addTag": "Adicionar tag",
+		"clickToRename": "Clique para renomear",
+		"noteNotFound": "Nota não encontrada",
+		"searchPapers": "Pesquisar artigos...",
+		"tagPlaceholder": "Adicionar uma tag...",
+		"typeToSearchPapers": "Digite para pesquisar artigos"
 	},
 	"settings": {
 		"title": "Configurações",
@@ -690,7 +717,26 @@
 		"labSaveSettings": "Salvar configurações do laboratório",
 		"labProvidersConfiguredCount": "{{configured}}/{{total}} provedores configurados",
 		"labRefreshModels": "Atualizar modelos",
+"labRoutingStrategy": "Estratégia de roteamento",
+		"labRoutingStrategyDesc": "Escolha como as requisições são distribuídas entre seus provedores gratuitos configurados.",
+		"labRouting_auto": "Automático",
+		"labRouting_auto_desc": "Usa o modelo preferido primeiro, com fallback automático para qualquer provedor disponível em caso de falha.",
+		"labRouting_round-robin": "Round Robin",
+		"labRouting_round-robin_desc": "Alterna entre todos os modelos disponíveis igualmente. Ideal para equilibrar cotas gratuitas.",
+		"labRouting_manual": "Manual",
+		"labRouting_manual_desc": "Modelo fixo, sem alternância automática. Falha imediatamente se o provedor estiver indisponível.",
+		"labDefaultModelDesc": "O modelo preferido usado pelas estratégias Auto e Manual.",
+		"labDefaultModelDescRR": "Round Robin alterna todos os modelos. Esta configuração não tem efeito.",
 		"labSmartRouterDesc": "Roteamento automático entre provedores de laboratório habilitados",
+		"labProxyRunning": "Proxy em execução",
+		"labProxyStopped": "Proxy parado",
+		"labProxyProviders": "provedores",
+		"labProxyModels": "modelos",
+		"labProxySettings": "Configurações do proxy",
+		"labProxyPort": "Porta:",
+		"labLanAccess": "Permitir acesso LAN (0.0.0.0)",
+		"labProviderHealth": "Saúde do provedor",
+		"labOnCooldown": "Em cooldown",
 		"labModelManagement": "Gerenciamento de modelos",
 		"labModelManagementDesc": "Clique em um modelo para ativar ou desativar. Modelos desativados não são usados no roteamento automático.",
 		"labModelDisabled": "Modelo desativado — clique para ativar",

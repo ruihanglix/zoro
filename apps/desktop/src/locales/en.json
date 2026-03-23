@@ -56,6 +56,12 @@
 		"test": "Test",
 		"more": "more",
 		"collapse": "Collapse",
+		"expand": "Expand",
+		"forward": "Forward",
+		"logs": "Logs",
+		"noEntries": "No entries",
+		"openInBrowser": "Open in browser",
+		"unableToLoadPage": "Unable to load page",
 		"showAllAuthors": "Show all {{count}} hidden authors"
 	},
 	"sidebar": {
@@ -109,7 +115,14 @@
 		"tableView": "Table view",
 		"cardView": "Card view",
 		"listView": "List view",
-		"resetColumns": "Reset Columns"
+		"resetColumns": "Reset Columns",
+		"importingFiles": "Importing files...",
+		"importedPapers": "Imported {{count}} paper(s)",
+		"importedAndSkipped": "Imported {{imported}} paper(s), skipped {{skipped}} duplicate(s)",
+		"noPapersImported": "No papers imported ({{skipped}} duplicate(s) skipped)",
+		"importFailed": "Import failed: {{error}}",
+		"addedAttachments": "Added {{count}} attachment(s)",
+		"failedAddAttachment": "Failed to add attachment: {{error}}"
 	},
 	"paper": {
 		"abstract": "Abstract",
@@ -283,7 +296,13 @@
 		"noPapersFound": "No papers found",
 		"selectCategoryOrVenue": "Select a category or venue to browse",
 		"adding": "Adding...",
-		"pdfOpens": "PDF opens"
+		"pdfOpens": "PDF opens",
+		"addBookmark": "Add bookmark",
+		"removeBookmark": "Remove bookmark",
+		"searchPapers": "Search papers",
+		"openArxiv": "Open on arXiv",
+		"openPapersCool": "Open on Papers.cool",
+		"today": "Today"
 	},
 	"reader": {
 		"eraser": "Eraser",
@@ -360,7 +379,9 @@
 		"noAnnotationsYet": "No annotations yet",
 		"selectTextToHighlight": "Select text to highlight",
 		"typographySettings": "Typography settings",
-		"resetToDefault": "Reset to default"
+		"resetToDefault": "Reset to default",
+		"originalOnly": "Original only",
+		"translatedOnly": "Translated only"
 	},
 	"agent": {
 		"showHistory": "Show history",
@@ -402,10 +423,15 @@
 		"typeToSearch": "Type to search papers",
 		"enterUrl": "Enter URL:",
 		"enterVideoUrl": "Enter video URL (YouTube, Vimeo, or direct link):",
-		"heading": "Heading {{level}}"
+		"heading": "Heading {{level}}",
+		"addTag": "Add tag",
+		"clickToRename": "Click to rename",
+		"noteNotFound": "Note not found",
+		"searchPapers": "Search papers...",
+		"tagPlaceholder": "Add a tag...",
+		"typeToSearchPapers": "Type to search papers"
 	},
-	"settings": {
-		"title": "Settings",
+	"settings": {		"title": "Settings",
 		"appearance": "Appearance",
 		"startupDefaults": "Startup Defaults",
 		"behavior": "Behavior",
