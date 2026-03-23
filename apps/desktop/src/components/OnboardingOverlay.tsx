@@ -9,7 +9,7 @@ import * as commands from "@/lib/commands";
 import { supportedLanguages } from "@/lib/i18n";
 import type { SupportedLanguage } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
-import { FREE_PROVIDERS, useLabStore } from "@/stores/labStore";
+import { useLabStore } from "@/stores/labStore";
 import { useTranslationStore } from "@/stores/translationStore";
 import { useUiStore } from "@/stores/uiStore";
 import {
@@ -111,8 +111,15 @@ export function OnboardingOverlay({ onComplete }: { onComplete: () => void }) {
 	const displayModeStore = useTranslationStore((s) => s.displayMode);
 
 	// Lab store for Free LLM
+	const labProviders = useLabStore((s) => s.providers);
 	const setProviderKey = useLabStore((s) => s.setProviderKey);
-	const setFreeLlmEnabled = useLabStore((s) => s.setFreeLlmEnabled);
+	const setLabEnabled = useLabStore((s) => s.setEnabled);
+	const labInitialize = useLabStore((s) => s.initialize);
+
+	// Initialize lab store on mount to load providers from backend
+	useEffect(() => {
+		labInitialize();
+	}, [labInitialize]);
 
 	// Language state — use existing config if available, otherwise infer from system language
 	const [nativeLang, setNativeLang] = useState(
@@ -200,12 +207,12 @@ export function OnboardingOverlay({ onComplete }: { onComplete: () => void }) {
 		(v) => v.trim().length > 0,
 	).length;
 
-	const primaryProviders = FREE_PROVIDERS.filter((p) => p.tier === "primary");
-	const secondaryProviders = FREE_PROVIDERS.filter(
+	const primaryProviders = labProviders.filter((p) => p.tier === "primary");
+	const secondaryProviders = labProviders.filter(
 		(p) => p.tier === "secondary",
 	);
 	const visibleProviders = showMoreProviders
-		? FREE_PROVIDERS
+		? labProviders
 		: primaryProviders;
 
 	const handleGetStarted = async () => {
@@ -217,7 +224,7 @@ export function OnboardingOverlay({ onComplete }: { onComplete: () => void }) {
 						setProviderKey(providerId, key.trim());
 					}
 				}
-				setFreeLlmEnabled(true);
+				setLabEnabled(true);
 				// Save language preferences (no custom API config needed for free mode)
 				await commands.updateAiConfig({
 					nativeLang: nativeLang,
@@ -422,17 +429,17 @@ export function OnboardingOverlay({ onComplete }: { onComplete: () => void }) {
 											)}
 										>
 											<div className="w-24 shrink-0">
-												<span className="text-xs font-medium">
-													{provider.displayName}
-												</span>
+								<span className="text-xs font-medium">
+											{provider.display_name}
+										</span>
 											</div>
 											<input
 												type="password"
-												placeholder={
-													provider.keyPrefix
-														? `${provider.keyPrefix}...`
-														: t("onboarding.freeProviderApiKeyPlaceholder")
-												}
+placeholder={
+												provider.key_prefix
+													? `${provider.key_prefix}...`
+													: t("onboarding.freeProviderApiKeyPlaceholder")
+											}
 												value={freeKeys[provider.id] || ""}
 												onChange={(e) =>
 													setFreeKeys((prev) => ({
@@ -446,7 +453,7 @@ export function OnboardingOverlay({ onComplete }: { onComplete: () => void }) {
 												<Check className="h-3.5 w-3.5 text-green-600 shrink-0" />
 											)}
 											<a
-												href={provider.signUpUrl}
+href={provider.sign_up_url}
 												target="_blank"
 												rel="noopener noreferrer"
 												className="flex items-center gap-0.5 text-[10px] text-primary hover:underline shrink-0"

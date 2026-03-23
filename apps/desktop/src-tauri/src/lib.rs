@@ -169,6 +169,14 @@ pub fn run() {
             // Initialize Chat state
             app.manage(commands::chat::ChatState::new());
 
+            // Initialize Lab (free LLM) state
+            let lab_state = commands::lab::LabState::new(&data_dir);
+            let lab_enabled = {
+                let svc = lab_state.service.blocking_lock();
+                svc.is_enabled() && svc.has_configured_providers()
+            };
+            app.manage(lab_state);
+
             // Initialize Plugin state
             let plugin_registry = zoro_plugins::PluginRegistry::new(data_dir.clone());
             app.manage(commands::plugins::PluginState {
@@ -210,6 +218,32 @@ pub fn run() {
             if config.mcp.enabled {
                 let app_handle4 = app.handle().clone();
                 let _ = commands::mcp::start_mcp_process(&app_handle4);
+            }
+
+            // Auto-start Lab proxy if enabled and has configured providers
+            if lab_enabled {
+                let app_handle_lab = app.handle().clone();
+                tauri::async_runtime::spawn(async move {
+                    let lab_state = app_handle_lab.state::<commands::lab::LabState>();
+                    // Refresh stale model caches first
+                    {
+                        let mut svc = lab_state.service.lock().await;
+                        svc.refresh_stale_models().await;
+                    }
+                    // Start the proxy
+                    let svc = lab_state.service.lock().await;
+                    let proxy_config = svc.to_proxy_config();
+                    drop(svc);
+                    match zoro_llm_proxy::ProxyServer::start(proxy_config).await {
+                        Ok(server) => {
+                            tracing::info!(port = server.port(), "Lab LLM proxy auto-started");
+                            *lab_state.proxy.lock().await = Some(server);
+                        }
+                        Err(e) => {
+                            tracing::error!(error = %e, "Failed to auto-start Lab LLM proxy");
+                        }
+                    }
+                });
             }
 
             Ok(())
@@ -420,6 +454,22 @@ pub fn run() {
             commands::plugins::plugin_ai_get_models,
             // HTTP Proxy (bypass browser CORS)
             commands::http_proxy::http_proxy_get,
+            // Lab (free LLM proxy)
+            commands::lab::lab_get_config,
+            commands::lab::lab_update_config,
+            commands::lab::lab_list_providers,
+            commands::lab::lab_set_provider_key,
+            commands::lab::lab_list_models,
+            commands::lab::lab_toggle_model,
+            commands::lab::lab_refresh_models,
+            commands::lab::lab_set_strategy,
+            commands::lab::lab_start_proxy,
+            commands::lab::lab_stop_proxy,
+            commands::lab::lab_get_proxy_status,
+            commands::lab::lab_reload_proxy,
+            commands::lab::lab_set_enabled,
+            commands::lab::lab_set_proxy_port,
+            commands::lab::lab_set_lan_access,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

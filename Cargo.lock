@@ -7306,11 +7306,40 @@ dependencies = [
  "zoro-arxiv",
  "zoro-core",
  "zoro-db",
+ "zoro-lab-freellm",
+ "zoro-llm-proxy",
  "zoro-metadata",
  "zoro-plugins",
  "zoro-storage",
  "zoro-subscriptions",
  "zoro-webdav",
+]
+
+[[package]]
+name = "zoro-lab-freellm"
+version = "0.1.0"
+dependencies = [
+ "reqwest 0.12.28",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.18",
+ "tokio",
+ "tracing",
+ "zoro-llm-proxy",
+]
+
+[[package]]
+name = "zoro-llm-proxy"
+version = "0.1.0"
+dependencies = [
+ "axum",
+ "futures",
+ "reqwest 0.12.28",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.18",
+ "tokio",
+ "tracing",
 ]
 
 [[package]]

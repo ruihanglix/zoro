@@ -313,41 +313,14 @@ impl AiConfig {
     /// use that provider's base_url and api_key. Otherwise, the config is
     /// returned with only the model field updated.
     ///
-    /// Special model name `__lab_auto__` triggers automatic routing across
-    /// all lab providers (`__lab_*`): picks a random provider+model pair.
+    /// Lab models are handled by the local LLM proxy server (`zoro-llm-proxy`)
+    /// and appear as a regular provider with `base_url` pointing to
+    /// `http://127.0.0.1:{PORT}/v1`.
     pub fn resolve_for_model(&self, model: &str) -> AiConfig {
         let mut cfg = self.clone();
         cfg.model = model.to_string();
 
         if model.is_empty() {
-            return cfg;
-        }
-
-        // Special: __lab_auto__ → pick a random model from lab providers
-        if model == "__lab_auto__" {
-            let lab_candidates: Vec<(&AiProvider, &str)> = self
-                .providers
-                .iter()
-                .filter(|p| p.id.starts_with("__lab_") && !p.models.is_empty() && !p.api_key.is_empty())
-                .flat_map(|p| p.models.iter().map(move |m| (p, m.as_str())))
-                .collect();
-
-            if !lab_candidates.is_empty() {
-                // Simple rotation based on system time to distribute load
-                let idx = (std::time::SystemTime::now()
-                    .duration_since(std::time::UNIX_EPOCH)
-                    .unwrap_or_default()
-                    .as_millis() as usize)
-                    % lab_candidates.len();
-                let (provider, picked_model) = lab_candidates[idx];
-                cfg.model = picked_model.to_string();
-                if !provider.base_url.is_empty() {
-                    cfg.base_url = provider.base_url.clone();
-                }
-                if !provider.api_key.is_empty() {
-                    cfg.api_key = provider.api_key.clone();
-                }
-            }
             return cfg;
         }
 
