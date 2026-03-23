@@ -71,6 +71,10 @@ pub async fn fetch_models(
     provider: &FreeProvider,
     api_key: &str,
 ) -> Result<Vec<String>, String> {
+    // GitHub Models uses a dedicated catalog API, not the OpenAI /models endpoint.
+    if provider.id == "github" {
+        return fetch_github_models(client, api_key).await;
+    }
     match provider.format {
         ApiFormat::Gemini => fetch_gemini_models(client, provider, api_key).await,
         ApiFormat::OpenAI => fetch_openai_models(client, provider, api_key).await,
@@ -110,6 +114,64 @@ async fn fetch_openai_models(
                     m.get("id")
                         .and_then(|id| id.as_str())
                         .map(|s| s.to_string())
+                })
+                .collect::<Vec<_>>()
+        })
+        .unwrap_or_default();
+
+    Ok(models)
+}
+
+/// Fetch models from the GitHub Models catalog API.
+///
+/// GitHub Models doesn't expose a standard OpenAI /models endpoint.
+/// Instead it has a catalog API at `https://models.github.ai/catalog/models`
+/// that returns a JSON array of model objects. We filter out embedding-only
+/// models and only keep those that output text.
+async fn fetch_github_models(
+    client: &reqwest::Client,
+    api_key: &str,
+) -> Result<Vec<String>, String> {
+    let url = "https://models.github.ai/catalog/models";
+
+    let resp = client
+        .get(url)
+        .header("Authorization", format!("Bearer {}", api_key))
+        .header("Accept", "application/vnd.github+json")
+        .header("X-GitHub-Api-Version", "2026-03-10")
+        .send()
+        .await
+        .map_err(|e| format!("HTTP error: {}", e))?;
+
+    if !resp.status().is_success() {
+        return Err(format!("API error ({})", resp.status()));
+    }
+
+    let body: serde_json::Value = resp
+        .json()
+        .await
+        .map_err(|e| format!("JSON parse error: {}", e))?;
+
+    // Response is a JSON array: [ { "id": "openai/gpt-4.1", "supported_output_modalities": ["text"], ... }, ... ]
+    let models = body
+        .as_array()
+        .map(|arr| {
+            arr.iter()
+                .filter_map(|m| {
+                    let id = m.get("id").and_then(|v| v.as_str())?;
+                    // Skip embedding-only models (output modality is "embeddings", not "text")
+                    let output_modalities = m
+                        .get("supported_output_modalities")
+                        .and_then(|v| v.as_array());
+                    if let Some(modalities) = output_modalities {
+                        let has_text = modalities
+                            .iter()
+                            .any(|m| m.as_str() == Some("text"));
+                        if !has_text {
+                            return None;
+                        }
+                    }
+                    Some(id.to_string())
                 })
                 .collect::<Vec<_>>()
         })
