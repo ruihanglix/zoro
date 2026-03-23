@@ -2265,9 +2265,16 @@ export function Settings() {
 													<div className="text-[11px] text-muted-foreground truncate">
 															<>
 																	{p.baseUrl || t("settings.noUrlSet")}
-																	{p.models.length > 0 && (
+												{p.models.length > 0 && (
 																		<span className="ml-2">
-																			· {p.models.join(", ")}
+																			· {(() => {
+																				const maxShow = 3;
+																				const shown = p.models.slice(0, maxShow);
+																				const rest = p.models.length - maxShow;
+																				return rest > 0
+																					? `${shown.join(", ")} … +${rest}`
+																					: shown.join(", ");
+																			})()}
 																		</span>
 																	)}
 																	{(p.apiKeySet || pendingProviderKeys[p.id]) && (

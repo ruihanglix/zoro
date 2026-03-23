@@ -565,6 +565,15 @@ async fn handle_list_models(State(state): State<Arc<ProxyState>>) -> Json<ModelL
     let mut models = Vec::new();
     let mut seen = std::collections::HashSet::new();
 
+    // Inject the virtual "__lab_auto__" model for automatic routing.
+    // When a request targets this model, the router picks the best available provider.
+    models.push(ModelInfo {
+        id: "__lab_auto__".to_string(),
+        object: "model",
+        owned_by: "lab-proxy".to_string(),
+    });
+    seen.insert("__lab_auto__".to_string());
+
     for provider in providers.iter() {
         for model_id in &provider.models {
             if seen.insert(model_id.clone()) {
