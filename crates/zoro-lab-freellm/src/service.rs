@@ -181,6 +181,9 @@ impl LabService {
             match result {
                 Ok(model_list) => {
                     let count = model_list.len();
+                    // For OpenCode Zen, auto-disable newly discovered models
+                    // that don't contain "free" in their ID.
+                    self.auto_disable_non_free_models(&provider.id, &model_list);
                     self.model_cache.set_models(&provider.id, model_list);
                     results.push((provider.id.clone(), Ok(count)));
                     tracing::info!(
@@ -221,6 +224,9 @@ impl LabService {
 
         let model_list = models::fetch_models(&self.http_client, &provider, &api_key).await?;
         let count = model_list.len();
+        // For OpenCode Zen, auto-disable newly discovered models
+        // that don't contain "free" in their ID.
+        self.auto_disable_non_free_models(provider_id, &model_list);
         self.model_cache.set_models(provider_id, model_list);
         self.save_model_cache();
 
@@ -245,6 +251,44 @@ impl LabService {
                 );
             }
         }
+    }
+
+    /// For the OpenCode Zen provider, automatically disable newly discovered
+    /// models whose ID does not contain "free". Models already known (present
+    /// in the current cache) keep their existing enabled/disabled state.
+    fn auto_disable_non_free_models(&mut self, provider_id: &str, new_models: &[String]) {
+        // This rule only applies to the OpenCode Zen provider.
+        if provider_id != "opencode" {
+            return;
+        }
+
+        let existing: HashSet<&str> = self
+            .model_cache
+            .get_models(provider_id)
+            .iter()
+            .map(|s| s.as_str())
+            .collect();
+
+        for model_id in new_models {
+            // Skip models that already exist in the cache (keep user's setting).
+            if existing.contains(model_id.as_str()) {
+                continue;
+            }
+            // New model: disable it if its ID doesn't contain "free".
+            let id_lower = model_id.to_lowercase();
+            if !id_lower.contains("free") {
+                let key = format!("{}::{}", provider_id, model_id);
+                self.config.disabled_models.insert(key);
+                tracing::debug!(
+                    provider = %provider_id,
+                    model = %model_id,
+                    "Auto-disabled non-free model from OpenCode Zen"
+                );
+            }
+        }
+
+        // Persist the updated disabled_models set.
+        self.save_config();
     }
 
     // ── Proxy config generation ──────────────────────────────────────────
