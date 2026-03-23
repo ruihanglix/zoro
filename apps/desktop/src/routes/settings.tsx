@@ -5080,10 +5080,10 @@ function LabSection() {
 																)
 															}
 															className={cn(
-																"px-2 py-0.5 rounded-md text-[11px] border transition-all cursor-pointer",
+																"px-2 py-0.5 rounded-md text-[11px] border transition-all cursor-pointer select-none active:scale-95",
 																model.disabled
-																	? "border-border bg-muted/30 text-muted-foreground line-through opacity-50"
-																	: "border-primary/30 bg-primary/5 text-foreground",
+																	? "border-border bg-muted/30 text-muted-foreground/60 line-through opacity-50 hover:opacity-70 hover:border-muted-foreground/30"
+																	: "border-primary/40 bg-primary/10 text-primary font-medium hover:bg-primary/15 hover:border-primary/60",
 															)}
 															title={
 																model.disabled

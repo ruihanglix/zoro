@@ -190,8 +190,18 @@ export const useLabStore = create<LabState>((set, get) => ({
 	},
 
 	toggleModelDisabled: async (providerId, modelId, disabled) => {
+		// Optimistic update: reflect change immediately in UI
+		const prevModels = get().models;
+		set({
+			models: prevModels.map((m) =>
+				m.id === modelId && m.provider_id === providerId
+					? { ...m, disabled }
+					: m,
+			),
+		});
 		try {
 			await invoke("lab_toggle_model", { providerId, modelId, disabled });
+			// Sync with backend to ensure consistency
 			const models = await invoke<LabModel[]>("lab_list_models");
 			set({ models });
 			// If proxy is running, reload to apply model changes
@@ -200,8 +210,9 @@ export const useLabStore = create<LabState>((set, get) => ({
 				await get().reloadProxy();
 			}
 		} catch (err) {
+			// Rollback on failure
+			set({ models: prevModels, error: String(err) });
 			console.error("[lab] Failed to toggle model:", err);
-			set({ error: String(err) });
 		}
 	},
 
