@@ -261,8 +261,9 @@ impl LabService {
     /// models whose ID does not contain "free". Models already known (present
     /// in the current cache) keep their existing enabled/disabled state.
     fn auto_disable_non_free_models(&mut self, provider_id: &str, new_models: &[String]) {
-        // This rule only applies to the OpenCode Zen provider.
-        if provider_id != "opencode" {
+        // This rule applies to providers whose model lists mix free and paid models.
+        // We only auto-enable models whose ID contains "free".
+        if provider_id != "opencode" && provider_id != "openrouter" {
             return;
         }
 
@@ -286,7 +287,7 @@ impl LabService {
                 tracing::debug!(
                     provider = %provider_id,
                     model = %model_id,
-                    "Auto-disabled non-free model from OpenCode Zen"
+                    "Auto-disabled non-free model"
                 );
             }
         }

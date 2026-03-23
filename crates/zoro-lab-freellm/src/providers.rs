@@ -39,6 +39,7 @@ pub enum ProviderTier {
 /// Get all supported free LLM providers.
 pub fn free_providers() -> Vec<FreeProvider> {
     vec![
+        // --- Primary providers (shown by default) ---
         FreeProvider {
             id: "openrouter".into(),
             name: "OpenRouter".into(),
@@ -50,13 +51,34 @@ pub fn free_providers() -> Vec<FreeProvider> {
             format: ApiFormat::OpenAI,
         },
         FreeProvider {
+            id: "github".into(),
+            name: "GitHub Models".into(),
+            display_name: "GitHub Models".into(),
+            base_url: "https://models.github.ai/inference".into(),
+            sign_up_url: "https://github.com/settings/personal-access-tokens/new?description=Used+by+Zoro+to+access+GitHub+Models+for+free+AI+inference&name=Zoro+-+GitHub+Models&user_models=read".into(),
+            key_prefix: "ghp_".into(),
+            tier: ProviderTier::Primary,
+            format: ApiFormat::OpenAI,
+        },
+        FreeProvider {
+            id: "opencode".into(),
+            name: "OpenCode".into(),
+            display_name: "OpenCode Zen".into(),
+            base_url: "https://opencode.ai/zen/v1".into(),
+            sign_up_url: "https://opencode.ai/auth".into(),
+            key_prefix: String::new(),
+            tier: ProviderTier::Primary,
+            format: ApiFormat::OpenAI,
+        },
+        // --- Secondary providers (collapsed by default) ---
+        FreeProvider {
             id: "groq".into(),
             name: "Groq".into(),
             display_name: "Groq".into(),
             base_url: "https://api.groq.com/openai/v1".into(),
             sign_up_url: "https://console.groq.com/keys".into(),
             key_prefix: "gsk_".into(),
-            tier: ProviderTier::Primary,
+            tier: ProviderTier::Secondary,
             format: ApiFormat::OpenAI,
         },
         FreeProvider {
@@ -66,18 +88,8 @@ pub fn free_providers() -> Vec<FreeProvider> {
             base_url: "https://generativelanguage.googleapis.com/v1beta".into(),
             sign_up_url: "https://aistudio.google.com/app/apikey".into(),
             key_prefix: "AIza".into(),
-            tier: ProviderTier::Primary,
-            format: ApiFormat::Gemini,
-        },
-        FreeProvider {
-            id: "github".into(),
-            name: "GitHub Models".into(),
-            display_name: "GitHub Models".into(),
-            base_url: "https://models.github.ai/inference".into(),
-            sign_up_url: "https://github.com/settings/personal-access-tokens/new?description=Used+by+Zoro+to+access+GitHub+Models+for+free+AI+inference&name=Zoro+-+GitHub+Models&user_models=read".into(),
-            key_prefix: "ghp_".into(),
             tier: ProviderTier::Secondary,
-            format: ApiFormat::OpenAI,
+            format: ApiFormat::Gemini,
         },
         FreeProvider {
             id: "mistral".into(),
@@ -85,16 +97,6 @@ pub fn free_providers() -> Vec<FreeProvider> {
             display_name: "Mistral AI".into(),
             base_url: "https://api.mistral.ai/v1".into(),
             sign_up_url: "https://console.mistral.ai/api-keys".into(),
-            key_prefix: String::new(),
-            tier: ProviderTier::Secondary,
-            format: ApiFormat::OpenAI,
-        },
-        FreeProvider {
-            id: "opencode".into(),
-            name: "OpenCode".into(),
-            display_name: "OpenCode Zen".into(),
-            base_url: "https://opencode.ai/zen/v1".into(),
-            sign_up_url: "https://opencode.ai/auth".into(),
             key_prefix: String::new(),
             tier: ProviderTier::Secondary,
             format: ApiFormat::OpenAI,
