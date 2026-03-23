@@ -430,7 +430,8 @@
 		"tagPlaceholder": "タグを追加...",
 		"typeToSearchPapers": "入力して論文を検索"
 	},
-	"settings": {		"title": "設定",
+	"settings": {
+		"title": "設定",
 		"appearance": "外観",
 		"startupDefaults": "起動時のデフォルト",
 		"behavior": "動作",

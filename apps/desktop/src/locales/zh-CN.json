@@ -431,7 +431,8 @@
 		"tagPlaceholder": "添加标签...",
 		"typeToSearchPapers": "输入以搜索论文"
 	},
-	"settings": {		"title": "设置",
+	"settings": {
+		"title": "设置",
 		"appearance": "外观",
 		"startupDefaults": "启动默认设置",
 		"behavior": "行为",

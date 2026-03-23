@@ -2,8 +2,8 @@
 // Licensed under the AGPL-3.0 license.
 // See LICENSE file in the project root for full license information.
 
-import { create } from "zustand";
 import { invoke } from "@tauri-apps/api/core";
+import { create } from "zustand";
 
 // ── Types (mirroring Rust backend) ──────────────────────────────────────────
 
@@ -76,7 +76,11 @@ interface LabState {
 	setEnabled: (enabled: boolean) => Promise<void>;
 	setProviderKey: (providerId: string, apiKey: string) => Promise<void>;
 	refreshModels: () => Promise<void>;
-	toggleModelDisabled: (providerId: string, modelId: string, disabled: boolean) => Promise<void>;
+	toggleModelDisabled: (
+		providerId: string,
+		modelId: string,
+		disabled: boolean,
+	) => Promise<void>;
 	setRoutingStrategy: (strategy: RoutingStrategy) => Promise<void>;
 	startProxy: () => Promise<void>;
 	stopProxy: () => Promise<void>;
@@ -132,7 +136,9 @@ export const useLabStore = create<LabState>((set, get) => ({
 		try {
 			// Optimistically update enabled state so the toggle reflects immediately
 			set({ loading: true, error: null, enabled });
-			const status = await invoke<LabProxyStatus>("lab_set_enabled", { enabled });
+			const status = await invoke<LabProxyStatus>("lab_set_enabled", {
+				enabled,
+			});
 			set({ proxyStatus: status, loading: false });
 			// Refresh full state
 			await get().initialize();

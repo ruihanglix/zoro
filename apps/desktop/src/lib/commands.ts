@@ -1485,7 +1485,5 @@ export interface ProxyResponse {
 	body: string;
 }
 
-export const httpProxyGet = (
-	url: string,
-	headers?: Record<string, string>,
-) => invoke<ProxyResponse>("http_proxy_get", { url, headers: headers ?? null });
+export const httpProxyGet = (url: string, headers?: Record<string, string>) =>
+	invoke<ProxyResponse>("http_proxy_get", { url, headers: headers ?? null });

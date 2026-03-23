@@ -431,7 +431,8 @@
 		"tagPlaceholder": "Add a tag...",
 		"typeToSearchPapers": "Type to search papers"
 	},
-	"settings": {		"title": "Settings",
+	"settings": {
+		"title": "Settings",
 		"appearance": "Appearance",
 		"startupDefaults": "Startup Defaults",
 		"behavior": "Behavior",

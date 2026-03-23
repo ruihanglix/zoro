@@ -208,12 +208,8 @@ export function OnboardingOverlay({ onComplete }: { onComplete: () => void }) {
 	).length;
 
 	const primaryProviders = labProviders.filter((p) => p.tier === "primary");
-	const secondaryProviders = labProviders.filter(
-		(p) => p.tier === "secondary",
-	);
-	const visibleProviders = showMoreProviders
-		? labProviders
-		: primaryProviders;
+	const secondaryProviders = labProviders.filter((p) => p.tier === "secondary");
+	const visibleProviders = showMoreProviders ? labProviders : primaryProviders;
 
 	const handleGetStarted = async () => {
 		try {
@@ -429,17 +425,17 @@ export function OnboardingOverlay({ onComplete }: { onComplete: () => void }) {
 											)}
 										>
 											<div className="w-24 shrink-0">
-								<span className="text-xs font-medium">
-											{provider.display_name}
-										</span>
+												<span className="text-xs font-medium">
+													{provider.display_name}
+												</span>
 											</div>
 											<input
 												type="password"
-placeholder={
-												provider.key_prefix
-													? `${provider.key_prefix}...`
-													: t("onboarding.freeProviderApiKeyPlaceholder")
-											}
+												placeholder={
+													provider.key_prefix
+														? `${provider.key_prefix}...`
+														: t("onboarding.freeProviderApiKeyPlaceholder")
+												}
 												value={freeKeys[provider.id] || ""}
 												onChange={(e) =>
 													setFreeKeys((prev) => ({
@@ -453,7 +449,7 @@ placeholder={
 												<Check className="h-3.5 w-3.5 text-green-600 shrink-0" />
 											)}
 											<a
-href={provider.sign_up_url}
+												href={provider.sign_up_url}
 												target="_blank"
 												rel="noopener noreferrer"
 												className="flex items-center gap-0.5 text-[10px] text-primary hover:underline shrink-0"
@@ -469,9 +465,7 @@ href={provider.sign_up_url}
 									<button
 										type="button"
 										className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground transition-colors"
-										onClick={() =>
-											setShowMoreProviders(!showMoreProviders)
-										}
+										onClick={() => setShowMoreProviders(!showMoreProviders)}
 									>
 										{showMoreProviders ? (
 											<>
