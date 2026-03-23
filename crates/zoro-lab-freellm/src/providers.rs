@@ -74,7 +74,7 @@ pub fn free_providers() -> Vec<FreeProvider> {
             name: "GitHub Models".into(),
             display_name: "GitHub Models".into(),
             base_url: "https://models.github.ai/inference".into(),
-            sign_up_url: "https://github.com/settings/tokens".into(),
+            sign_up_url: "https://github.com/settings/personal-access-tokens/new?description=Used+by+Zoro+to+access+GitHub+Models+for+free+AI+inference&name=Zoro+-+GitHub+Models&user_models=read".into(),
             key_prefix: "ghp_".into(),
             tier: ProviderTier::Secondary,
             format: ApiFormat::OpenAI,
