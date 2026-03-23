@@ -1062,7 +1062,7 @@ export function Settings() {
 					if (modelIds.length > 0) {
 						labProxy = {
 							id: "__lab_proxy__",
-							name: "Lab LLM Proxy 🧪",
+							name: "Free LLM (🧑‍🔬)",
 							baseUrl: proxyBaseUrl,
 							apiKey: "",
 							models: modelIds,
@@ -1389,7 +1389,7 @@ export function Settings() {
 						? [
 								{
 									id: "__lab_proxy__",
-									name: "Lab LLM Proxy 🧪",
+									name: "Lab LLM Proxy 🧑‍🔬",
 									baseUrl: `http://127.0.0.1:${labProxyStatus.port}/v1`,
 									apiKey: "",
 									models: labProxyModels,
@@ -5065,7 +5065,7 @@ function LabSection() {
 											<div key={providerId}>
 												<div className="flex items-center gap-2 mb-1.5">
 													<p className="text-xs font-medium">
-														{provider?.display_name || providerId} 🧪
+														{provider?.display_name || providerId} 🧑‍🔬
 													</p>
 													<button
 														type="button"
