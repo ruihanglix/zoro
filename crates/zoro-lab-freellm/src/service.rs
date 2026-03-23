@@ -169,7 +169,11 @@ impl LabService {
     pub async fn refresh_all_models(&mut self) -> Vec<(String, Result<usize, String>)> {
         let mut results = Vec::new();
 
-        let providers = self.configured_providers().into_iter().cloned().collect::<Vec<_>>();
+        let providers = self
+            .configured_providers()
+            .into_iter()
+            .cloned()
+            .collect::<Vec<_>>();
         for provider in &providers {
             let api_key = match self.config.provider_keys.get(&provider.id) {
                 Some(k) => k.clone(),

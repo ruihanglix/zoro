@@ -23,6 +23,12 @@ pub struct ProviderHealth {
     pub total_failures: AtomicUsize,
 }
 
+impl Default for ProviderHealth {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl ProviderHealth {
     pub fn new() -> Self {
         Self {
@@ -52,6 +58,15 @@ impl ProviderHealth {
         if fails >= COOLDOWN_FAIL_THRESHOLD {
             *self.cooldown_until.lock().unwrap() = Some(now + COOLDOWN_DURATION);
         }
+    }
+
+    /// Record a rate-limited (429) response. Tracks the event but does NOT
+    /// increment consecutive failures and will never trigger cooldown.
+    /// Rate limiting is a transient traffic signal, not an indicator that
+    /// the provider is unhealthy.
+    pub fn report_rate_limited(&self) {
+        self.total_requests.fetch_add(1, Ordering::Relaxed);
+        // Do NOT touch consecutive_fails or cooldown_until.
     }
 
     /// Check whether this provider is currently healthy (not on cooldown).
@@ -95,9 +110,7 @@ impl HealthTracker {
         }
         drop(read);
         let mut write = self.records.write().unwrap();
-        write
-            .entry(provider_id.to_string())
-            .or_insert_with(ProviderHealth::new);
+        write.entry(provider_id.to_string()).or_default();
     }
 
     pub fn report_success(&self, provider_id: &str) {
@@ -114,9 +127,18 @@ impl HealthTracker {
         }
     }
 
+    pub fn report_rate_limited(&self, provider_id: &str) {
+        let read = self.records.read().unwrap();
+        if let Some(h) = read.get(provider_id) {
+            h.report_rate_limited();
+        }
+    }
+
     pub fn is_healthy(&self, provider_id: &str) -> bool {
         let read = self.records.read().unwrap();
-        read.get(provider_id).map(|h| h.is_healthy()).unwrap_or(true)
+        read.get(provider_id)
+            .map(|h| h.is_healthy())
+            .unwrap_or(true)
     }
 
     /// Get a snapshot of all provider health statuses.

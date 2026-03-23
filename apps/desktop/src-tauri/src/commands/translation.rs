@@ -231,7 +231,9 @@ pub async fn translate_fields(
         let db = std::sync::Arc::clone(&state.db);
         // resolve_for_model also resolves provider-specific base_url/api_key
         let glossary_ai = ai_config.resolve_for_model(
-            &ai_config.task_model_defaults.resolve("glossary", &ai_config.model),
+            &ai_config
+                .task_model_defaults
+                .resolve("glossary", &ai_config.model),
         );
         let lang = target_lang.clone();
         let eid = entity_id.clone();
@@ -612,7 +614,8 @@ pub async fn test_ai_connection(state: State<'_, AppState>) -> Result<String, St
         return Err("AI not configured. Set base URL, API key, and model first.".into());
     }
 
-    let client = zoro_ai::client::ChatClient::new(&resolved.base_url, &resolved.api_key, &resolved.model);
+    let client =
+        zoro_ai::client::ChatClient::new(&resolved.base_url, &resolved.api_key, &resolved.model);
 
     client
         .test_connection()
@@ -650,7 +653,9 @@ pub async fn translate_selection(
     // Resolve the per-task model for quick (inline) translation
     // resolve_for_model also resolves provider-specific base_url/api_key
     let quick_config = ai_config.resolve_for_model(
-        &ai_config.task_model_defaults.resolve("quick", &ai_config.model),
+        &ai_config
+            .task_model_defaults
+            .resolve("quick", &ai_config.model),
     );
 
     let glossary = if ai_config.glossary_enabled {

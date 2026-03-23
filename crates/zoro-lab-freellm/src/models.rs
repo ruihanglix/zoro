@@ -96,14 +96,21 @@ async fn fetch_openai_models(
         return Err(format!("API error ({})", resp.status()));
     }
 
-    let body: serde_json::Value = resp.json().await.map_err(|e| format!("JSON parse error: {}", e))?;
+    let body: serde_json::Value = resp
+        .json()
+        .await
+        .map_err(|e| format!("JSON parse error: {}", e))?;
 
     let models = body
         .get("data")
         .and_then(|d| d.as_array())
         .map(|arr| {
             arr.iter()
-                .filter_map(|m| m.get("id").and_then(|id| id.as_str()).map(|s| s.to_string()))
+                .filter_map(|m| {
+                    m.get("id")
+                        .and_then(|id| id.as_str())
+                        .map(|s| s.to_string())
+                })
                 .collect::<Vec<_>>()
         })
         .unwrap_or_default();
@@ -133,7 +140,10 @@ async fn fetch_gemini_models(
         return Err(format!("API error ({})", resp.status()));
     }
 
-    let body: serde_json::Value = resp.json().await.map_err(|e| format!("JSON parse error: {}", e))?;
+    let body: serde_json::Value = resp
+        .json()
+        .await
+        .map_err(|e| format!("JSON parse error: {}", e))?;
 
     // Gemini returns { models: [ { name: "models/gemini-pro", ... }, ... ] }
     let models = body

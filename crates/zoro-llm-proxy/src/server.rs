@@ -77,7 +77,10 @@ impl ProxyServer {
             .await
             .map_err(|e| ProxyError::Bind(format!("{}: {}", addr, e)))?;
 
-        let actual_port = listener.local_addr().map(|a| a.port()).unwrap_or(config.port);
+        let actual_port = listener
+            .local_addr()
+            .map(|a| a.port())
+            .unwrap_or(config.port);
 
         tracing::info!(
             addr = %addr,
@@ -204,18 +207,25 @@ async fn handle_chat_completions(
     let requested_model = req.model.clone();
 
     // First routing attempt
-    let target = match state.router.select(&requested_model, &providers, &state.health) {
+    let target = match state
+        .router
+        .select(&requested_model, &providers, &state.health)
+    {
         Some(t) => t,
         None => {
             return error_response(
                 StatusCode::SERVICE_UNAVAILABLE,
-                &format!("No healthy provider available for model '{}'", requested_model),
+                &format!(
+                    "No healthy provider available for model '{}'",
+                    requested_model
+                ),
             );
         }
     };
 
     // Attempt to forward the request, with retries on failure
-    let mut tried_ids: Vec<String> = Vec::new();
+    let mut tried_provider_ids: Vec<String> = Vec::new();
+    let mut tried_models: Vec<String> = Vec::new();
     let mut current_provider = target.provider;
     let mut current_model = target.model;
 
@@ -238,41 +248,81 @@ async fn handle_chat_completions(
                 return resp;
             }
             Err(e) => {
-                let is_retryable = matches!(&e, ProxyError::Upstream { status, .. } if *status == 429 || *status >= 500);
+                let (is_rate_limited, is_server_error) = match &e {
+                    ProxyError::Upstream { status, .. } => (*status == 429, *status >= 500),
+                    _ => (false, false),
+                };
+                let is_retryable = is_rate_limited || is_server_error;
+
                 tracing::warn!(
                     attempt = attempt,
                     provider = %current_provider.id,
+                    model = %current_model,
                     error = %e,
                     retryable = is_retryable,
+                    rate_limited = is_rate_limited,
                     "Upstream request failed"
                 );
-                state.health.report_failure(&current_provider.id);
+
+                // 429 is a transient traffic signal — don't trigger cooldown
+                if is_rate_limited {
+                    state.health.report_rate_limited(&current_provider.id);
+                } else {
+                    state.health.report_failure(&current_provider.id);
+                }
 
                 if !is_retryable || attempt + 1 >= state.max_retries {
-                    // Return the error as-is if not retryable or out of retries
                     return proxy_error_to_response(e);
                 }
 
-                // Try to find another provider for retry
-                tried_ids.push(current_provider.id.clone());
-                let exclude: Vec<&str> = tried_ids.iter().map(|s| s.as_str()).collect();
+                // Backoff delay for 429 to avoid hammering the upstream
+                if is_rate_limited {
+                    let delay = std::time::Duration::from_secs(1 << attempt.min(3));
+                    tracing::info!(
+                        delay_secs = delay.as_secs(),
+                        "Rate limited (429), retrying in {}s...",
+                        delay.as_secs()
+                    );
+                    tokio::time::sleep(delay).await;
+                }
 
-                match state
-                    .router
-                    .select_retry(&requested_model, &providers, &state.health, &exclude)
-                {
+                // Track what we've tried so far
+                tried_models.push(current_model.clone());
+                if !tried_provider_ids.contains(&current_provider.id.to_string()) {
+                    tried_provider_ids.push(current_provider.id.clone());
+                }
+
+                // Try to find another provider/model for retry.
+                // For __lab_auto__ / rate-limited: prefer switching models
+                // on the same provider to spread across rate-limit buckets.
+                // For 5xx: prefer switching providers entirely.
+                let exclude_providers: Vec<&str> = if is_rate_limited {
+                    // Don't exclude the provider; just exclude tried models
+                    Vec::new()
+                } else {
+                    tried_provider_ids.iter().map(|s| s.as_str()).collect()
+                };
+                let exclude_models: Vec<&str> = tried_models.iter().map(|s| s.as_str()).collect();
+
+                match state.router.select_retry(
+                    &requested_model,
+                    &providers,
+                    &state.health,
+                    &exclude_providers,
+                    &exclude_models,
+                ) {
                     Some(retry_target) => {
                         tracing::info!(
-                            from = %current_provider.id,
-                            to = %retry_target.provider.id,
-                            model = %retry_target.model,
-                            "Falling back to another provider"
+                            from_provider = %current_provider.id,
+                            from_model = %current_model,
+                            to_provider = %retry_target.provider.id,
+                            to_model = %retry_target.model,
+                            "Falling back to another provider/model"
                         );
                         current_provider = retry_target.provider;
                         current_model = retry_target.model;
                     }
                     None => {
-                        // No other provider available, return the error
                         return proxy_error_to_response(e);
                     }
                 }
@@ -280,10 +330,7 @@ async fn handle_chat_completions(
         }
     }
 
-    error_response(
-        StatusCode::BAD_GATEWAY,
-        "All retry attempts exhausted",
-    )
+    error_response(StatusCode::BAD_GATEWAY, "All retry attempts exhausted")
 }
 
 /// Forward a request to an upstream provider. Returns the raw HTTP response.
@@ -349,11 +396,9 @@ async fn forward_openai(
     // Pass through the response (streaming or non-streaming)
     if req.stream {
         // Stream through the SSE response
-        let stream = resp.bytes_stream().map(|chunk| {
-            chunk.map(axum::body::Bytes::from).map_err(|e| {
-                std::io::Error::new(std::io::ErrorKind::Other, e.to_string())
-            })
-        });
+        let stream = resp
+            .bytes_stream()
+            .map(|chunk| chunk.map_err(|e| std::io::Error::other(e.to_string())));
 
         Ok(Response::builder()
             .status(StatusCode::OK)
@@ -385,7 +430,10 @@ async fn forward_gemini(
     } else {
         "generateContent"
     };
-    let url = format!("{}/models/{}:{}&key={}", base, req.model, method, provider.api_key);
+    let url = format!(
+        "{}/models/{}:{}&key={}",
+        base, req.model, method, provider.api_key
+    );
 
     // Convert OpenAI messages to Gemini contents format
     let contents = convert_messages_to_gemini(&req.messages);
@@ -414,15 +462,13 @@ async fn forward_gemini(
     if req.stream {
         // Convert Gemini SSE stream to OpenAI SSE stream
         let model_name = req.model.clone();
-        let stream = resp.bytes_stream().map(move |chunk| {
-            match chunk {
-                Ok(bytes) => {
-                    let text = String::from_utf8_lossy(&bytes);
-                    let converted = convert_gemini_sse_to_openai(&text, &model_name);
-                    Ok::<_, std::io::Error>(axum::body::Bytes::from(converted))
-                }
-                Err(e) => Err(std::io::Error::new(std::io::ErrorKind::Other, e.to_string())),
+        let stream = resp.bytes_stream().map(move |chunk| match chunk {
+            Ok(bytes) => {
+                let text = String::from_utf8_lossy(&bytes);
+                let converted = convert_gemini_sse_to_openai(&text, &model_name);
+                Ok::<_, std::io::Error>(axum::body::Bytes::from(converted))
             }
+            Err(e) => Err(std::io::Error::other(e.to_string())),
         });
 
         Ok(Response::builder()
@@ -450,10 +496,7 @@ fn convert_messages_to_gemini(messages: &[serde_json::Value]) -> Vec<serde_json:
     let mut contents = Vec::new();
     for msg in messages {
         let role = msg.get("role").and_then(|r| r.as_str()).unwrap_or("user");
-        let content = msg
-            .get("content")
-            .and_then(|c| c.as_str())
-            .unwrap_or("");
+        let content = msg.get("content").and_then(|c| c.as_str()).unwrap_or("");
 
         // Gemini uses "user" and "model" as roles; map "assistant" → "model",
         // and embed "system" as a user message prefix.
@@ -543,7 +586,10 @@ fn convert_gemini_sse_to_openai(sse_text: &str, model: &str) -> String {
             }],
         });
 
-        output.push_str(&format!("data: {}\n\n", serde_json::to_string(&chunk).unwrap_or_default()));
+        output.push_str(&format!(
+            "data: {}\n\n",
+            serde_json::to_string(&chunk).unwrap_or_default()
+        ));
     }
 
     output

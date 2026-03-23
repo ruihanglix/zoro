@@ -83,7 +83,9 @@ pub async fn lab_update_config(
 
 /// Get the list of all free providers with their status.
 #[tauri::command]
-pub async fn lab_list_providers(state: State<'_, LabState>) -> Result<Vec<LabProviderInfo>, String> {
+pub async fn lab_list_providers(
+    state: State<'_, LabState>,
+) -> Result<Vec<LabProviderInfo>, String> {
     let service = state.service.lock().await;
     let providers = zoro_lab_freellm::FREE_PROVIDERS
         .iter()
@@ -207,7 +209,9 @@ pub async fn lab_start_proxy(state: State<'_, LabState>) -> Result<LabProxyStatu
 
     drop(service); // Release service lock before starting server
 
-    let server = ProxyServer::start(config).await.map_err(|e| e.to_string())?;
+    let server = ProxyServer::start(config)
+        .await
+        .map_err(|e| e.to_string())?;
     let port = server.port();
     let health = server.health_status();
 
@@ -337,10 +341,7 @@ pub async fn lab_set_enabled(
 
 /// Set proxy port.
 #[tauri::command]
-pub async fn lab_set_proxy_port(
-    state: State<'_, LabState>,
-    port: u16,
-) -> Result<(), String> {
+pub async fn lab_set_proxy_port(state: State<'_, LabState>, port: u16) -> Result<(), String> {
     let mut service = state.service.lock().await;
     service.set_proxy_port(port);
     Ok(())
@@ -348,10 +349,7 @@ pub async fn lab_set_proxy_port(
 
 /// Set LAN access.
 #[tauri::command]
-pub async fn lab_set_lan_access(
-    state: State<'_, LabState>,
-    enabled: bool,
-) -> Result<(), String> {
+pub async fn lab_set_lan_access(state: State<'_, LabState>, enabled: bool) -> Result<(), String> {
     let mut service = state.service.lock().await;
     service.set_lan_access(enabled);
     Ok(())
