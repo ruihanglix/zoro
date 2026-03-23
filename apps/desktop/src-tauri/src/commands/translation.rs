@@ -427,7 +427,7 @@ pub async fn update_ai_config(
         config.general.native_lang = native_lang;
     }
     if let Some(concurrency) = input.html_concurrency {
-        config.ai.html_concurrency = concurrency.clamp(1, 32);
+        config.ai.html_concurrency = concurrency.max(1);
     }
     if let Some(prompts) = input.translation_prompts {
         if let Some(v) = prompts.title_system {

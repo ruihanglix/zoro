@@ -2988,16 +2988,12 @@ export function Settings() {
 													id="html-concurrency"
 													type="number"
 													min={1}
-													max={32}
 													value={htmlConcurrency}
 													onChange={(e) =>
 														setHtmlConcurrency(
 															Math.max(
 																1,
-																Math.min(
-																	32,
-																	Number.parseInt(e.target.value) || 8,
-																),
+																Number.parseInt(e.target.value) || 8,
 															),
 														)
 													}
