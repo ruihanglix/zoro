@@ -81,6 +81,10 @@ interface LabState {
 		modelId: string,
 		disabled: boolean,
 	) => Promise<void>;
+	toggleProviderDisabled: (
+		providerId: string,
+		disabled: boolean,
+	) => Promise<void>;
 	setRoutingStrategy: (strategy: RoutingStrategy) => Promise<void>;
 	startProxy: () => Promise<void>;
 	stopProxy: () => Promise<void>;
@@ -213,6 +217,31 @@ export const useLabStore = create<LabState>((set, get) => ({
 			// Rollback on failure
 			set({ models: prevModels, error: String(err) });
 			console.error("[lab] Failed to toggle model:", err);
+		}
+	},
+
+	toggleProviderDisabled: async (providerId, disabled) => {
+		// Optimistic update: reflect change immediately in UI
+		const prevModels = get().models;
+		set({
+			models: prevModels.map((m) =>
+				m.provider_id === providerId ? { ...m, disabled } : m,
+			),
+		});
+		try {
+			await invoke("lab_toggle_provider", { providerId, disabled });
+			// Sync with backend to ensure consistency
+			const models = await invoke<LabModel[]>("lab_list_models");
+			set({ models });
+			// If proxy is running, reload to apply model changes
+			const status = get().proxyStatus;
+			if (status?.running) {
+				await get().reloadProxy();
+			}
+		} catch (err) {
+			// Rollback on failure
+			set({ models: prevModels, error: String(err) });
+			console.error("[lab] Failed to toggle provider:", err);
 		}
 	},
 

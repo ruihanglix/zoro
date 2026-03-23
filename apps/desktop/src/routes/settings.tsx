@@ -4642,6 +4642,7 @@ function LabSection() {
 		setProviderKey,
 		refreshModels,
 		toggleModelDisabled,
+		toggleProviderDisabled,
 		setRoutingStrategy,
 		setProxyPort,
 		setLanAccess,
@@ -5062,11 +5063,43 @@ function LabSection() {
 											(m) => m.provider_id === providerId,
 										);
 										if (providerModels.length === 0) return null;
+											const allDisabled = providerModels.every((m) => m.disabled);
+											const allEnabled = providerModels.every((m) => !m.disabled);
 										return (
 											<div key={providerId}>
-												<p className="text-xs font-medium mb-1.5">
-													{provider?.display_name || providerId} 🧪
-												</p>
+												<div className="flex items-center gap-2 mb-1.5">
+													<p className="text-xs font-medium">
+														{provider?.display_name || providerId} 🧪
+													</p>
+													<button
+														type="button"
+														onClick={() => toggleProviderDisabled(providerId, false)}
+														disabled={allEnabled}
+														className={cn(
+															"text-[10px] px-1.5 py-0.5 rounded border transition-all cursor-pointer select-none",
+															allEnabled
+																? "border-border text-muted-foreground/40 cursor-not-allowed"
+																: "border-primary/30 text-primary hover:bg-primary/10",
+														)}
+														title={t("settings.labEnableAll")}
+													>
+														{t("settings.labEnableAll")}
+													</button>
+													<button
+														type="button"
+														onClick={() => toggleProviderDisabled(providerId, true)}
+														disabled={allDisabled}
+														className={cn(
+															"text-[10px] px-1.5 py-0.5 rounded border transition-all cursor-pointer select-none",
+															allDisabled
+																? "border-border text-muted-foreground/40 cursor-not-allowed"
+																: "border-destructive/30 text-destructive hover:bg-destructive/10",
+														)}
+														title={t("settings.labDisableAll")}
+													>
+														{t("settings.labDisableAll")}
+													</button>
+												</div>
 												<div className="flex flex-wrap gap-1.5">
 													{providerModels.map((model) => (
 														<button

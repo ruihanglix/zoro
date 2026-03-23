@@ -462,6 +462,7 @@ pub fn run() {
             commands::lab::lab_set_provider_key,
             commands::lab::lab_list_models,
             commands::lab::lab_toggle_model,
+            commands::lab::lab_toggle_provider,
             commands::lab::lab_refresh_models,
             commands::lab::lab_set_strategy,
             commands::lab::lab_start_proxy,

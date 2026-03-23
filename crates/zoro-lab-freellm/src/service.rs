@@ -165,6 +165,19 @@ impl LabService {
         self.save_config();
     }
 
+    /// Enable or disable all models for a given provider at once.
+    pub fn set_provider_all_disabled(&mut self, provider_id: &str, disabled: bool) {
+        for model_id in self.model_cache.get_models(provider_id) {
+            let key = format!("{}::{}", provider_id, model_id);
+            if disabled {
+                self.config.disabled_models.insert(key);
+            } else {
+                self.config.disabled_models.remove(&key);
+            }
+        }
+        self.save_config();
+    }
+
     /// Refresh model lists from all configured providers.
     pub async fn refresh_all_models(&mut self) -> Vec<(String, Result<usize, String>)> {
         let mut results = Vec::new();

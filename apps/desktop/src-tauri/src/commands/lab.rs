@@ -156,6 +156,18 @@ pub async fn lab_toggle_model(
     Ok(())
 }
 
+/// Enable or disable all models for a given provider at once.
+#[tauri::command]
+pub async fn lab_toggle_provider(
+    state: State<'_, LabState>,
+    provider_id: String,
+    disabled: bool,
+) -> Result<(), String> {
+    let mut service = state.service.lock().await;
+    service.set_provider_all_disabled(&provider_id, disabled);
+    Ok(())
+}
+
 /// Refresh model lists from all configured providers.
 #[tauri::command]
 pub async fn lab_refresh_models(
