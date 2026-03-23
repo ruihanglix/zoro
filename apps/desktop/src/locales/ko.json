@@ -728,6 +728,7 @@
 		"labDefaultModelDesc": "자동 및 수동 전략에서 사용되는 우선 모델입니다.",
 		"labDefaultModelDescRR": "라운드 로빈은 모든 모델을 순환합니다. 이 설정은 효과가 없습니다.",
 		"labSmartRouterDesc": "실험실의 무료 AI 제공자를 자동으로 순환합니다",
+		"labAutoModelName": "자동 (스마트 라우터)",
 		"labProxyRunning": "프록시 실행 중",
 		"labProxyStopped": "프록시 중지됨",
 		"labProxyProviders": "제공업체",
@@ -742,6 +743,7 @@
 		"labModelDisabled": "모델 비활성화됨 — 클릭하여 활성화",
 		"labModelEnabled": "모델 활성화됨 — 클릭하여 비활성화",
 		"fetchModels": "모델 가져오기",
+		"clearModels": "모델 목록 지우기",
 		"modelsDesc": "Enter를 눌러 모델 이름을 추가하거나 '모델 가져오기'를 클릭하세요.",
 		"modelNamePlaceholder": "모델 이름 입력 + Enter"
 	},

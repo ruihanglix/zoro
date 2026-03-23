@@ -728,6 +728,7 @@
 		"labDefaultModelDescRR": "轮询模式会遍历所有模型，此设置无效。",
 		"labRefreshModels": "刷新模型列表",
 		"labSmartRouterDesc": "自动在实验室免费模型之间智能轮询",
+		"labAutoModelName": "自动 (智能路由)",
 		"labModelManagement": "模型管理",
 		"labModelManagementDesc": "点击模型名称启用或禁用。禁用的模型不会参与自动路由，也不会同步到 AI 设置中。",
 		"labModelDisabled": "模型已禁用 — 点击启用",
@@ -742,6 +743,7 @@
 		"labProviderHealth": "提供商健康状态",
 		"labOnCooldown": "冷却中",
 		"fetchModels": "获取模型列表",
+		"clearModels": "清空模型列表",
 		"modelsDesc": "按回车添加模型名称，或点击「获取模型列表」自动获取。",
 		"modelNamePlaceholder": "输入模型名称后按回车"
 	},

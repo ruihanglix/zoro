@@ -728,6 +728,7 @@
 		"labDefaultModelDesc": "Das bevorzugte Modell für Auto- und Manuell-Strategien.",
 		"labDefaultModelDescRR": "Round Robin rotiert alle Modelle. Diese Einstellung hat keine Wirkung.",
 		"labSmartRouterDesc": "Automatisches Routing über alle Lab-Anbieter",
+		"labAutoModelName": "Auto (Smart Router)",
 		"labProxyRunning": "Proxy läuft",
 		"labProxyStopped": "Proxy gestoppt",
 		"labProxyProviders": "Anbieter",
@@ -742,6 +743,7 @@
 		"labModelDisabled": "Modell deaktiviert — klicken zum Aktivieren",
 		"labModelEnabled": "Modell aktiviert — klicken zum Deaktivieren",
 		"fetchModels": "Modelle abrufen",
+		"clearModels": "Modelle löschen",
 		"modelsDesc": "Enter drücken um Modellnamen hinzuzufügen, oder 'Modelle abrufen' klicken.",
 		"modelNamePlaceholder": "Modellname eingeben + Enter"
 	},

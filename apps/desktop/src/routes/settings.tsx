@@ -564,6 +564,16 @@ function resolveLucideIcon(name: string): LucideIcon {
 
 export function Settings() {
 	const { t } = useTranslation();
+
+	// Map internal model IDs to user-friendly display names
+	const modelDisplayName = useCallback(
+		(id: string) =>
+			id === "__lab_auto__"
+				? `✨ ${t("settings.labAutoModelName")}`
+				: id,
+		[t],
+	);
+
 	const [section, setSection] = useState<SettingsSection>("ai-general");
 
 	// Dynamic plugin settings contributions
@@ -2269,11 +2279,11 @@ export function Settings() {
 																		<span className="ml-2">
 																			· {(() => {
 																				const maxShow = 3;
-																				const shown = p.models.slice(0, maxShow);
-																				const rest = p.models.length - maxShow;
-																				return rest > 0
-																					? `${shown.join(", ")} … +${rest}`
-																					: shown.join(", ");
+													const shown = p.models.slice(0, maxShow).map(modelDisplayName);
+													const rest = p.models.length - maxShow;
+													return rest > 0
+														? `${shown.join(", ")} … +${rest}`
+														: shown.join(", ");
 																			})()}
 																		</span>
 																	)}
@@ -2399,10 +2409,10 @@ export function Settings() {
 																variant="secondary"
 																className="text-xs gap-1 pr-1"
 															>
-																{model}
-																<button
-																	type="button"
-																	className="ml-0.5 rounded-full p-0.5 hover:bg-muted-foreground/20"
+												{modelDisplayName(model)}
+												<button
+													type="button"
+													className="ml-0.5 rounded-full p-0.5 hover:bg-muted-foreground/20"
 																	onClick={() => {
 																		const models = editingProvider.models
 																			.split(",")
@@ -2449,10 +2459,11 @@ export function Settings() {
 										<p className="text-[11px] text-muted-foreground mt-0.5">
 											{t("settings.modelsDesc")}
 										</p>
+										<div className="flex items-center gap-1.5 mt-1.5">
 										<Button
 											variant="outline"
 											size="sm"
-											className="mt-1.5 h-7 text-xs"
+											className="h-7 text-xs"
 											disabled={!editingProvider.baseUrl || fetchingProviderModels}
 											onClick={async () => {
 												setFetchingProviderModels(true);
@@ -2492,6 +2503,20 @@ export function Settings() {
 											)}
 											{t("settings.fetchModels")}
 										</Button>
+										{editingProvider.models.split(",").filter((m) => m.trim()).length > 0 && (
+											<Button
+												variant="outline"
+												size="sm"
+												className="h-7 text-xs text-destructive hover:text-destructive"
+												onClick={() => {
+													setEditingProvider({ ...editingProvider, models: "" });
+												}}
+											>
+												<Trash2 className="mr-1 h-3 w-3" />
+												{t("settings.clearModels")}
+											</Button>
+										)}
+										</div>
 											</div>
 											<div className="flex items-center gap-2 pt-1">
 												<Button
@@ -2589,11 +2614,11 @@ export function Settings() {
 															{t("settings.noModelsConfigured")}
 														</option>
 													)}
-												{providerModels.map((m) => (
-													<option key={m} value={m}>
-														{m}
-													</option>
-												))}
+									{providerModels.map((m) => (
+										<option key={m} value={m}>
+											{modelDisplayName(m)}
+										</option>
+									))}
 											</select>
 										);
 									})()}
@@ -2616,7 +2641,7 @@ export function Settings() {
 										).sort();
 										const modelOptions = [
 												{ value: "", label: t("settings.useGlobalDefault") },
-												...providerModels.map((m) => ({ value: m, label: m })),
+										...providerModels.map((m) => ({ value: m, label: modelDisplayName(m) })),
 												];
 										return (
 											<div className="grid gap-2.5">

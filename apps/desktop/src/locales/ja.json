@@ -727,6 +727,7 @@
 		"labDefaultModelDesc": "自動および手動戦略で使用される優先モデル。",
 		"labDefaultModelDescRR": "ラウンドロビンはすべてのモデルをローテーションします。この設定は無効です。",
 		"labSmartRouterDesc": "実験室の有効なプロバイダー間で自動ルーティング",
+		"labAutoModelName": "自動 (スマートルーター)",
 		"labModelManagement": "モデル管理",
 		"labModelManagementDesc": "モデル名をクリックして有効/無効を切り替えます。無効なモデルは自動ルーティングに使用されず、AI設定にも同期されません。",
 		"labModelDisabled": "モデル無効 — クリックで有効化",
@@ -741,6 +742,7 @@
 		"labProviderHealth": "プロバイダー健全性",
 		"labOnCooldown": "クールダウン中",
 		"fetchModels": "モデルを取得",
+		"clearModels": "モデルをクリア",
 		"modelsDesc": "Enterキーでモデル名を追加、または「モデルを取得」で自動検出。",
 		"modelNamePlaceholder": "モデル名を入力してEnter"
 	},

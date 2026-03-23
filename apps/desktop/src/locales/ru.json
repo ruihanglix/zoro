@@ -728,6 +728,7 @@
 		"labDefaultModelDesc": "Предпочтительная модель для стратегий Авто и Вручную.",
 		"labDefaultModelDescRR": "Round Robin чередует все модели. Эта настройка не действует.",
 		"labSmartRouterDesc": "Автоматический выбор из лабораторных провайдеров",
+		"labAutoModelName": "Авто (Умный маршрутизатор)",
 		"labProxyRunning": "Прокси запущен",
 		"labProxyStopped": "Прокси остановлен",
 		"labProxyProviders": "провайдеров",
@@ -742,6 +743,7 @@
 		"labModelDisabled": "Модель отключена — нажмите для включения",
 		"labModelEnabled": "Модель включена — нажмите для отключения",
 		"fetchModels": "Получить модели",
+		"clearModels": "Очистить модели",
 		"modelsDesc": "Нажмите Enter для добавления имени модели или нажмите 'Получить модели'.",
 		"modelNamePlaceholder": "Имя модели + Enter"
 	},
