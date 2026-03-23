@@ -529,6 +529,32 @@ pub async fn update_ai_config(
     Ok(())
 }
 
+/// Retrieve the saved API key for a specific provider.
+/// Used by the frontend when fetching model lists for providers whose keys
+/// were previously saved (and thus not held in frontend memory).
+#[tauri::command]
+pub async fn get_provider_api_key(
+    state: State<'_, AppState>,
+    provider_id: String,
+) -> Result<String, String> {
+    let config = state
+        .config
+        .lock()
+        .map_err(|e| format!("Config lock error: {}", e))?;
+
+    // Check the main config first
+    if provider_id == "__main__" {
+        return Ok(config.ai.api_key.clone());
+    }
+
+    // Then check additional providers
+    if let Some(p) = config.ai.providers.iter().find(|p| p.id == provider_id) {
+        return Ok(p.api_key.clone());
+    }
+
+    Ok(String::new())
+}
+
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct UpdateAiConfigInput {

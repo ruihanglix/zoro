@@ -395,6 +395,7 @@ pub fn run() {
             commands::translation::delete_translations,
             commands::translation::get_ai_config,
             commands::translation::update_ai_config,
+            commands::translation::get_provider_api_key,
             commands::translation::test_ai_connection,
             commands::translation::reset_translation_prompts,
             commands::translation::translate_selection,

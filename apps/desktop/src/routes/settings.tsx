@@ -2491,7 +2491,15 @@ export function Settings() {
 												setFetchingProviderModels(true);
 												try {
 													const baseUrl = editingProvider.baseUrl.replace(/\/$/, "");
-													const apiKey = editingProvider.apiKey || pendingProviderKeys[editingProvider.id] || "";
+													// Try local sources first, then fall back to saved key from backend
+													let apiKey = editingProvider.apiKey || pendingProviderKeys[editingProvider.id] || "";
+													if (!apiKey) {
+														try {
+															apiKey = await commands.getProviderApiKey(editingProvider.id);
+														} catch (e) {
+															console.warn("[fetchModels] Failed to retrieve saved API key:", e);
+														}
+													}
 													const headers: Record<string, string> = { "Content-Type": "application/json" };
 													if (apiKey) {
 														headers.Authorization = `Bearer ${apiKey}`;

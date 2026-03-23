@@ -973,6 +973,9 @@ export const getAiConfig = () => invoke<AiConfigResponse>("get_ai_config");
 export const updateAiConfig = (input: UpdateAiConfigInput) =>
 	invoke<void>("update_ai_config", { input });
 
+export const getProviderApiKey = (providerId: string) =>
+	invoke<string>("get_provider_api_key", { providerId });
+
 export const testAiConnection = () => invoke<string>("test_ai_connection");
 
 export const resetTranslationPrompts = () =>
