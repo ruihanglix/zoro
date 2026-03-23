@@ -1008,15 +1008,17 @@ export function Settings() {
 		const syncLabProxyProvider = async () => {
 			try {
 				const config = await commands.getAiConfig();
-				// Get existing non-lab providers
-				const existingProviders = (config.providers || []).filter(
+				const currentProviders = config.providers || [];
+
+				// Keep ALL existing providers untouched, only strip old __lab_ entries
+				const nonLabProviders = currentProviders.filter(
 					(p) => !p.id.startsWith("__lab_"),
 				);
-				// Build lab proxy provider if enabled and running
-				const labProviders: { id: string; name: string; baseUrl: string; apiKey?: string; models: string[] }[] = [];
+
+				// Build the __lab_proxy__ entry only when lab is enabled and running
+				let labProxy: { id: string; name: string; baseUrl: string; apiKey?: string; models: string[] } | null = null;
 				if (labEnabled && labProxyStatus?.running) {
 					const proxyBaseUrl = `http://127.0.0.1:${labProxyStatus.port}/v1`;
-					// Fetch models from the proxy's /v1/models endpoint (same as regular providers)
 					let modelIds: string[] = [];
 					try {
 						const resp = await commands.httpProxyGet(`${proxyBaseUrl}/models`, {});
@@ -1030,24 +1032,44 @@ export function Settings() {
 						console.warn("[lab] Failed to fetch models from proxy /v1/models:", fetchErr);
 					}
 					if (modelIds.length > 0) {
-						labProviders.push({
+						labProxy = {
 							id: "__lab_proxy__",
 							name: "Lab LLM Proxy 🧪",
 							baseUrl: proxyBaseUrl,
-							apiKey: "", // no auth needed for local proxy
+							apiKey: "",
 							models: modelIds,
-						});
+						};
 					}
 				}
-				// Merge and save
+
+				// Only write back if the __lab_proxy__ entry actually changed.
+				// Non-lab providers are passed through with apiKey=undefined so
+				// the backend preserves their existing keys untouched.
+				const oldLabProxy = currentProviders.find((p) => p.id === "__lab_proxy__");
+				const labChanged =
+					// was present, now gone (or vice versa)
+					(!!oldLabProxy !== !!labProxy) ||
+					// models list changed
+					(oldLabProxy && labProxy &&
+						JSON.stringify(oldLabProxy.models) !== JSON.stringify(labProxy.models));
+
+				if (!labChanged) {
+					return; // nothing to do — don't touch user providers
+				}
+
 				await commands.updateAiConfig({
-					providers: [...existingProviders.map((p) => ({
-						id: p.id,
-						name: p.name,
-						baseUrl: p.baseUrl,
-						apiKey: undefined, // preserve existing
-						models: p.models,
-					})), ...labProviders],
+					providers: [
+						// Preserve all user-configured providers exactly as-is
+						...nonLabProviders.map((p) => ({
+							id: p.id,
+							name: p.name,
+							baseUrl: p.baseUrl,
+							apiKey: undefined, // tells backend to keep existing key
+							models: p.models,
+						})),
+						// Append lab proxy if available
+						...(labProxy ? [labProxy] : []),
+					],
 				});
 				// Reload AI config to pick up the new models in UI
 				await loadAiConfig();
@@ -2474,23 +2496,41 @@ export function Settings() {
 													if (apiKey) {
 														headers.Authorization = `Bearer ${apiKey}`;
 													}
-													const resp = await commands.httpProxyGet(`${baseUrl}/models`, headers);
+													const fetchUrl = `${baseUrl}/models`;
+													console.info(`[fetchModels] Requesting: ${fetchUrl} (apiKey: ${apiKey ? "yes" : "none"})`);
+													const resp = await commands.httpProxyGet(fetchUrl, headers);
+													console.info(`[fetchModels] Response status: ${resp.status}, body length: ${resp.body?.length ?? 0}`);
 													if (resp.status >= 200 && resp.status < 300) {
-														const json = JSON.parse(resp.body);
+														let json: Record<string, unknown>;
+														try {
+															json = JSON.parse(resp.body);
+														} catch (parseErr) {
+															console.error("[fetchModels] JSON parse error:", parseErr, "raw body:", resp.body?.slice(0, 500));
+															alert(`Failed to parse response as JSON.\n\n${resp.body?.slice(0, 300)}`);
+															return;
+														}
 														let modelIds: string[] = [];
 														if (Array.isArray(json.data)) {
 															modelIds = json.data.map((m: { id?: string }) => m.id ?? "").filter(Boolean);
 														} else if (Array.isArray(json.models)) {
 															modelIds = json.models.map((m: { name?: string; id?: string }) => m.id || m.name?.replace("models/", "") || "").filter(Boolean);
 														}
+														console.info(`[fetchModels] Parsed ${modelIds.length} model(s):`, modelIds.slice(0, 10));
 														if (modelIds.length > 0) {
 															const existing = editingProvider.models.split(",").map((m) => m.trim()).filter(Boolean);
 															const merged = Array.from(new Set([...existing, ...modelIds]));
 															setEditingProvider({ ...editingProvider, models: merged.join(", ") });
+														} else {
+															console.warn("[fetchModels] No models found in response. Keys:", Object.keys(json));
+															alert(`No models found in response.\nResponse keys: ${Object.keys(json).join(", ")}\n\nBody preview:\n${resp.body?.slice(0, 300)}`);
 														}
+													} else {
+														console.error(`[fetchModels] HTTP ${resp.status} from ${fetchUrl}:`, resp.body?.slice(0, 500));
+														alert(`Failed to fetch models: HTTP ${resp.status}\n\n${resp.body?.slice(0, 300)}`);
 													}
 												} catch (err) {
-													console.error("Failed to fetch models:", err);
+													console.error("[fetchModels] Exception:", err);
+													alert(`Failed to fetch models:\n${err instanceof Error ? err.message : String(err)}`);
 												} finally {
 													setFetchingProviderModels(false);
 												}
