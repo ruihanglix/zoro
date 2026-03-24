@@ -400,7 +400,14 @@
 		"hideHistory": "Hide history",
 		"paperChats": "Paper Chats",
 		"plan": "Plan",
-		"moreActions": "More actions"
+		"moreActions": "More actions",
+		"editAndRegenerate": "Edit & regenerate",
+		"regenerateResponse": "Regenerate response",
+		"submitAndRegenerate": "Submit & Regenerate",
+		"cancel": "Cancel",
+		"approveAction": "Approve this action?",
+		"allow": "Allow",
+		"reject": "Reject"
 	},
 	"noteEditor": {
 		"startWriting": "Start writing...",

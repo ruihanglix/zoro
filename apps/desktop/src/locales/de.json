@@ -399,7 +399,14 @@
 		"hideHistory": "Verlauf ausblenden",
 		"paperChats": "Artikel-Chats",
 		"plan": "Plan",
-		"moreActions": "Weitere Aktionen"
+		"moreActions": "Weitere Aktionen",
+		"editAndRegenerate": "Bearbeiten & neu generieren",
+		"regenerateResponse": "Antwort neu generieren",
+		"submitAndRegenerate": "Absenden & neu generieren",
+		"cancel": "Abbrechen",
+		"approveAction": "Diese Aktion genehmigen?",
+		"allow": "Erlauben",
+		"reject": "Ablehnen"
 	},
 	"noteEditor": {
 		"startWriting": "Beginnen Sie zu schreiben...",

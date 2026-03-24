@@ -399,7 +399,14 @@
 		"hideHistory": "履歴を非表示",
 		"paperChats": "論文チャット",
 		"plan": "計画",
-		"moreActions": "その他の操作"
+		"moreActions": "その他の操作",
+		"editAndRegenerate": "編集して再生成",
+		"regenerateResponse": "回答を再生成",
+		"submitAndRegenerate": "送信して再生成",
+		"cancel": "キャンセル",
+		"approveAction": "このアクションを承認しますか？",
+		"allow": "許可",
+		"reject": "拒否"
 	},
 	"noteEditor": {
 		"startWriting": "書き始める...",

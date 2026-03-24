@@ -31,6 +31,7 @@ import {
 	Brain,
 	Check,
 	ChevronDown,
+	ChevronLeft,
 	ChevronRight,
 	EllipsisVertical,
 	FileText,
@@ -43,6 +44,8 @@ import {
 	MessageSquarePlus,
 	PanelLeft,
 	PanelLeftClose,
+	Pencil,
+	RefreshCw,
 	Send,
 	Settings,
 	Square,
@@ -68,7 +71,8 @@ export function AgentPanel({ cwd, paperId }: AgentPanelProps) {
 	const agents = useAgentStore((s) => s.agents);
 	const activeAgentName = useAgentStore((s) => s.activeAgentName);
 	const sessionId = useAgentStore((s) => s.sessionId);
-	const messages = useAgentStore((s) => s.messages);
+	const getActiveBranch = useAgentStore((s) => s.getActiveBranch);
+	const messageMap = useAgentStore((s) => s.messageMap);
 	const streaming = useAgentStore((s) => s.streaming);
 	const connecting = useAgentStore((s) => s.connecting);
 	const error = useAgentStore((s) => s.error);
@@ -92,7 +96,6 @@ export function AgentPanel({ cwd, paperId }: AgentPanelProps) {
 	const chatActivePreset = useAgentStore((s) => s.chatActivePreset);
 	const setChatActivePreset = useAgentStore((s) => s.setChatActivePreset);
 	const chatModel = useAgentStore((s) => s.chatModel);
-	const setChatModel = useAgentStore((s) => s.setChatModel);
 	const chatProviderId = useAgentStore((s) => s.chatProviderId);
 	const chatProviders = useAgentStore((s) => s.chatProviders);
 	const setChatProvider = useAgentStore((s) => s.setChatProvider);
@@ -192,9 +195,12 @@ export function AgentPanel({ cwd, paperId }: AgentPanelProps) {
 		}
 	}, []);
 
+	const messages = getActiveBranch();
+	const totalMessageCount = Object.keys(messageMap).length;
+
 	const prevMessageCount = useRef(0);
-	if (messages.length !== prevMessageCount.current) {
-		prevMessageCount.current = messages.length;
+	if (totalMessageCount !== prevMessageCount.current) {
+		prevMessageCount.current = totalMessageCount;
 		requestAnimationFrame(scrollToBottom);
 	}
 
@@ -329,7 +335,7 @@ export function AgentPanel({ cwd, paperId }: AgentPanelProps) {
 						</div>
 					)}
 
-<div className="relative flex-1 min-w-0">
+					<div className="relative flex-1 min-w-0">
 						<button
 							type="button"
 							className="flex w-full items-center justify-between rounded-md border px-3 py-1.5 text-sm hover:bg-accent/50 transition-colors"
@@ -592,8 +598,15 @@ export function AgentPanel({ cwd, paperId }: AgentPanelProps) {
 			) : messages.length > 0 ? (
 				<ScrollArea className="flex-1">
 					<div ref={scrollRef} className="flex flex-col gap-2 px-4 pb-4">
-						{messages.map((msg) => (
-							<MessageBubble key={msg.id} message={msg} />
+						{messages.map((msg, idx) => (
+							<MessageBubble
+								key={msg.id}
+								message={msg}
+								isLastAgent={
+									msg.role === "agent" && idx === messages.length - 1
+								}
+								isStreaming={streaming}
+							/>
 						))}
 						{connecting && (
 							<div className="flex items-center gap-1.5 text-xs text-muted-foreground px-1 py-1">
@@ -1297,51 +1310,74 @@ function ChatSidebar({
 	);
 }
 
+// ── Branch navigation component ─────────────────────────────────────────────
+
+function BranchNavigator({ messageId }: { messageId: string }) {
+	const getSiblingInfo = useAgentStore((s) => s.getSiblingInfo);
+	const switchSibling = useAgentStore((s) => s.switchSibling);
+
+	const info = getSiblingInfo(messageId);
+	if (!info) return null;
+
+	return (
+		<div className="flex items-center gap-0.5 text-[10px] text-muted-foreground select-none">
+			<button
+				type="button"
+				className={cn(
+					"p-0.5 rounded transition-colors",
+					info.index > 0
+						? "hover:bg-accent hover:text-foreground cursor-pointer"
+						: "opacity-30 cursor-default",
+				)}
+				onClick={() => info.index > 0 && switchSibling(messageId, "prev")}
+				disabled={info.index <= 0}
+			>
+				<ChevronLeft className="h-3 w-3" />
+			</button>
+			<span className="tabular-nums px-0.5">
+				{info.index + 1}/{info.total}
+			</span>
+			<button
+				type="button"
+				className={cn(
+					"p-0.5 rounded transition-colors",
+					info.index < info.total - 1
+						? "hover:bg-accent hover:text-foreground cursor-pointer"
+						: "opacity-30 cursor-default",
+				)}
+				onClick={() =>
+					info.index < info.total - 1 && switchSibling(messageId, "next")
+				}
+				disabled={info.index >= info.total - 1}
+			>
+				<ChevronRight className="h-3 w-3" />
+			</button>
+		</div>
+	);
+}
+
 // ── Message bubble ──────────────────────────────────────────────────────────
 
-function MessageBubble({ message }: { message: ChatMessage }) {
+function MessageBubble({
+	message,
+	isLastAgent = false,
+	isStreaming = false,
+}: {
+	message: ChatMessage;
+	isLastAgent?: boolean;
+	isStreaming?: boolean;
+}) {
 	if (message.role === "user") {
-		return (
-			<div className="flex justify-end">
-				<div className="max-w-[85%] rounded-lg bg-primary px-3 py-2 text-primary-foreground">
-					{message.images && message.images.length > 0 && (
-						<div className="mb-2 flex flex-wrap gap-1">
-							{message.images.map((img) => (
-								<img
-									key={`user-img-${img.mimeType}-${img.base64Data.slice(0, 16)}`}
-									src={`data:${img.mimeType};base64,${img.base64Data}`}
-									alt="Attached"
-									className="h-20 w-auto rounded"
-								/>
-							))}
-						</div>
-					)}
-					<p className="text-sm whitespace-pre-wrap">{message.text}</p>
-				</div>
-			</div>
-		);
+		return <UserMessageBubble message={message} isStreaming={isStreaming} />;
 	}
 
 	if (message.role === "agent") {
 		return (
-			<div className="flex justify-start">
-				<div className="max-w-[85%] rounded-lg bg-muted px-3 py-2">
-					<div
-						className={cn(
-							"prose prose-sm dark:prose-invert max-w-none break-words",
-							"prose-p:my-1.5 prose-headings:my-2 prose-li:my-0.5",
-							"prose-pre:rounded-md prose-pre:bg-black/20 [&_pre]:overflow-x-auto [&_pre]:max-w-full",
-							"prose-code:bg-black/20 prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-code:text-[0.85em] prose-code:before:content-none prose-code:after:content-none",
-							"prose-blockquote:border-primary/40",
-							"prose-a:text-primary prose-a:no-underline hover:prose-a:underline",
-							"prose-ol:pl-4 prose-ul:pl-4",
-							"prose-img:rounded-md",
-						)}
-					>
-						<Markdown remarkPlugins={[remarkGfm]}>{message.text}</Markdown>
-					</div>
-				</div>
-			</div>
+			<AgentMessageBubble
+				message={message}
+				isLastAgent={isLastAgent}
+				isStreaming={isStreaming}
+			/>
 		);
 	}
 
@@ -1401,6 +1437,181 @@ function MessageBubble({ message }: { message: ChatMessage }) {
 	}
 
 	return null;
+}
+
+// ── User message bubble with edit support ────────────────────────────────────
+
+function UserMessageBubble({
+	message,
+	isStreaming,
+}: {
+	message: ChatMessage;
+	isStreaming: boolean;
+}) {
+	const [editing, setEditing] = useState(false);
+	const [editText, setEditText] = useState(message.text);
+	const editRef = useRef<HTMLTextAreaElement>(null);
+	const editAndRegenerate = useAgentStore((s) => s.editAndRegenerate);
+
+	const handleStartEdit = useCallback(() => {
+		setEditText(message.text);
+		setEditing(true);
+		requestAnimationFrame(() => {
+			if (editRef.current) {
+				editRef.current.focus();
+				editRef.current.style.height = "auto";
+				editRef.current.style.height = `${editRef.current.scrollHeight}px`;
+			}
+		});
+	}, [message.text]);
+
+	const handleCancelEdit = useCallback(() => {
+		setEditing(false);
+		setEditText(message.text);
+	}, [message.text]);
+
+	const handleSubmitEdit = useCallback(() => {
+		const trimmed = editText.trim();
+		if (!trimmed) return;
+		setEditing(false);
+		if (trimmed !== message.text) {
+			editAndRegenerate(message.id, trimmed, message.images);
+		}
+	}, [editText, message.id, message.text, message.images, editAndRegenerate]);
+
+	const handleEditKeyDown = useCallback(
+		(e: React.KeyboardEvent) => {
+			if (e.key === "Enter" && !e.shiftKey) {
+				e.preventDefault();
+				handleSubmitEdit();
+			}
+			if (e.key === "Escape") {
+				handleCancelEdit();
+			}
+		},
+		[handleSubmitEdit, handleCancelEdit],
+	);
+
+	if (editing) {
+		return (
+			<div className="flex justify-end">
+				<div className="max-w-[85%] w-full rounded-lg border-2 border-primary/50 bg-primary/5 px-3 py-2">
+					<textarea
+						ref={editRef}
+						className="w-full resize-none bg-transparent text-sm focus:outline-none min-h-[38px] max-h-[200px]"
+						value={editText}
+						onChange={(e) => {
+							setEditText(e.target.value);
+							const el = e.target;
+							el.style.height = "auto";
+							el.style.height = `${Math.min(el.scrollHeight, 200)}px`;
+						}}
+						onKeyDown={handleEditKeyDown}
+					/>
+					<div className="flex items-center justify-end gap-1.5 mt-1.5">
+						<Button
+							variant="ghost"
+							size="sm"
+							className="h-6 px-2 text-xs"
+							onClick={handleCancelEdit}
+						>
+							Cancel
+						</Button>
+						<Button
+							size="sm"
+							className="h-6 px-2 text-xs"
+							onClick={handleSubmitEdit}
+							disabled={!editText.trim()}
+						>
+							<Send className="h-3 w-3 mr-1" />
+							Submit & Regenerate
+						</Button>
+					</div>
+				</div>
+			</div>
+		);
+	}
+
+	return (
+		<div className="group flex flex-col items-end gap-1">
+			<div className="max-w-[85%] rounded-lg bg-primary px-3 py-2 text-primary-foreground">
+				{message.images && message.images.length > 0 && (
+					<div className="mb-2 flex flex-wrap gap-1">
+						{message.images.map((img) => (
+							<img
+								key={`user-img-${img.mimeType}-${img.base64Data.slice(0, 16)}`}
+								src={`data:${img.mimeType};base64,${img.base64Data}`}
+								alt="Attached"
+								className="h-20 w-auto rounded"
+							/>
+						))}
+					</div>
+				)}
+				<p className="text-sm whitespace-pre-wrap">{message.text}</p>
+			</div>
+			<div className="flex items-center gap-1 h-5">
+				<BranchNavigator messageId={message.id} />
+				{!isStreaming && (
+					<button
+						type="button"
+						className="p-0.5 rounded text-muted-foreground opacity-0 group-hover:opacity-100 hover:bg-accent hover:text-foreground transition-all"
+						onClick={handleStartEdit}
+						title="Edit & regenerate"
+					>
+						<Pencil className="h-3 w-3" />
+					</button>
+				)}
+			</div>
+		</div>
+	);
+}
+
+// ── Agent message bubble with regenerate support ────────────────────────────
+
+function AgentMessageBubble({
+	message,
+	isLastAgent,
+	isStreaming,
+}: {
+	message: ChatMessage;
+	isLastAgent: boolean;
+	isStreaming: boolean;
+}) {
+	const regenerateLastResponse = useAgentStore((s) => s.regenerateLastResponse);
+
+	return (
+		<div className="group flex flex-col items-start gap-1">
+			<div className="max-w-[85%] rounded-lg bg-muted px-3 py-2">
+				<div
+					className={cn(
+						"prose prose-sm dark:prose-invert max-w-none break-words",
+						"prose-p:my-1.5 prose-headings:my-2 prose-li:my-0.5",
+						"prose-pre:rounded-md prose-pre:bg-black/20 [&_pre]:overflow-x-auto [&_pre]:max-w-full",
+						"prose-code:bg-black/20 prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-code:text-[0.85em] prose-code:before:content-none prose-code:after:content-none",
+						"prose-blockquote:border-primary/40",
+						"prose-a:text-primary prose-a:no-underline hover:prose-a:underline",
+						"prose-ol:pl-4 prose-ul:pl-4",
+						"prose-img:rounded-md",
+					)}
+				>
+					<Markdown remarkPlugins={[remarkGfm]}>{message.text}</Markdown>
+				</div>
+			</div>
+			<div className="flex items-center gap-1 h-5">
+				<BranchNavigator messageId={message.id} />
+				{isLastAgent && !isStreaming && (
+					<button
+						type="button"
+						className="p-0.5 rounded text-muted-foreground opacity-0 group-hover:opacity-100 hover:bg-accent hover:text-foreground transition-all"
+						onClick={regenerateLastResponse}
+						title="Regenerate response"
+					>
+						<RefreshCw className="h-3 w-3" />
+					</button>
+				)}
+			</div>
+		</div>
+	);
 }
 
 // ── Tool call bubble with expandable details + confirmation ─────────────────

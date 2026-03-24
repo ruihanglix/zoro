@@ -400,7 +400,14 @@
 		"hideHistory": "隐藏历史",
 		"paperChats": "论文聊天",
 		"plan": "计划",
-		"moreActions": "更多操作"
+		"moreActions": "更多操作",
+		"editAndRegenerate": "编辑并重新生成",
+		"regenerateResponse": "重新生成回复",
+		"submitAndRegenerate": "提交并重新生成",
+		"cancel": "取消",
+		"approveAction": "批准此操作？",
+		"allow": "允许",
+		"reject": "拒绝"
 	},
 	"noteEditor": {
 		"startWriting": "开始写作...",

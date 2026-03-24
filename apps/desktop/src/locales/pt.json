@@ -399,7 +399,14 @@
 		"hideHistory": "Ocultar histórico",
 		"paperChats": "Chats de artigos",
 		"plan": "Plano",
-		"moreActions": "Mais ações"
+		"moreActions": "Mais ações",
+		"editAndRegenerate": "Editar e regenerar",
+		"regenerateResponse": "Regenerar resposta",
+		"submitAndRegenerate": "Enviar e regenerar",
+		"cancel": "Cancelar",
+		"approveAction": "Aprovar esta ação?",
+		"allow": "Permitir",
+		"reject": "Rejeitar"
 	},
 	"noteEditor": {
 		"startWriting": "Comece a escrever...",

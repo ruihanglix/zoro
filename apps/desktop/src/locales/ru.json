@@ -399,7 +399,14 @@
 		"hideHistory": "Скрыть историю",
 		"paperChats": "Чаты по статьям",
 		"plan": "План",
-		"moreActions": "Дополнительные действия"
+		"moreActions": "Дополнительные действия",
+		"editAndRegenerate": "Редактировать и пересоздать",
+		"regenerateResponse": "Пересоздать ответ",
+		"submitAndRegenerate": "Отправить и пересоздать",
+		"cancel": "Отмена",
+		"approveAction": "Одобрить это действие?",
+		"allow": "Разрешить",
+		"reject": "Отклонить"
 	},
 	"noteEditor": {
 		"startWriting": "Начните писать...",

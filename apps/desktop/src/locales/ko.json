@@ -399,7 +399,14 @@
 		"hideHistory": "기록 숨기기",
 		"paperChats": "논문 채팅",
 		"plan": "계획",
-		"moreActions": "더 많은 작업"
+		"moreActions": "더 많은 작업",
+		"editAndRegenerate": "편집 후 재생성",
+		"regenerateResponse": "응답 재생성",
+		"submitAndRegenerate": "제출 후 재생성",
+		"cancel": "취소",
+		"approveAction": "이 작업을 승인하시겠습니까?",
+		"allow": "허용",
+		"reject": "거부"
 	},
 	"noteEditor": {
 		"startWriting": "작성 시작...",
