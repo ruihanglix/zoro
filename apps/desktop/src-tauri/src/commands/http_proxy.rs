@@ -42,14 +42,11 @@ pub async fn http_proxy_get(
         }
     }
 
-    let resp = req
-        .send()
-        .await
-        .map_err(|e| {
-            let msg = format!("HTTP request failed: {}", e);
-            tracing::warn!(url = %url, %msg, "http_proxy_get: request failed");
-            msg
-        })?;
+    let resp = req.send().await.map_err(|e| {
+        let msg = format!("HTTP request failed: {}", e);
+        tracing::warn!(url = %url, %msg, "http_proxy_get: request failed");
+        msg
+    })?;
 
     let status = resp.status().as_u16();
     tracing::debug!(url = %url, status, "http_proxy_get: got response");
@@ -61,20 +58,21 @@ pub async fn http_proxy_get(
         }
     }
 
-    let body = resp
-        .text()
-        .await
-        .map_err(|e| {
-            let msg = format!("Failed to read response body: {}", e);
-            tracing::warn!(url = %url, %msg, "http_proxy_get: body read failed");
-            msg
-        })?;
+    let body = resp.text().await.map_err(|e| {
+        let msg = format!("Failed to read response body: {}", e);
+        tracing::warn!(url = %url, %msg, "http_proxy_get: body read failed");
+        msg
+    })?;
 
     // Log a snippet of the body for debugging (truncate to 512 chars)
-    let body_snippet = if body.len() > 512 { &body[..512] } else { &body };
+    let body_snippet = if body.len() > 512 {
+        &body[..512]
+    } else {
+        &body
+    };
     tracing::debug!(url = %url, status, body_len = body.len(), body_snippet, "http_proxy_get: response body");
 
-    if status < 200 || status >= 300 {
+    if !(200..300).contains(&status) {
         tracing::warn!(url = %url, status, body = %body_snippet, "http_proxy_get: non-success status");
     }
 

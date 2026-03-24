@@ -377,7 +377,10 @@ async fn forward_openai(
 
     let resp = client
         .post(&url)
-        .header("Authorization", format!("Bearer {}", provider.api_key))
+        .header(
+            "Authorization",
+            format!("Bearer {}", provider.next_api_key()),
+        )
         .header("Content-Type", "application/json")
         .json(&body)
         .send()
@@ -432,7 +435,10 @@ async fn forward_gemini(
     };
     let url = format!(
         "{}/models/{}:{}&key={}",
-        base, req.model, method, provider.api_key
+        base,
+        req.model,
+        method,
+        provider.next_api_key()
     );
 
     // Convert OpenAI messages to Gemini contents format

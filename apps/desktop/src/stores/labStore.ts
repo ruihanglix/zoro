@@ -15,6 +15,7 @@ export interface FreeProvider {
 	key_prefix: string;
 	tier: string;
 	has_key: boolean;
+	key_count: number;
 	model_count: number;
 }
 
@@ -47,7 +48,7 @@ export interface ProviderHealthStatus {
 export type RoutingStrategy = "auto" | "round-robin" | "manual";
 
 export interface LabConfig {
-	provider_keys: Record<string, string>;
+	provider_keys: Record<string, string[]>;
 	disabled_models: string[];
 	routing_strategy: RoutingStrategy;
 	enabled: boolean;
@@ -74,7 +75,9 @@ interface LabState {
 	// Actions — all delegate to Tauri commands
 	initialize: () => Promise<void>;
 	setEnabled: (enabled: boolean) => Promise<void>;
-	setProviderKey: (providerId: string, apiKey: string) => Promise<void>;
+	addProviderKey: (providerId: string, apiKey: string) => Promise<void>;
+	removeProviderKey: (providerId: string, keyIndex: number) => Promise<void>;
+	getProviderKeys: (providerId: string) => Promise<string[]>;
 	refreshModels: () => Promise<void>;
 	toggleModelDisabled: (
 		providerId: string,
@@ -154,9 +157,9 @@ export const useLabStore = create<LabState>((set, get) => ({
 		}
 	},
 
-	setProviderKey: async (providerId, apiKey) => {
+	addProviderKey: async (providerId, apiKey) => {
 		try {
-			await invoke("lab_set_provider_key", { providerId, apiKey });
+			await invoke("lab_add_provider_key", { providerId, apiKey });
 			// Refresh models for this provider
 			if (apiKey.trim()) {
 				set({ modelsLoading: true });
@@ -175,8 +178,37 @@ export const useLabStore = create<LabState>((set, get) => ({
 				await get().reloadProxy();
 			}
 		} catch (err) {
-			console.error("[lab] Failed to set provider key:", err);
+			console.error("[lab] Failed to add provider key:", err);
 			set({ error: String(err), modelsLoading: false });
+		}
+	},
+
+	removeProviderKey: async (providerId, keyIndex) => {
+		try {
+			await invoke("lab_remove_provider_key", { providerId, keyIndex });
+			// Refresh full state to pick up updated providers
+			const [providers, models] = await Promise.all([
+				invoke<FreeProvider[]>("lab_list_providers"),
+				invoke<LabModel[]>("lab_list_models"),
+			]);
+			set({ providers, models });
+			// If proxy is running, reload it with updated providers
+			const status = get().proxyStatus;
+			if (status?.running) {
+				await get().reloadProxy();
+			}
+		} catch (err) {
+			console.error("[lab] Failed to remove provider key:", err);
+			set({ error: String(err) });
+		}
+	},
+
+	getProviderKeys: async (providerId) => {
+		try {
+			return await invoke<string[]>("lab_get_provider_keys", { providerId });
+		} catch (err) {
+			console.error("[lab] Failed to get provider keys:", err);
+			return [];
 		}
 	},
 

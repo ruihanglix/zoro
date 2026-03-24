@@ -19,8 +19,10 @@ const MODEL_CACHE_MAX_AGE_SECS: u64 = 24 * 60 * 60;
 /// Persistent state for the Lab service.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct LabConfig {
-    /// Provider ID → API key
-    pub provider_keys: HashMap<String, String>,
+    /// Provider ID → list of API keys (supports multiple keys per provider).
+    /// Backward-compatible: also accepts a single string per provider from old configs.
+    #[serde(deserialize_with = "deserialize_provider_keys", default)]
+    pub provider_keys: HashMap<String, Vec<String>>,
     /// Set of disabled model IDs (provider_id::model_id)
     pub disabled_models: HashSet<String>,
     /// Routing strategy for the proxy
@@ -33,6 +35,58 @@ pub struct LabConfig {
     pub lan_access: bool,
     /// Optional LAN access token
     pub access_token: String,
+}
+
+/// Deserialize `provider_keys` supporting both old format (`{"id": "key"}`) and
+/// new format (`{"id": ["key1", "key2"]}`).
+fn deserialize_provider_keys<'de, D>(
+    deserializer: D,
+) -> Result<HashMap<String, Vec<String>>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    use serde::de;
+
+    struct ProviderKeysVisitor;
+
+    impl<'de> de::Visitor<'de> for ProviderKeysVisitor {
+        type Value = HashMap<String, Vec<String>>;
+
+        fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+            formatter.write_str(
+                "a map of provider_id to either a single API key string or a list of strings",
+            )
+        }
+
+        fn visit_map<A: de::MapAccess<'de>>(self, mut map: A) -> Result<Self::Value, A::Error> {
+            let mut result = HashMap::new();
+            while let Some(key) = map.next_key::<String>()? {
+                // Each value can be either a single string or a Vec<String>
+                let raw: serde_json::Value = map.next_value()?;
+                let keys = match raw {
+                    serde_json::Value::String(s) => {
+                        if s.is_empty() {
+                            Vec::new()
+                        } else {
+                            vec![s]
+                        }
+                    }
+                    serde_json::Value::Array(arr) => arr
+                        .into_iter()
+                        .filter_map(|v| match v {
+                            serde_json::Value::String(s) if !s.is_empty() => Some(s),
+                            _ => None,
+                        })
+                        .collect(),
+                    _ => Vec::new(),
+                };
+                result.insert(key, keys);
+            }
+            Ok(result)
+        }
+    }
+
+    deserializer.deserialize_map(ProviderKeysVisitor)
 }
 
 impl LabConfig {
@@ -91,23 +145,57 @@ impl LabService {
 
     // ── Provider key management ──────────────────────────────────────────
 
-    /// Set the API key for a provider. Empty string removes the key.
-    pub fn set_provider_key(&mut self, provider_id: &str, api_key: String) {
+    /// Add an API key for a provider. Duplicates are ignored.
+    pub fn add_provider_key(&mut self, provider_id: &str, api_key: String) {
         if api_key.is_empty() {
-            self.config.provider_keys.remove(provider_id);
-        } else {
-            self.config
-                .provider_keys
-                .insert(provider_id.to_string(), api_key);
+            return;
+        }
+        let keys = self
+            .config
+            .provider_keys
+            .entry(provider_id.to_string())
+            .or_default();
+        if !keys.contains(&api_key) {
+            keys.push(api_key);
         }
         self.save_config();
     }
 
-    pub fn get_provider_key(&self, provider_id: &str) -> Option<&String> {
-        self.config.provider_keys.get(provider_id)
+    /// Remove a specific API key from a provider.
+    /// If no keys remain, the provider entry is removed.
+    pub fn remove_provider_key(&mut self, provider_id: &str, api_key: &str) {
+        if let Some(keys) = self.config.provider_keys.get_mut(provider_id) {
+            keys.retain(|k| k != api_key);
+            if keys.is_empty() {
+                self.config.provider_keys.remove(provider_id);
+            }
+        }
+        self.save_config();
     }
 
-    /// Get all providers that have API keys configured.
+    /// Remove an API key by index. If no keys remain, the provider entry is removed.
+    pub fn remove_provider_key_at(&mut self, provider_id: &str, index: usize) {
+        if let Some(keys) = self.config.provider_keys.get_mut(provider_id) {
+            if index < keys.len() {
+                keys.remove(index);
+            }
+            if keys.is_empty() {
+                self.config.provider_keys.remove(provider_id);
+            }
+        }
+        self.save_config();
+    }
+
+    /// Get all API keys for a provider.
+    pub fn get_provider_keys(&self, provider_id: &str) -> &[String] {
+        self.config
+            .provider_keys
+            .get(provider_id)
+            .map(|v| v.as_slice())
+            .unwrap_or(&[])
+    }
+
+    /// Get all providers that have at least one API key configured.
     pub fn configured_providers(&self) -> Vec<&FreeProvider> {
         FREE_PROVIDERS
             .iter()
@@ -115,7 +203,7 @@ impl LabService {
                 self.config
                     .provider_keys
                     .get(&p.id)
-                    .map(|k| !k.is_empty())
+                    .map(|keys| !keys.is_empty())
                     .unwrap_or(false)
             })
             .collect()
@@ -188,7 +276,13 @@ impl LabService {
             .cloned()
             .collect::<Vec<_>>();
         for provider in &providers {
-            let api_key = match self.config.provider_keys.get(&provider.id) {
+            // Use the first key for fetching model lists
+            let api_key = match self
+                .config
+                .provider_keys
+                .get(&provider.id)
+                .and_then(|keys| keys.first())
+            {
                 Some(k) => k.clone(),
                 None => continue,
             };
@@ -232,10 +326,12 @@ impl LabService {
             .ok_or_else(|| format!("Unknown provider: {}", provider_id))?
             .clone();
 
+        // Use the first key for fetching model lists
         let api_key = self
             .config
             .provider_keys
             .get(provider_id)
+            .and_then(|keys| keys.first())
             .ok_or_else(|| format!("No API key for provider: {}", provider_id))?
             .clone();
 
@@ -317,8 +413,8 @@ impl LabService {
         let mut result = Vec::new();
 
         for provider in self.configured_providers() {
-            let api_key = match self.config.provider_keys.get(&provider.id) {
-                Some(k) if !k.is_empty() => k.clone(),
+            let api_keys = match self.config.provider_keys.get(&provider.id) {
+                Some(keys) if !keys.is_empty() => keys.clone(),
                 _ => continue,
             };
 
@@ -338,14 +434,14 @@ impl LabService {
                 continue;
             }
 
-            result.push(UpstreamProvider {
-                id: provider.id.clone(),
-                name: provider.name.clone(),
-                base_url: provider.base_url.clone(),
-                api_key,
+            result.push(UpstreamProvider::new(
+                provider.id.clone(),
+                provider.name.clone(),
+                provider.base_url.clone(),
+                api_keys,
                 models,
-                format: provider.format,
-            });
+                provider.format,
+            ));
         }
 
         result

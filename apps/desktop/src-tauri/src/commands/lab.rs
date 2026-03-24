@@ -12,6 +12,9 @@ use tokio::sync::Mutex;
 use zoro_lab_freellm::{LabConfig, LabService};
 use zoro_llm_proxy::{ProxyServer, RoutingStrategy};
 
+/// Result type for per-provider model refresh: (provider_id, Ok(model_count) | Err(message)).
+type RefreshResult = Vec<(String, Result<usize, String>)>;
+
 /// Shared state for the Lab feature (async Mutex because LabService
 /// contains async operations and proxy start/stop is async).
 pub struct LabState {
@@ -50,6 +53,7 @@ pub struct LabProviderInfo {
     pub key_prefix: String,
     pub tier: String,
     pub has_key: bool,
+    pub key_count: usize,
     pub model_count: usize,
 }
 
@@ -90,10 +94,9 @@ pub async fn lab_list_providers(
     let providers = zoro_lab_freellm::FREE_PROVIDERS
         .iter()
         .map(|p| {
-            let has_key = service
-                .get_provider_key(&p.id)
-                .map(|k| !k.is_empty())
-                .unwrap_or(false);
+            let keys = service.get_provider_keys(&p.id);
+            let has_key = !keys.is_empty();
+            let key_count = keys.len();
             let models = service.available_models();
             let model_count = models.iter().filter(|m| m.provider_id == p.id).count();
             LabProviderInfo {
@@ -107,6 +110,7 @@ pub async fn lab_list_providers(
                     zoro_lab_freellm::ProviderTier::Secondary => "secondary".into(),
                 },
                 has_key,
+                key_count,
                 model_count,
             }
         })
@@ -114,16 +118,49 @@ pub async fn lab_list_providers(
     Ok(providers)
 }
 
-/// Set an API key for a provider.
+/// Add an API key for a provider. Duplicates are silently ignored.
 #[tauri::command]
-pub async fn lab_set_provider_key(
+pub async fn lab_add_provider_key(
     state: State<'_, LabState>,
     provider_id: String,
     api_key: String,
 ) -> Result<(), String> {
     let mut service = state.service.lock().await;
-    service.set_provider_key(&provider_id, api_key);
+    service.add_provider_key(&provider_id, api_key);
     Ok(())
+}
+
+/// Remove an API key from a provider by index.
+#[tauri::command]
+pub async fn lab_remove_provider_key(
+    state: State<'_, LabState>,
+    provider_id: String,
+    key_index: usize,
+) -> Result<(), String> {
+    let mut service = state.service.lock().await;
+    service.remove_provider_key_at(&provider_id, key_index);
+    Ok(())
+}
+
+/// Get masked API keys for a provider (returns ["sk-or-...xxx", ...]).
+#[tauri::command]
+pub async fn lab_get_provider_keys(
+    state: State<'_, LabState>,
+    provider_id: String,
+) -> Result<Vec<String>, String> {
+    let service = state.service.lock().await;
+    let keys = service.get_provider_keys(&provider_id);
+    Ok(keys.iter().map(|k| mask_api_key(k)).collect())
+}
+
+/// Mask an API key for display: show first 6 + last 4 chars.
+fn mask_api_key(key: &str) -> String {
+    if key.len() <= 12 {
+        // Too short to mask meaningfully
+        "***".to_string()
+    } else {
+        format!("{}...{}", &key[..6], &key[key.len() - 4..])
+    }
 }
 
 /// Get all available models.
@@ -170,9 +207,7 @@ pub async fn lab_toggle_provider(
 
 /// Refresh model lists from all configured providers.
 #[tauri::command]
-pub async fn lab_refresh_models(
-    state: State<'_, LabState>,
-) -> Result<Vec<(String, Result<usize, String>)>, String> {
+pub async fn lab_refresh_models(state: State<'_, LabState>) -> Result<RefreshResult, String> {
     let mut service = state.service.lock().await;
     let results = service.refresh_all_models().await;
     Ok(results)

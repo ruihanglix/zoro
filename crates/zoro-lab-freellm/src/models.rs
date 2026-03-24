@@ -164,9 +164,7 @@ async fn fetch_github_models(
                         .get("supported_output_modalities")
                         .and_then(|v| v.as_array());
                     if let Some(modalities) = output_modalities {
-                        let has_text = modalities
-                            .iter()
-                            .any(|m| m.as_str() == Some("text"));
+                        let has_text = modalities.iter().any(|m| m.as_str() == Some("text"));
                         if !has_text {
                             return None;
                         }

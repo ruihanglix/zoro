@@ -4635,7 +4635,9 @@ function LabSection() {
 		config,
 		loading,
 		modelsLoading,
-		setProviderKey,
+		addProviderKey,
+		removeProviderKey,
+		getProviderKeys,
 		refreshModels,
 		toggleModelDisabled,
 		toggleProviderDisabled,
@@ -4647,6 +4649,8 @@ function LabSection() {
 
 	const [showMoreProviders, setShowMoreProviders] = useState(false);
 	const [editingKeys, setEditingKeys] = useState<Record<string, string>>({});
+	const [expandedProviders, setExpandedProviders] = useState<Record<string, boolean>>({});
+	const [providerMaskedKeys, setProviderMaskedKeys] = useState<Record<string, string[]>>({});
 	const [editingPort, setEditingPort] = useState(false);
 	const [portValue, setPortValue] = useState("");
 
@@ -4660,13 +4664,36 @@ function LabSection() {
 	const handleSaveKey = (providerId: string) => {
 		const key = editingKeys[providerId]?.trim();
 		if (key) {
-			setProviderKey(providerId, key);
+			addProviderKey(providerId, key);
 			setEditingKeys((prev) => {
 				const next = { ...prev };
 				delete next[providerId];
 				return next;
 			});
+			// Clear cached masked keys so they refresh on next expand
+			setProviderMaskedKeys((prev) => {
+				const next = { ...prev };
+				delete next[providerId];
+				return next;
+			});
 		}
+	};
+
+	const handleToggleExpand = async (providerId: string) => {
+		const isExpanded = expandedProviders[providerId];
+		if (!isExpanded && !providerMaskedKeys[providerId]) {
+			// Fetch masked keys on first expand
+			const keys = await getProviderKeys(providerId);
+			setProviderMaskedKeys((prev) => ({ ...prev, [providerId]: keys }));
+		}
+		setExpandedProviders((prev) => ({ ...prev, [providerId]: !isExpanded }));
+	};
+
+	const handleRemoveKey = async (providerId: string, keyIndex: number) => {
+		await removeProviderKey(providerId, keyIndex);
+		// Refresh masked keys from backend
+		const keys = await getProviderKeys(providerId);
+		setProviderMaskedKeys((prev) => ({ ...prev, [providerId]: keys }));
 	};
 
 	const handleSavePort = async () => {
@@ -4756,127 +4783,155 @@ function LabSection() {
 						</p>
 
 						<div className="space-y-2">
-							{visibleProviders.map((provider) => {
+						{visibleProviders.map((provider) => {
 								const isConfigured = provider.has_key;
 								const isEditing = editingKeys[provider.id] !== undefined;
+								const isExpanded = expandedProviders[provider.id] ?? false;
+								const maskedKeys = providerMaskedKeys[provider.id] ?? [];
 								return (
 									<div
 										key={provider.id}
 										className={cn(
-											"flex items-center gap-3 rounded-md border p-2.5 transition-colors",
+											"rounded-md border p-2.5 transition-colors",
 											isConfigured
 												? "border-green-500/30 bg-green-50/50 dark:bg-green-950/20"
 												: "border-border",
 										)}
 									>
-										<div className="min-w-0 flex-1">
-											<div className="flex items-center gap-2">
-												<span className="text-sm font-medium">
-													{provider.display_name}
-												</span>
-												{isConfigured && (
-													<Badge
-														variant="secondary"
-														className="text-[10px] h-4 px-1.5 text-green-700 dark:text-green-400 bg-green-100 dark:bg-green-900/40"
-													>
-														{t("settings.labConfigured")}
-														{provider.model_count > 0 &&
-															` · ${provider.model_count}`}
-													</Badge>
-												)}
-											</div>
-
-											{isEditing ? (
-												<div className="flex items-center gap-1.5 mt-1.5">
-													<input
-														type="password"
-														placeholder={
-															provider.key_prefix
-																? `${provider.key_prefix}...`
-																: t("onboarding.freeProviderApiKeyPlaceholder")
-														}
-														value={editingKeys[provider.id] || ""}
-														onChange={(e) =>
+										<div className="flex items-center gap-3">
+											<div className="min-w-0 flex-1">
+												<div className="flex items-center gap-2">
+													<span className="text-sm font-medium">
+														{provider.display_name}
+													</span>
+													{isConfigured && (
+														<Badge
+															variant="secondary"
+															className="text-[10px] h-4 px-1.5 text-green-700 dark:text-green-400 bg-green-100 dark:bg-green-900/40"
+														>
+															{provider.key_count === 1
+																? t("settings.labConfigured")
+																: t("settings.labKeyCount", { count: provider.key_count })}
+															{provider.model_count > 0 &&
+																` · ${provider.model_count}`}
+														</Badge>
+													)}
+												</div>
+												<div className="flex items-center gap-1.5 mt-0.5">
+													<Button
+														variant={isConfigured ? "ghost" : "outline"}
+														size="sm"
+														className="h-6 px-2 text-[11px]"
+														onClick={() =>
 															setEditingKeys((prev) => ({
 																...prev,
-																[provider.id]: e.target.value,
+																[provider.id]: "",
 															}))
 														}
-														onKeyDown={(e) => {
-															if (e.key === "Enter") handleSaveKey(provider.id);
-														}}
-														className="h-7 flex-1 rounded-md border bg-transparent px-2 text-xs"
-														autoFocus
-													/>
-													<Button
-														variant="default"
-														size="sm"
-														className="h-7 px-2 text-xs"
-														disabled={!editingKeys[provider.id]?.trim()}
-														onClick={() => handleSaveKey(provider.id)}
 													>
-														{t("common.save")}
+														<Plus className="h-3 w-3 mr-1" />
+														{t("settings.labAddKey")}
 													</Button>
-													<Button
-														variant="ghost"
-														size="sm"
-														className="h-7 px-2 text-xs"
-														onClick={() =>
-															setEditingKeys((prev) => {
-																const next = { ...prev };
-																delete next[provider.id];
-																return next;
-															})
-														}
-													>
-														{t("common.cancel")}
-													</Button>
-												</div>
-											) : (
-												<div className="flex items-center gap-1.5 mt-0.5">
-													{!isConfigured && (
-														<Button
-															variant="outline"
-															size="sm"
-															className="h-6 px-2 text-[11px]"
-															onClick={() =>
-																setEditingKeys((prev) => ({
-																	...prev,
-																	[provider.id]: "",
-																}))
-															}
-														>
-															{t("settings.apiKey")}
-														</Button>
-													)}
-													{isConfigured && (
+													{isConfigured && provider.key_count > 0 && (
 														<Button
 															variant="ghost"
 															size="sm"
 															className="h-6 px-2 text-[11px]"
-															onClick={() =>
-																setEditingKeys((prev) => ({
-																	...prev,
-																	[provider.id]: "",
-																}))
-															}
+															onClick={() => handleToggleExpand(provider.id)}
 														>
-															<Pencil className="h-3 w-3 mr-1" />
-															{t("common.update")}
+															{isExpanded ? (
+																<ChevronDown className="h-3 w-3 mr-1" />
+															) : (
+																<ChevronRight className="h-3 w-3 mr-1" />
+															)}
+															{t("settings.labViewKeys", { count: provider.key_count })}
 														</Button>
 													)}
 												</div>
-											)}
+											</div>
+											<a
+												href={provider.sign_up_url}
+												target="_blank"
+												rel="noopener noreferrer"
+												className="flex items-center gap-1 text-[11px] text-primary hover:underline shrink-0"
+											>
+												{t("settings.labGetKey")}
+												<ExternalLink className="h-3 w-3" />
+											</a>
 										</div>
-										<a
-											href={provider.sign_up_url}
-											target="_blank"
-											rel="noopener noreferrer"
-											className="flex items-center gap-1 text-[11px] text-primary hover:underline shrink-0"
-										>
-											{t("settings.labGetKey")}
-											<ExternalLink className="h-3 w-3" />
-										</a>
+
+										{/* Add key input */}
+										{isEditing && (
+											<div className="flex items-center gap-1.5 mt-2">
+												<input
+													type="password"
+													placeholder={
+														provider.key_prefix
+															? `${provider.key_prefix}...`
+															: t("onboarding.freeProviderApiKeyPlaceholder")
+													}
+													value={editingKeys[provider.id] || ""}
+													onChange={(e) =>
+														setEditingKeys((prev) => ({
+															...prev,
+															[provider.id]: e.target.value,
+														}))
+													}
+													onKeyDown={(e) => {
+														if (e.key === "Enter") handleSaveKey(provider.id);
+													}}
+													className="h-7 flex-1 rounded-md border bg-transparent px-2 text-xs"
+													autoFocus
+												/>
+												<Button
+													variant="default"
+													size="sm"
+													className="h-7 px-2 text-xs"
+													disabled={!editingKeys[provider.id]?.trim()}
+													onClick={() => handleSaveKey(provider.id)}
+												>
+													{t("common.save")}
+												</Button>
+												<Button
+													variant="ghost"
+													size="sm"
+													className="h-7 px-2 text-xs"
+													onClick={() =>
+														setEditingKeys((prev) => {
+															const next = { ...prev };
+															delete next[provider.id];
+															return next;
+														})
+													}
+												>
+													{t("common.cancel")}
+												</Button>
+											</div>
+										)}
+
+										{/* Expanded key list */}
+										{isExpanded && maskedKeys.length > 0 && (
+											<div className="mt-2 space-y-1">
+												{maskedKeys.map((maskedKey, idx) => (
+													<div
+														key={`${provider.id}-key-${idx}`}
+														className="flex items-center justify-between rounded border px-2 py-1 text-xs"
+													>
+														<span className="font-mono text-muted-foreground">
+															{maskedKey}
+														</span>
+														<button
+															type="button"
+															onClick={() => handleRemoveKey(provider.id, idx)}
+															className="text-destructive hover:text-destructive/80 transition-colors ml-2"
+															title={t("common.delete")}
+														>
+															<Trash2 className="h-3 w-3" />
+														</button>
+													</div>
+												))}
+											</div>
+										)}
 									</div>
 								);
 							})}
