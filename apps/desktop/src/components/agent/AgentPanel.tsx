@@ -570,9 +570,8 @@ export function AgentPanel({ cwd, paperId }: AgentPanelProps) {
 					<ChatModelSelector
 						providers={chatProviders}
 						activeProviderId={chatProviderId}
-						onSelect={(providerId) => {
-							const provider = chatProviders.find((p) => p.id === providerId);
-							const model = provider?.models[0] ?? "";
+						activeModel={chatModel}
+						onSelect={(providerId, model) => {
 							setChatProvider(providerId, model);
 						}}
 					/>
@@ -756,21 +755,48 @@ export function AgentPanel({ cwd, paperId }: AgentPanelProps) {
 	);
 }
 
-// ── Chat model selector (provider-level) ─────────────────────────────────────
+// ── Chat model selector (flattened model list) ───────────────────────────────
 
-function chatModelDisplayName(provider: { id: string; name: string }): string {
-	if (provider.id === "__lab_auto__") return "✨ Auto (免费模型)";
-	return provider.name;
+interface FlatModelOption {
+	providerId: string;
+	providerName: string;
+	model: string;
+	label: string;
+}
+
+function buildModelOptions(
+	providers: { id: string; name: string; models: string[] }[],
+): FlatModelOption[] {
+	const options: FlatModelOption[] = [];
+	for (const provider of providers) {
+		for (const model of provider.models) {
+			let label: string;
+			if (model === "__lab_auto__") {
+				label = "✨ Auto (免费模型)";
+			} else {
+				label = `${model} (${provider.name})`;
+			}
+			options.push({
+				providerId: provider.id,
+				providerName: provider.name,
+				model,
+				label,
+			});
+		}
+	}
+	return options;
 }
 
 function ChatModelSelector({
 	providers,
 	activeProviderId,
+	activeModel,
 	onSelect,
 }: {
 	providers: { id: string; name: string; models: string[] }[];
 	activeProviderId: string | null;
-	onSelect: (providerId: string) => void;
+	activeModel: string;
+	onSelect: (providerId: string, model: string) => void;
 }) {
 	const [open, setOpen] = useState(false);
 	const ref = useRef<HTMLDivElement>(null);
@@ -786,10 +812,11 @@ function ChatModelSelector({
 		return () => document.removeEventListener("mousedown", handleClick);
 	}, [open]);
 
-	const activeProvider = providers.find((p) => p.id === activeProviderId);
-	const label = activeProvider
-		? chatModelDisplayName(activeProvider)
-		: "Default";
+	const options = buildModelOptions(providers);
+	const active = options.find(
+		(o) => o.providerId === activeProviderId && o.model === activeModel,
+	);
+	const label = active?.label ?? (activeModel || "Select model");
 
 	return (
 		<div ref={ref} className="relative">
@@ -799,34 +826,36 @@ function ChatModelSelector({
 				onClick={() => setOpen(!open)}
 			>
 				<span className="text-muted-foreground">Model:</span>
-				<span className="font-medium max-w-[180px] truncate">{label}</span>
+				<span className="font-medium max-w-[240px] truncate">{label}</span>
 				<ChevronDown className="h-3 w-3 shrink-0 text-muted-foreground" />
 			</button>
 			{open && (
-				<div className="absolute left-0 top-full z-50 mt-1 max-h-72 min-w-[200px] overflow-y-auto rounded-md border bg-popover p-1 shadow-md">
-					{providers.map((provider) => (
-						<button
-							key={provider.id}
-							type="button"
-							className={cn(
-								"flex w-full items-center gap-2 rounded-sm px-2 py-1 text-xs text-left hover:bg-accent/50 transition-colors",
-								activeProviderId === provider.id && "bg-accent",
-							)}
-							onClick={() => {
-								onSelect(provider.id);
-								setOpen(false);
-							}}
-						>
-							<div className="flex-1 min-w-0">
-								<div className="truncate font-medium">
-									{chatModelDisplayName(provider)}
+				<div className="absolute left-0 top-full z-50 mt-1 max-h-72 min-w-[240px] overflow-y-auto rounded-md border bg-popover p-1 shadow-md">
+					{options.map((opt) => {
+						const isActive =
+							opt.providerId === activeProviderId && opt.model === activeModel;
+						return (
+							<button
+								key={`${opt.providerId}::${opt.model}`}
+								type="button"
+								className={cn(
+									"flex w-full items-center gap-2 rounded-sm px-2 py-1 text-xs text-left hover:bg-accent/50 transition-colors",
+									isActive && "bg-accent",
+								)}
+								onClick={() => {
+									onSelect(opt.providerId, opt.model);
+									setOpen(false);
+								}}
+							>
+								<div className="flex-1 min-w-0">
+									<div className="truncate font-medium">{opt.label}</div>
 								</div>
-							</div>
-							{activeProviderId === provider.id && (
-								<Check className="h-3 w-3 shrink-0 text-primary" />
-							)}
-						</button>
-					))}
+								{isActive && (
+									<Check className="h-3 w-3 shrink-0 text-primary" />
+								)}
+							</button>
+						);
+					})}
 				</div>
 			)}
 		</div>
