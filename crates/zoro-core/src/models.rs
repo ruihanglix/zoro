@@ -306,6 +306,41 @@ pub struct AiProvider {
     pub models: Vec<String>,
 }
 
+impl AiConfig {
+    /// Return a clone of this config with base_url / api_key / model resolved
+    /// for the given model name. If the model belongs to one of the additional
+    /// `providers` (matched via its `models` list), the returned config will
+    /// use that provider's base_url and api_key. Otherwise, the config is
+    /// returned with only the model field updated.
+    ///
+    /// Lab models are handled by the local LLM proxy server (`zoro-llm-proxy`)
+    /// and appear as a regular provider with `base_url` pointing to
+    /// `http://127.0.0.1:{PORT}/v1`.
+    pub fn resolve_for_model(&self, model: &str) -> AiConfig {
+        let mut cfg = self.clone();
+        cfg.model = model.to_string();
+
+        if model.is_empty() {
+            return cfg;
+        }
+
+        // Check if this model belongs to an additional provider
+        for p in &self.providers {
+            if p.models.contains(&model.to_string()) {
+                if !p.base_url.is_empty() {
+                    cfg.base_url = p.base_url.clone();
+                }
+                if !p.api_key.is_empty() {
+                    cfg.api_key = p.api_key.clone();
+                }
+                break;
+            }
+        }
+
+        cfg
+    }
+}
+
 fn default_html_concurrency() -> usize {
     8
 }

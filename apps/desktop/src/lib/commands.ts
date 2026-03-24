@@ -973,6 +973,9 @@ export const getAiConfig = () => invoke<AiConfigResponse>("get_ai_config");
 export const updateAiConfig = (input: UpdateAiConfigInput) =>
 	invoke<void>("update_ai_config", { input });
 
+export const getProviderApiKey = (providerId: string) =>
+	invoke<string>("get_provider_api_key", { providerId });
+
 export const testAiConnection = () => invoke<string>("test_ai_connection");
 
 export const resetTranslationPrompts = () =>
@@ -1473,3 +1476,14 @@ export const pluginAiChatStream = (
 
 export const pluginAiGetModels = () =>
 	invoke<PluginModelInfo[]>("plugin_ai_get_models");
+
+// ── HTTP Proxy (bypass browser CORS) ─────────────────────────────────────────
+
+export interface ProxyResponse {
+	status: number;
+	headers: Record<string, string>;
+	body: string;
+}
+
+export const httpProxyGet = (url: string, headers?: Record<string, string>) =>
+	invoke<ProxyResponse>("http_proxy_get", { url, headers: headers ?? null });

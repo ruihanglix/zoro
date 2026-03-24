@@ -139,16 +139,12 @@ pub async fn translate_fields(
         );
     }
 
-    if ai_config.base_url.is_empty() || ai_config.api_key.is_empty() || ai_config.model.is_empty() {
-        return Err("AI not configured. Set base URL, API key, and model in Settings.".into());
-    }
-
     // Resolve the per-task model for title/abstract ("normal" translation)
     let normal_model = ai_config
         .task_model_defaults
         .resolve("normal", &ai_config.model);
-    let mut task_ai_config = ai_config.clone();
-    task_ai_config.model = normal_model;
+    // resolve_for_model also resolves provider-specific base_url/api_key
+    let task_ai_config = ai_config.resolve_for_model(&normal_model);
 
     // Load glossary terms if enabled
     let glossary = if ai_config.glossary_enabled {
@@ -233,10 +229,12 @@ pub async fn translate_fields(
     // Auto-extract glossary terms in the background
     if ai_config.glossary_enabled && !all_original_text.trim().is_empty() {
         let db = std::sync::Arc::clone(&state.db);
-        let mut glossary_ai = ai_config.clone();
-        glossary_ai.model = ai_config
-            .task_model_defaults
-            .resolve("glossary", &ai_config.model);
+        // resolve_for_model also resolves provider-specific base_url/api_key
+        let glossary_ai = ai_config.resolve_for_model(
+            &ai_config
+                .task_model_defaults
+                .resolve("glossary", &ai_config.model),
+        );
         let lang = target_lang.clone();
         let eid = entity_id.clone();
         tokio::spawn(async move {
@@ -429,7 +427,7 @@ pub async fn update_ai_config(
         config.general.native_lang = native_lang;
     }
     if let Some(concurrency) = input.html_concurrency {
-        config.ai.html_concurrency = concurrency.clamp(1, 32);
+        config.ai.html_concurrency = concurrency.max(1);
     }
     if let Some(prompts) = input.translation_prompts {
         if let Some(v) = prompts.title_system {
@@ -531,6 +529,32 @@ pub async fn update_ai_config(
     Ok(())
 }
 
+/// Retrieve the saved API key for a specific provider.
+/// Used by the frontend when fetching model lists for providers whose keys
+/// were previously saved (and thus not held in frontend memory).
+#[tauri::command]
+pub async fn get_provider_api_key(
+    state: State<'_, AppState>,
+    provider_id: String,
+) -> Result<String, String> {
+    let config = state
+        .config
+        .lock()
+        .map_err(|e| format!("Config lock error: {}", e))?;
+
+    // Check the main config first
+    if provider_id == "__main__" {
+        return Ok(config.ai.api_key.clone());
+    }
+
+    // Then check additional providers
+    if let Some(p) = config.ai.providers.iter().find(|p| p.id == provider_id) {
+        return Ok(p.api_key.clone());
+    }
+
+    Ok(String::new())
+}
+
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct UpdateAiConfigInput {
@@ -597,27 +621,27 @@ pub struct UpdateTranslationPromptsInput {
 /// Test the AI connection by sending a simple request.
 #[tauri::command]
 pub async fn test_ai_connection(state: State<'_, AppState>) -> Result<String, String> {
-    let (base_url, api_key, model) = {
+    let resolved = {
         let config = state
             .config
             .lock()
             .map_err(|e| format!("Config lock error: {}", e))?;
 
-        if config.ai.base_url.is_empty()
-            || config.ai.api_key.is_empty()
-            || config.ai.model.is_empty()
-        {
-            return Err("AI not configured. Set base URL, API key, and model first.".into());
+        if config.ai.model.is_empty() {
+            return Err("AI not configured. Set a default model first.".into());
         }
 
-        (
-            config.ai.base_url.clone(),
-            config.ai.api_key.clone(),
-            config.ai.model.clone(),
-        )
+        // Resolve the correct base_url/api_key for the selected model
+        // (e.g. lab free models route to their own provider endpoints)
+        config.ai.resolve_for_model(&config.ai.model)
     };
 
-    let client = zoro_ai::client::ChatClient::new(&base_url, &api_key, &model);
+    if resolved.base_url.is_empty() || resolved.api_key.is_empty() {
+        return Err("AI not configured. Set base URL, API key, and model first.".into());
+    }
+
+    let client =
+        zoro_ai::client::ChatClient::new(&resolved.base_url, &resolved.api_key, &resolved.model);
 
     client
         .test_connection()
@@ -648,19 +672,17 @@ pub async fn translate_selection(
         );
     }
 
-    if ai_config.base_url.is_empty() || ai_config.api_key.is_empty() || ai_config.model.is_empty() {
-        return Err("AI not configured. Set base URL, API key, and model in Settings.".into());
-    }
-
     if text.trim().is_empty() {
         return Ok(String::new());
     }
 
     // Resolve the per-task model for quick (inline) translation
-    let mut quick_config = ai_config.clone();
-    quick_config.model = ai_config
-        .task_model_defaults
-        .resolve("quick", &ai_config.model);
+    // resolve_for_model also resolves provider-specific base_url/api_key
+    let quick_config = ai_config.resolve_for_model(
+        &ai_config
+            .task_model_defaults
+            .resolve("quick", &ai_config.model),
+    );
 
     let glossary = if ai_config.glossary_enabled {
         let db = state
@@ -1023,9 +1045,11 @@ pub async fn translate_pdf(
         };
 
         let pdf_cfg = config.ai.pdf_translation.clone();
-        let ai_base_url = config.ai.base_url.clone();
-        let ai_api_key = config.ai.api_key.clone();
-        let ai_model = config.ai.model.clone();
+        // Resolve the correct provider base_url/api_key for the current model
+        let resolved_ai = config.ai.resolve_for_model(&config.ai.model);
+        let ai_base_url = resolved_ai.base_url.clone();
+        let ai_api_key = resolved_ai.api_key.clone();
+        let ai_model = resolved_ai.model.clone();
 
         (
             pdf_path,

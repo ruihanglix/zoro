@@ -22,6 +22,7 @@ import type { SupportedLanguage } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 import { createPluginSDK } from "@/plugins/PluginManager";
 import { usePluginStore } from "@/plugins/pluginStore";
+import { useLabStore } from "@/stores/labStore";
 import { useLibraryStore } from "@/stores/libraryStore";
 import { useTranslationStore } from "@/stores/translationStore";
 import { useUiStore } from "@/stores/uiStore";
@@ -41,7 +42,9 @@ import {
 	ChevronRight,
 	Cloud,
 	Download,
+	ExternalLink,
 	FileText,
+	FlaskConical,
 	FolderOpen,
 	Globe,
 	GraduationCap,
@@ -77,6 +80,7 @@ type SettingsSection =
 	| "ai-translation"
 	| "ai-pdf-translation"
 	| "ai-mcp"
+	| "ai-lab"
 	| "general"
 	| "connector"
 	| "subscriptions"
@@ -107,6 +111,7 @@ const NAV_GROUPS: NavGroup[] = [
 				icon: FileText,
 			},
 			{ id: "ai-mcp", labelKey: "settings.navMcpServer", icon: Terminal },
+			{ id: "ai-lab", labelKey: "settings.navLab", icon: FlaskConical },
 		],
 	},
 	{
@@ -559,6 +564,14 @@ function resolveLucideIcon(name: string): LucideIcon {
 
 export function Settings() {
 	const { t } = useTranslation();
+
+	// Map internal model IDs to user-friendly display names
+	const modelDisplayName = useCallback(
+		(id: string) =>
+			id === "__lab_auto__" ? `✨ ${t("settings.labAutoModelName")}` : id,
+		[t],
+	);
+
 	const [section, setSection] = useState<SettingsSection>("ai-general");
 
 	// Dynamic plugin settings contributions
@@ -637,6 +650,11 @@ export function Settings() {
 		(s) => s.resetHtmlReaderTypography,
 	);
 
+	// Lab store — Free LLM Proxy
+	const labEnabled = useLabStore((s) => s.enabled);
+	const labProxyStatus = useLabStore((s) => s.proxyStatus);
+	const labInitialize = useLabStore((s) => s.initialize);
+
 	const subscriptions = useLibraryStore((s) => s.subscriptions);
 	const fetchSubscriptions = useLibraryStore((s) => s.fetchSubscriptions);
 	const exportBibtex = useLibraryStore((s) => s.exportBibtex);
@@ -709,8 +727,8 @@ export function Settings() {
 	const [aiProviders, setAiProviders] = useState<
 		(AiProviderResponse & { isDefault?: boolean })[]
 	>([]);
-	const [defaultProviderId, setDefaultProviderId] =
-		useState<string>("__main__");
+	// NOTE: defaultProviderId removed — the global default model is the
+	// single source of truth; providers are all treated equally.
 	const [editingProvider, setEditingProvider] = useState<{
 		id: string;
 		name: string;
@@ -722,6 +740,7 @@ export function Settings() {
 	const [pendingProviderKeys, setPendingProviderKeys] = useState<
 		Record<string, string>
 	>({});
+	const [fetchingProviderModels, setFetchingProviderModels] = useState(false);
 	const [customNativeLang, setCustomNativeLang] = useState("");
 	const [promptTitleSystem, setPromptTitleSystem] = useState("");
 	const [promptTitleUser, setPromptTitleUser] = useState("");
@@ -859,6 +878,17 @@ export function Settings() {
 			// Build the unified providers list:
 			// - The main config becomes a virtual provider with id "__main__"
 			// - Additional providers follow
+			// If __main__ was previously saved into providers, recover its models
+			// from there so they are NOT overwritten by the global default model.
+			const savedMainProvider = (config.providers || []).find(
+				(p) => p.id === "__main__",
+			);
+			const mainModels =
+				savedMainProvider && savedMainProvider.models.length > 0
+					? savedMainProvider.models
+					: config.model
+						? [config.model]
+						: [];
 			const mainProvider: AiProviderResponse & { isDefault?: boolean } = {
 				id: "__main__",
 				name:
@@ -873,15 +903,22 @@ export function Settings() {
 									: "Default",
 				baseUrl: config.baseUrl,
 				apiKeySet: config.apiKeySet,
-				models: config.model ? [config.model] : [],
-				isDefault: true,
-			};
-			const additionalProviders = (config.providers || []).map((p) => ({
-				...p,
+				models: mainModels,
 				isDefault: false,
-			}));
+			};
+			const additionalProviders = (config.providers || [])
+				// Hide old internal lab providers, but keep __lab_proxy__ visible
+				// Also exclude __main__ since it's handled separately above
+				.filter(
+					(p) =>
+						p.id !== "__main__" &&
+						(!p.id.startsWith("__lab_") || p.id === "__lab_proxy__"),
+				)
+				.map((p) => ({
+					...p,
+					isDefault: false,
+				}));
 			setAiProviders([mainProvider, ...additionalProviders]);
-			setDefaultProviderId("__main__");
 
 			// Detect if native lang is a custom (non-preset) value
 			const presetLangs = [
@@ -965,6 +1002,118 @@ export function Settings() {
 		fetchCollections,
 		fetchTags,
 	]);
+
+	// Auto-sync lab proxy provider to Rust backend AiConfig.providers
+	// When lab proxy is running, inject a single "__lab_proxy__" provider entry
+	// pointing to the local proxy server. All lab routing is handled by the proxy.
+	useEffect(() => {
+		const syncLabProxy = async () => {
+			try {
+				// Initialize lab store on mount
+				await labInitialize();
+			} catch (err) {
+				console.error("[lab] Failed to initialize lab store:", err);
+			}
+		};
+		syncLabProxy();
+	}, [labInitialize]);
+
+	useEffect(() => {
+		const syncLabProxyProvider = async () => {
+			try {
+				const config = await commands.getAiConfig();
+				const currentProviders = config.providers || [];
+
+				// Keep ALL existing providers untouched, only strip old __lab_ entries
+				const nonLabProviders = currentProviders.filter(
+					(p) => !p.id.startsWith("__lab_"),
+				);
+
+				// Build the __lab_proxy__ entry only when lab is enabled and running
+				let labProxy: {
+					id: string;
+					name: string;
+					baseUrl: string;
+					apiKey?: string;
+					models: string[];
+				} | null = null;
+				if (labEnabled && labProxyStatus?.running) {
+					const proxyBaseUrl = `http://127.0.0.1:${labProxyStatus.port}/v1`;
+					let modelIds: string[] = [];
+					try {
+						const resp = await commands.httpProxyGet(
+							`${proxyBaseUrl}/models`,
+							{},
+						);
+						if (resp.status >= 200 && resp.status < 300) {
+							const json = JSON.parse(resp.body);
+							if (Array.isArray(json.data)) {
+								modelIds = json.data
+									.map((m: { id?: string }) => m.id ?? "")
+									.filter(Boolean);
+							}
+						}
+					} catch (fetchErr) {
+						console.warn(
+							"[lab] Failed to fetch models from proxy /v1/models:",
+							fetchErr,
+						);
+					}
+					if (modelIds.length > 0) {
+						labProxy = {
+							id: "__lab_proxy__",
+							name: "Free LLM (🧑‍🔬)",
+							baseUrl: proxyBaseUrl,
+							apiKey: "",
+							models: modelIds,
+						};
+					}
+				}
+
+				// Only write back if the __lab_proxy__ entry actually changed.
+				// Non-lab providers are passed through with apiKey=undefined so
+				// the backend preserves their existing keys untouched.
+				const oldLabProxy = currentProviders.find(
+					(p) => p.id === "__lab_proxy__",
+				);
+				const labChanged =
+					// was present, now gone (or vice versa)
+					!!oldLabProxy !== !!labProxy ||
+					// models list changed
+					(oldLabProxy &&
+						labProxy &&
+						JSON.stringify(oldLabProxy.models) !==
+							JSON.stringify(labProxy.models));
+
+				if (!labChanged) {
+					return; // nothing to do — don't touch user providers
+				}
+
+				await commands.updateAiConfig({
+					providers: [
+						// Preserve all user-configured providers exactly as-is
+						...nonLabProviders.map((p) => ({
+							id: p.id,
+							name: p.name,
+							baseUrl: p.baseUrl,
+							apiKey: undefined, // tells backend to keep existing key
+							models: p.models,
+						})),
+						// Append lab proxy if available
+						...(labProxy ? [labProxy] : []),
+					],
+				});
+				// Reload AI config to pick up the new models in UI
+				await loadAiConfig();
+			} catch (err) {
+				console.error(
+					"[lab] Failed to sync lab proxy provider to AI config:",
+					err,
+				);
+			}
+		};
+		syncLabProxyProvider();
+	}, [labEnabled, labProxyStatus, loadAiConfig]);
 
 	const handleExportAll = async () => {
 		try {
@@ -1162,20 +1311,46 @@ export function Settings() {
 	const handleAiSave = async () => {
 		setAiSaving(true);
 		try {
-			// Find the default provider from the unified list
-			const defaultP = aiProviders.find((p) => p.id === defaultProviderId);
-			const otherProviders = aiProviders.filter(
-				(p) => p.id !== defaultProviderId,
+			// All user-configured providers (exclude internal lab providers and __main__)
+			const userProviders = aiProviders.filter(
+				(p) => p.id !== "__main__" && !p.id.startsWith("__lab_"),
 			);
 
+			// __main__ provider holds the primary (fallback) base_url and api_key.
+			// The backend's resolve_for_model() will override these when the global
+			// default model belongs to a different provider.
+			const mainP = aiProviders.find((p) => p.id === "__main__");
+
+			// Fetch lab proxy models from /v1/models endpoint (same as regular providers)
+			let labProxyModels: string[] = [];
+			if (labEnabled && labProxyStatus?.running) {
+				try {
+					const proxyBaseUrl = `http://127.0.0.1:${labProxyStatus.port}/v1`;
+					const resp = await commands.httpProxyGet(
+						`${proxyBaseUrl}/models`,
+						{},
+					);
+					if (resp.status >= 200 && resp.status < 300) {
+						const json = JSON.parse(resp.body);
+						if (Array.isArray(json.data)) {
+							labProxyModels = json.data
+								.map((m: { id?: string }) => m.id ?? "")
+								.filter(Boolean);
+						}
+					}
+				} catch (fetchErr) {
+					console.warn(
+						"[lab] Failed to fetch proxy models during save:",
+						fetchErr,
+					);
+				}
+			}
+
 			await commands.updateAiConfig({
-				// Main config comes from the default provider
 				provider: "",
-				baseUrl: defaultP?.baseUrl || "",
-				apiKey: defaultP
-					? pendingProviderKeys[defaultP.id] || undefined
-					: undefined,
-				model: globalDefaultModel || defaultP?.models[0] || "",
+				baseUrl: mainP?.baseUrl || "",
+				apiKey: mainP ? pendingProviderKeys[mainP.id] || undefined : undefined,
+				model: globalDefaultModel || "",
 				nativeLang:
 					aiNativeLang === "__custom__" ? customNativeLang : aiNativeLang,
 				autoTranslate: aiAutoTranslate,
@@ -1186,13 +1361,42 @@ export function Settings() {
 					abstractSystem: promptAbstractSystem,
 					abstractUser: promptAbstractUser,
 				},
-				providers: otherProviders.map((p) => ({
-					id: p.id,
-					name: p.name,
-					baseUrl: p.baseUrl,
-					apiKey: pendingProviderKeys[p.id] || undefined,
-					models: p.models,
-				})),
+				providers: [
+					// Persist __main__ provider's models list so it survives
+					// global default model changes (the models array is independent
+					// of config.ai.model which only stores the global default).
+					...(mainP
+						? [
+								{
+									id: mainP.id,
+									name: mainP.name,
+									baseUrl: mainP.baseUrl,
+									apiKey: pendingProviderKeys[mainP.id] || undefined,
+									models: mainP.models,
+								},
+							]
+						: []),
+					// All user-configured providers (treated equally)
+					...userProviders.map((p) => ({
+						id: p.id,
+						name: p.name,
+						baseUrl: p.baseUrl,
+						apiKey: pendingProviderKeys[p.id] || undefined,
+						models: p.models,
+					})),
+					// Auto-inject lab proxy provider (when lab is enabled and proxy is running)
+					...(labEnabled && labProxyStatus?.running && labProxyModels.length > 0
+						? [
+								{
+									id: "__lab_proxy__",
+									name: "Lab LLM Proxy 🧑‍🔬",
+									baseUrl: `http://127.0.0.1:${labProxyStatus.port}/v1`,
+									apiKey: "",
+									models: labProxyModels,
+								},
+							]
+						: []),
+				],
 				taskModelDefaults: {
 					quickTranslation: taskQuickModel,
 					normalTranslation: taskNormalModel,
@@ -1225,16 +1429,9 @@ export function Settings() {
 		setAiTesting(true);
 		setAiTestResult(null);
 		try {
-			const defaultP = aiProviders.find((p) => p.id === defaultProviderId);
-			// Save first so the backend has the latest config
-			await commands.updateAiConfig({
-				provider: "",
-				baseUrl: defaultP?.baseUrl || "",
-				apiKey: defaultP
-					? pendingProviderKeys[defaultP.id] || undefined
-					: undefined,
-				model: globalDefaultModel || defaultP?.models[0] || "",
-			});
+			// Save the full config (including providers) first so the backend
+			// has everything it needs for resolve_for_model() to route correctly
+			await handleAiSave();
 			const msg = await commands.testAiConnection();
 			setAiTestResult({ ok: true, msg: `Connection OK: ${msg}` });
 		} catch (err) {
@@ -2145,93 +2342,73 @@ export function Settings() {
 											{aiProviders.map((p) => (
 												<div
 													key={p.id}
-													className={`flex items-center justify-between rounded-md border p-2.5 ${
-														p.id === defaultProviderId
-															? "border-primary/50 bg-primary/5"
-															: ""
-													}`}
+													className="flex items-center justify-between rounded-md border p-2.5"
 												>
 													<div className="min-w-0 flex-1">
 														<div className="flex items-center gap-1.5">
 															<span className="text-sm font-medium truncate">
 																{p.name || t("settings.unnamed")}
 															</span>
-															{p.id === defaultProviderId && (
-																<Badge
-																	variant="secondary"
-																	className="text-[10px] h-4 px-1.5 shrink-0"
-																>
-																	{t("settings.default")}
-																</Badge>
-															)}
 														</div>
 														<div className="text-[11px] text-muted-foreground truncate">
-															{p.baseUrl || t("settings.noUrlSet")}
-															{p.models.length > 0 && (
-																<span className="ml-2">
-																	· {p.models.join(", ")}
-																</span>
-															)}
-															{(p.apiKeySet || pendingProviderKeys[p.id]) && (
-																<span className="ml-2 text-green-600">
-																	· {t("settings.keySet")}
-																</span>
-															)}
+															<>
+																{p.baseUrl || t("settings.noUrlSet")}
+																{p.models.length > 0 && (
+																	<span className="ml-2">
+																		· {(() => {
+																			const maxShow = 3;
+																			const shown = p.models
+																				.slice(0, maxShow)
+																				.map(modelDisplayName);
+																			const rest = p.models.length - maxShow;
+																			return rest > 0
+																				? `${shown.join(", ")} … +${rest}`
+																				: shown.join(", ");
+																		})()}
+																	</span>
+																)}
+																{(p.apiKeySet || pendingProviderKeys[p.id]) && (
+																	<span className="ml-2 text-green-600">
+																		· {t("settings.keySet")}
+																	</span>
+																)}
+															</>
 														</div>
 													</div>
 													<div className="flex items-center gap-1 ml-2 shrink-0">
-														{p.id !== defaultProviderId && (
+														<>
 															<Button
 																variant="ghost"
 																size="sm"
 																className="h-7 w-7 p-0"
-																title={t("settings.setAsDefault")}
-																onClick={() => setDefaultProviderId(p.id)}
+																onClick={() =>
+																	setEditingProvider({
+																		id: p.id,
+																		name: p.name,
+																		baseUrl: p.baseUrl,
+																		apiKey: "",
+																		models: p.models.join(", "),
+																	})
+																}
 															>
-																<Star className="h-3.5 w-3.5" />
+																<Pencil className="h-3.5 w-3.5" />
 															</Button>
-														)}
-														{p.id === defaultProviderId && (
-															<Star className="h-3.5 w-3.5 text-primary fill-primary mx-1.5" />
-														)}
-														<Button
-															variant="ghost"
-															size="sm"
-															className="h-7 w-7 p-0"
-															onClick={() =>
-																setEditingProvider({
-																	id: p.id,
-																	name: p.name,
-																	baseUrl: p.baseUrl,
-																	apiKey: "",
-																	models: p.models.join(", "),
-																})
-															}
-														>
-															<Pencil className="h-3.5 w-3.5" />
-														</Button>
-														{aiProviders.length > 1 && (
-															<Button
-																variant="ghost"
-																size="sm"
-																className="h-7 w-7 p-0 text-destructive"
-																onClick={() => {
-																	const remaining = aiProviders.filter(
-																		(x) => x.id !== p.id,
-																	);
-																	setAiProviders(remaining);
-																	// If we deleted the default, pick the first remaining
-																	if (
-																		p.id === defaultProviderId &&
-																		remaining.length > 0
-																	) {
-																		setDefaultProviderId(remaining[0].id);
-																	}
-																}}
-															>
-																<Trash2 className="h-3.5 w-3.5" />
-															</Button>
-														)}
+															{aiProviders.length > 1 && (
+																<Button
+																	variant="ghost"
+																	size="sm"
+																	className="h-7 w-7 p-0 text-destructive"
+																	onClick={() => {
+																		const remaining = aiProviders.filter(
+																			(x) => x.id !== p.id,
+																		);
+																		setAiProviders(remaining);
+																	}}
+																>
+																	<Trash2 className="h-3.5 w-3.5" />
+																</Button>
+															)}
+														</>
 													</div>
 												</div>
 											))}
@@ -2312,7 +2489,7 @@ export function Settings() {
 																variant="secondary"
 																className="text-xs gap-1 pr-1"
 															>
-																{model}
+																{modelDisplayName(model)}
 																<button
 																	type="button"
 																	className="ml-0.5 rounded-full p-0.5 hover:bg-muted-foreground/20"
@@ -2362,6 +2539,156 @@ export function Settings() {
 												<p className="text-[11px] text-muted-foreground mt-0.5">
 													{t("settings.modelsDesc")}
 												</p>
+												<div className="flex items-center gap-1.5 mt-1.5">
+													<Button
+														variant="outline"
+														size="sm"
+														className="h-7 text-xs"
+														disabled={
+															!editingProvider.baseUrl || fetchingProviderModels
+														}
+														onClick={async () => {
+															setFetchingProviderModels(true);
+															try {
+																const baseUrl = editingProvider.baseUrl.replace(
+																	/\/$/,
+																	"",
+																);
+																// Try local sources first, then fall back to saved key from backend
+																let apiKey =
+																	editingProvider.apiKey ||
+																	pendingProviderKeys[editingProvider.id] ||
+																	"";
+																if (!apiKey) {
+																	try {
+																		apiKey = await commands.getProviderApiKey(
+																			editingProvider.id,
+																		);
+																	} catch (e) {
+																		console.warn(
+																			"[fetchModels] Failed to retrieve saved API key:",
+																			e,
+																		);
+																	}
+																}
+																const headers: Record<string, string> = {
+																	"Content-Type": "application/json",
+																};
+																if (apiKey) {
+																	headers.Authorization = `Bearer ${apiKey}`;
+																}
+																const fetchUrl = `${baseUrl}/models`;
+																console.info(
+																	`[fetchModels] Requesting: ${fetchUrl} (apiKey: ${apiKey ? "yes" : "none"})`,
+																);
+																const resp = await commands.httpProxyGet(
+																	fetchUrl,
+																	headers,
+																);
+																console.info(
+																	`[fetchModels] Response status: ${resp.status}, body length: ${resp.body?.length ?? 0}`,
+																);
+																if (resp.status >= 200 && resp.status < 300) {
+																	let json: Record<string, unknown>;
+																	try {
+																		json = JSON.parse(resp.body);
+																	} catch (parseErr) {
+																		console.error(
+																			"[fetchModels] JSON parse error:",
+																			parseErr,
+																			"raw body:",
+																			resp.body?.slice(0, 500),
+																		);
+																		alert(
+																			`Failed to parse response as JSON.\n\n${resp.body?.slice(0, 300)}`,
+																		);
+																		return;
+																	}
+																	let modelIds: string[] = [];
+																	if (Array.isArray(json.data)) {
+																		modelIds = json.data
+																			.map((m: { id?: string }) => m.id ?? "")
+																			.filter(Boolean);
+																	} else if (Array.isArray(json.models)) {
+																		modelIds = json.models
+																			.map(
+																				(m: { name?: string; id?: string }) =>
+																					m.id ||
+																					m.name?.replace("models/", "") ||
+																					"",
+																			)
+																			.filter(Boolean);
+																	}
+																	console.info(
+																		`[fetchModels] Parsed ${modelIds.length} model(s):`,
+																		modelIds.slice(0, 10),
+																	);
+																	if (modelIds.length > 0) {
+																		const existing = editingProvider.models
+																			.split(",")
+																			.map((m) => m.trim())
+																			.filter(Boolean);
+																		const merged = Array.from(
+																			new Set([...existing, ...modelIds]),
+																		);
+																		setEditingProvider({
+																			...editingProvider,
+																			models: merged.join(", "),
+																		});
+																	} else {
+																		console.warn(
+																			"[fetchModels] No models found in response. Keys:",
+																			Object.keys(json),
+																		);
+																		alert(
+																			`No models found in response.\nResponse keys: ${Object.keys(json).join(", ")}\n\nBody preview:\n${resp.body?.slice(0, 300)}`,
+																		);
+																	}
+																} else {
+																	console.error(
+																		`[fetchModels] HTTP ${resp.status} from ${fetchUrl}:`,
+																		resp.body?.slice(0, 500),
+																	);
+																	alert(
+																		`Failed to fetch models: HTTP ${resp.status}\n\n${resp.body?.slice(0, 300)}`,
+																	);
+																}
+															} catch (err) {
+																console.error("[fetchModels] Exception:", err);
+																alert(
+																	`Failed to fetch models:\n${err instanceof Error ? err.message : String(err)}`,
+																);
+															} finally {
+																setFetchingProviderModels(false);
+															}
+														}}
+													>
+														{fetchingProviderModels ? (
+															<Loader2 className="mr-1 h-3 w-3 animate-spin" />
+														) : (
+															<RefreshCw className="mr-1 h-3 w-3" />
+														)}
+														{t("settings.fetchModels")}
+													</Button>
+													{editingProvider.models
+														.split(",")
+														.filter((m) => m.trim()).length > 0 && (
+														<Button
+															variant="outline"
+															size="sm"
+															className="h-7 text-xs text-destructive hover:text-destructive"
+															onClick={() => {
+																setEditingProvider({
+																	...editingProvider,
+																	models: "",
+																});
+															}}
+														>
+															<Trash2 className="mr-1 h-3 w-3" />
+															{t("settings.clearModels")}
+														</Button>
+													)}
+												</div>
 											</div>
 											<div className="flex items-center gap-2 pt-1">
 												<Button
@@ -2445,7 +2772,7 @@ export function Settings() {
 										</p>
 									</div>
 									{(() => {
-										const allModels = Array.from(
+										const providerModels = Array.from(
 											new Set(aiProviders.flatMap((p) => p.models)),
 										).sort();
 										return (
@@ -2454,14 +2781,14 @@ export function Settings() {
 												onChange={(e) => setGlobalDefaultModel(e.target.value)}
 												className="h-8 w-full rounded-md border bg-transparent px-2 text-sm"
 											>
-												{allModels.length === 0 && (
+												{providerModels.length === 0 && (
 													<option value="">
 														{t("settings.noModelsConfigured")}
 													</option>
 												)}
-												{allModels.map((m) => (
+												{providerModels.map((m) => (
 													<option key={m} value={m}>
-														{m}
+														{modelDisplayName(m)}
 													</option>
 												))}
 											</select>
@@ -2481,12 +2808,15 @@ export function Settings() {
 									</div>
 									{(() => {
 										// Collect all unique model names across all providers
-										const allModels = Array.from(
+										const providerModels = Array.from(
 											new Set(aiProviders.flatMap((p) => p.models)),
 										).sort();
 										const modelOptions = [
 											{ value: "", label: t("settings.useGlobalDefault") },
-											...allModels.map((m) => ({ value: m, label: m })),
+											...providerModels.map((m) => ({
+												value: m,
+												label: modelDisplayName(m),
+											})),
 										];
 										return (
 											<div className="grid gap-2.5">
@@ -2598,16 +2928,7 @@ export function Settings() {
 										variant="outline"
 										size="sm"
 										onClick={handleAiTest}
-										disabled={
-											aiTesting ||
-											!aiProviders.find((p) => p.id === defaultProviderId)
-												?.baseUrl ||
-											(aiProviders.find((p) => p.id === defaultProviderId)
-												?.models.length ?? 0) === 0 ||
-											(!aiProviders.find((p) => p.id === defaultProviderId)
-												?.apiKeySet &&
-												!pendingProviderKeys[defaultProviderId])
-										}
+										disabled={aiTesting || !globalDefaultModel}
 									>
 										{aiTesting ? (
 											<>
@@ -2667,17 +2988,10 @@ export function Settings() {
 													id="html-concurrency"
 													type="number"
 													min={1}
-													max={32}
 													value={htmlConcurrency}
 													onChange={(e) =>
 														setHtmlConcurrency(
-															Math.max(
-																1,
-																Math.min(
-																	32,
-																	Number.parseInt(e.target.value) || 8,
-																),
-															),
+															Math.max(1, Number.parseInt(e.target.value) || 8),
 														)
 													}
 													className="h-8 w-20 rounded-md border bg-transparent px-2 text-sm"
@@ -4277,6 +4591,8 @@ export function Settings() {
 							</div>
 						)}
 
+						{section === "ai-lab" && <LabSection />}
+
 						{section === "plugins-general" && <PluginsGeneralSection />}
 
 						{/* Dynamic plugin settings sections */}
@@ -4305,6 +4621,631 @@ export function Settings() {
 }
 
 /** Plugins General section — manage installed + dev plugins. */
+function LabSection() {
+	const { t } = useTranslation();
+	const {
+		enabled,
+		setEnabled,
+		providers,
+		models,
+		proxyStatus,
+		config,
+		loading,
+		modelsLoading,
+		addProviderKey,
+		removeProviderKey,
+		getProviderKeys,
+		refreshModels,
+		toggleModelDisabled,
+		toggleProviderDisabled,
+		setRoutingStrategy,
+		setProxyPort,
+		setLanAccess,
+		getConfiguredCount,
+	} = useLabStore();
+
+	const [showMoreProviders, setShowMoreProviders] = useState(false);
+	const [editingKeys, setEditingKeys] = useState<Record<string, string>>({});
+	const [expandedProviders, setExpandedProviders] = useState<
+		Record<string, boolean>
+	>({});
+	const [providerMaskedKeys, setProviderMaskedKeys] = useState<
+		Record<string, string[]>
+	>({});
+	const [editingPort, setEditingPort] = useState(false);
+	const [portValue, setPortValue] = useState("");
+
+	const primaryProviders = providers.filter((p) => p.tier === "primary");
+	const secondaryProviders = providers.filter((p) => p.tier === "secondary");
+	const visibleProviders = showMoreProviders ? providers : primaryProviders;
+
+	const routingStrategy = config?.routing_strategy || "auto";
+	const configuredCount = getConfiguredCount();
+
+	const handleSaveKey = (providerId: string) => {
+		const key = editingKeys[providerId]?.trim();
+		if (key) {
+			addProviderKey(providerId, key);
+			setEditingKeys((prev) => {
+				const next = { ...prev };
+				delete next[providerId];
+				return next;
+			});
+			// Clear cached masked keys so they refresh on next expand
+			setProviderMaskedKeys((prev) => {
+				const next = { ...prev };
+				delete next[providerId];
+				return next;
+			});
+		}
+	};
+
+	const handleToggleExpand = async (providerId: string) => {
+		const isExpanded = expandedProviders[providerId];
+		if (!isExpanded && !providerMaskedKeys[providerId]) {
+			// Fetch masked keys on first expand
+			const keys = await getProviderKeys(providerId);
+			setProviderMaskedKeys((prev) => ({ ...prev, [providerId]: keys }));
+		}
+		setExpandedProviders((prev) => ({ ...prev, [providerId]: !isExpanded }));
+	};
+
+	const handleRemoveKey = async (providerId: string, keyIndex: number) => {
+		await removeProviderKey(providerId, keyIndex);
+		// Refresh masked keys from backend
+		const keys = await getProviderKeys(providerId);
+		setProviderMaskedKeys((prev) => ({ ...prev, [providerId]: keys }));
+	};
+
+	const handleSavePort = async () => {
+		const port = Number.parseInt(portValue, 10);
+		if (port >= 1024 && port <= 65535) {
+			await setProxyPort(port);
+			setEditingPort(false);
+		}
+	};
+
+	return (
+		<div className="space-y-5">
+			{/* Title + Toggle */}
+			<div>
+				<h3 className="text-sm font-semibold">
+					{t("settings.labFreeLlmTitle")}
+				</h3>
+				<p className="text-[11px] text-muted-foreground mt-1">
+					{t("settings.labFreeLlmDesc")}
+				</p>
+				<div className="flex items-center gap-3 mt-3">
+					<button
+						type="button"
+						onClick={() => setEnabled(!enabled)}
+						disabled={loading}
+						className={cn(
+							"relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors",
+							enabled ? "bg-primary" : "bg-muted-foreground/30",
+						)}
+					>
+						<span
+							className={cn(
+								"pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow-sm transition-transform",
+								enabled ? "translate-x-4" : "translate-x-0",
+							)}
+						/>
+					</button>
+					<span className="text-xs font-medium">
+						{t("settings.labFreeLlmEnabled")}
+					</span>
+				</div>
+			</div>
+
+			{enabled && (
+				<>
+					{/* Proxy Status */}
+					<div className="flex items-center gap-2 rounded-md border p-2.5 text-xs">
+						<div
+							className={cn(
+								"h-2 w-2 rounded-full",
+								proxyStatus?.running ? "bg-green-500" : "bg-red-500",
+							)}
+						/>
+						<span className="font-medium">
+							{proxyStatus?.running
+								? t("settings.labProxyRunning")
+								: t("settings.labProxyStopped")}
+						</span>
+						{proxyStatus?.running && (
+							<span className="text-muted-foreground">
+								127.0.0.1:{proxyStatus.port} · {proxyStatus.provider_count}{" "}
+								{t("settings.labProxyProviders")} · {proxyStatus.model_count}{" "}
+								{t("settings.labProxyModels")}
+							</span>
+						)}
+					</div>
+
+					{/* Provider count */}
+					<div className="flex items-center gap-2 text-xs">
+						<span className="text-muted-foreground">
+							{t("settings.labProvidersConfiguredCount", {
+								configured: configuredCount,
+								total: providers.length,
+							})}
+						</span>
+					</div>
+
+					<Separator />
+
+					{/* Provider Configuration */}
+					<div>
+						<h4 className="text-sm font-medium mb-1">
+							{t("settings.labProviderConfig")}
+						</h4>
+						<p className="text-[11px] text-muted-foreground mb-3">
+							{t("settings.labProviderConfigHint")}
+						</p>
+
+						<div className="space-y-2">
+							{visibleProviders.map((provider) => {
+								const isConfigured = provider.has_key;
+								const isEditing = editingKeys[provider.id] !== undefined;
+								const isExpanded = expandedProviders[provider.id] ?? false;
+								const maskedKeys = providerMaskedKeys[provider.id] ?? [];
+								return (
+									<div
+										key={provider.id}
+										className={cn(
+											"rounded-md border p-2.5 transition-colors",
+											isConfigured
+												? "border-green-500/30 bg-green-50/50 dark:bg-green-950/20"
+												: "border-border",
+										)}
+									>
+										<div className="flex items-center gap-3">
+											<div className="min-w-0 flex-1">
+												<div className="flex items-center gap-2">
+													<span className="text-sm font-medium">
+														{provider.display_name}
+													</span>
+													{isConfigured && (
+														<Badge
+															variant="secondary"
+															className="text-[10px] h-4 px-1.5 text-green-700 dark:text-green-400 bg-green-100 dark:bg-green-900/40"
+														>
+															{provider.key_count === 1
+																? t("settings.labConfigured")
+																: t("settings.labKeyCount", {
+																		count: provider.key_count,
+																	})}
+															{provider.model_count > 0 &&
+																` · ${provider.model_count}`}
+														</Badge>
+													)}
+												</div>
+												<div className="flex items-center gap-1.5 mt-0.5">
+													<Button
+														variant={isConfigured ? "ghost" : "outline"}
+														size="sm"
+														className="h-6 px-2 text-[11px]"
+														onClick={() =>
+															setEditingKeys((prev) => ({
+																...prev,
+																[provider.id]: "",
+															}))
+														}
+													>
+														<Plus className="h-3 w-3 mr-1" />
+														{t("settings.labAddKey")}
+													</Button>
+													{isConfigured && provider.key_count > 0 && (
+														<Button
+															variant="ghost"
+															size="sm"
+															className="h-6 px-2 text-[11px]"
+															onClick={() => handleToggleExpand(provider.id)}
+														>
+															{isExpanded ? (
+																<ChevronDown className="h-3 w-3 mr-1" />
+															) : (
+																<ChevronRight className="h-3 w-3 mr-1" />
+															)}
+															{t("settings.labViewKeys", {
+																count: provider.key_count,
+															})}
+														</Button>
+													)}
+												</div>
+											</div>
+											<a
+												href={provider.sign_up_url}
+												target="_blank"
+												rel="noopener noreferrer"
+												className="flex items-center gap-1 text-[11px] text-primary hover:underline shrink-0"
+											>
+												{t("settings.labGetKey")}
+												<ExternalLink className="h-3 w-3" />
+											</a>
+										</div>
+
+										{/* Add key input */}
+										{isEditing && (
+											<div className="flex items-center gap-1.5 mt-2">
+												<input
+													type="password"
+													placeholder={
+														provider.key_prefix
+															? `${provider.key_prefix}...`
+															: t("onboarding.freeProviderApiKeyPlaceholder")
+													}
+													value={editingKeys[provider.id] || ""}
+													onChange={(e) =>
+														setEditingKeys((prev) => ({
+															...prev,
+															[provider.id]: e.target.value,
+														}))
+													}
+													onKeyDown={(e) => {
+														if (e.key === "Enter") handleSaveKey(provider.id);
+													}}
+													className="h-7 flex-1 rounded-md border bg-transparent px-2 text-xs"
+													autoFocus
+												/>
+												<Button
+													variant="default"
+													size="sm"
+													className="h-7 px-2 text-xs"
+													disabled={!editingKeys[provider.id]?.trim()}
+													onClick={() => handleSaveKey(provider.id)}
+												>
+													{t("common.save")}
+												</Button>
+												<Button
+													variant="ghost"
+													size="sm"
+													className="h-7 px-2 text-xs"
+													onClick={() =>
+														setEditingKeys((prev) => {
+															const next = { ...prev };
+															delete next[provider.id];
+															return next;
+														})
+													}
+												>
+													{t("common.cancel")}
+												</Button>
+											</div>
+										)}
+
+										{/* Expanded key list */}
+										{isExpanded && maskedKeys.length > 0 && (
+											<div className="mt-2 space-y-1">
+												{maskedKeys.map((maskedKey, idx) => (
+													<div
+														key={`${provider.id}-key-${idx}`}
+														className="flex items-center justify-between rounded border px-2 py-1 text-xs"
+													>
+														<span className="font-mono text-muted-foreground">
+															{maskedKey}
+														</span>
+														<button
+															type="button"
+															onClick={() => handleRemoveKey(provider.id, idx)}
+															className="text-destructive hover:text-destructive/80 transition-colors ml-2"
+															title={t("common.delete")}
+														>
+															<Trash2 className="h-3 w-3" />
+														</button>
+													</div>
+												))}
+											</div>
+										)}
+									</div>
+								);
+							})}
+						</div>
+
+						{secondaryProviders.length > 0 && (
+							<button
+								type="button"
+								className="flex items-center gap-1 mt-2 text-xs text-muted-foreground hover:text-foreground transition-colors"
+								onClick={() => setShowMoreProviders(!showMoreProviders)}
+							>
+								{showMoreProviders ? (
+									<>
+										<ChevronDown className="h-3 w-3" />
+										{t("settings.labShowLess")}
+									</>
+								) : (
+									<>
+										<ChevronRight className="h-3 w-3" />
+										{t("settings.labShowMore")} ({secondaryProviders.length})
+									</>
+								)}
+							</button>
+						)}
+					</div>
+
+					<Separator />
+
+					{/* Routing Strategy */}
+					<div className="space-y-2">
+						<div>
+							<h4 className="text-sm font-medium">
+								{t("settings.labRoutingStrategy")}
+							</h4>
+							<p className="text-[11px] text-muted-foreground mt-0.5">
+								{t("settings.labRoutingStrategyDesc")}
+							</p>
+						</div>
+						<div className="grid grid-cols-3 gap-2">
+							{(["auto", "round-robin", "manual"] as const).map((strategy) => (
+								<button
+									key={strategy}
+									type="button"
+									onClick={() => setRoutingStrategy(strategy)}
+									className={cn(
+										"flex flex-col items-start gap-0.5 rounded-lg border-2 p-2.5 text-left transition-all",
+										routingStrategy === strategy
+											? "border-primary bg-primary/5"
+											: "border-border hover:border-muted-foreground/40",
+									)}
+								>
+									<span className="text-xs font-semibold">
+										{t(`settings.labRouting_${strategy}`)}
+									</span>
+									<span className="text-[10px] text-muted-foreground leading-tight">
+										{t(`settings.labRouting_${strategy}_desc`)}
+									</span>
+								</button>
+							))}
+						</div>
+					</div>
+
+					<Separator />
+
+					{/* Proxy Settings */}
+					<div className="space-y-2">
+						<h4 className="text-sm font-medium">
+							{t("settings.labProxySettings")}
+						</h4>
+						<div className="flex items-center gap-3">
+							<span className="text-xs text-muted-foreground">
+								{t("settings.labProxyPort")}
+							</span>
+							{editingPort ? (
+								<div className="flex items-center gap-1.5">
+									<input
+										type="number"
+										value={portValue}
+										onChange={(e) => setPortValue(e.target.value)}
+										className="h-7 w-24 rounded-md border bg-transparent px-2 text-xs"
+										min={1024}
+										max={65535}
+										onKeyDown={(e) => {
+											if (e.key === "Enter") handleSavePort();
+										}}
+										autoFocus
+									/>
+									<Button
+										variant="default"
+										size="sm"
+										className="h-7 px-2 text-xs"
+										onClick={handleSavePort}
+									>
+										{t("common.save")}
+									</Button>
+									<Button
+										variant="ghost"
+										size="sm"
+										className="h-7 px-2 text-xs"
+										onClick={() => setEditingPort(false)}
+									>
+										{t("common.cancel")}
+									</Button>
+								</div>
+							) : (
+								<button
+									type="button"
+									className="text-xs font-mono text-foreground hover:text-primary transition-colors"
+									onClick={() => {
+										setPortValue(String(config?.proxy_port || 29170));
+										setEditingPort(true);
+									}}
+								>
+									{config?.proxy_port || 29170}
+								</button>
+							)}
+						</div>
+						<div className="flex items-center gap-3">
+							<button
+								type="button"
+								onClick={() => setLanAccess(!config?.lan_access)}
+								className={cn(
+									"relative inline-flex h-4 w-7 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors",
+									config?.lan_access ? "bg-primary" : "bg-muted-foreground/30",
+								)}
+							>
+								<span
+									className={cn(
+										"pointer-events-none inline-block h-3 w-3 rounded-full bg-white shadow-sm transition-transform",
+										config?.lan_access ? "translate-x-3" : "translate-x-0",
+									)}
+								/>
+							</button>
+							<span className="text-xs text-muted-foreground">
+								{t("settings.labLanAccess")}
+							</span>
+						</div>
+					</div>
+
+					<Separator />
+
+					{/* Model Management — disable/enable individual models */}
+					<div className="space-y-2">
+						<div className="flex items-center justify-between">
+							<div>
+								<h4 className="text-sm font-medium">
+									{t("settings.labModelManagement")}
+								</h4>
+								<p className="text-[11px] text-muted-foreground mt-0.5">
+									{t("settings.labModelManagementDesc")}
+								</p>
+							</div>
+							<Button
+								variant="outline"
+								size="sm"
+								onClick={() => refreshModels()}
+								disabled={modelsLoading}
+								className="h-7 text-xs shrink-0"
+							>
+								{modelsLoading ? (
+									<Loader2 className="mr-1 h-3 w-3 animate-spin" />
+								) : (
+									<RefreshCw className="mr-1 h-3 w-3" />
+								)}
+								{t("settings.labRefreshModels")}
+							</Button>
+						</div>
+
+						{models.length === 0 ? (
+							<p className="text-xs text-muted-foreground italic">
+								{t("settings.noModelsConfigured")}
+							</p>
+						) : (
+							<div className="space-y-3">
+								{/* Group models by provider_id */}
+								{Array.from(new Set(models.map((m) => m.provider_id))).map(
+									(providerId) => {
+										const provider = providers.find((p) => p.id === providerId);
+										const providerModels = models.filter(
+											(m) => m.provider_id === providerId,
+										);
+										if (providerModels.length === 0) return null;
+										const allDisabled = providerModels.every((m) => m.disabled);
+										const allEnabled = providerModels.every((m) => !m.disabled);
+										return (
+											<div key={providerId}>
+												<div className="flex items-center gap-2 mb-1.5">
+													<p className="text-xs font-medium">
+														{provider?.display_name || providerId} 🧑‍🔬
+													</p>
+													<button
+														type="button"
+														onClick={() =>
+															toggleProviderDisabled(providerId, false)
+														}
+														disabled={allEnabled}
+														className={cn(
+															"text-[10px] px-1.5 py-0.5 rounded border transition-all cursor-pointer select-none",
+															allEnabled
+																? "border-border text-muted-foreground/40 cursor-not-allowed"
+																: "border-primary/30 text-primary hover:bg-primary/10",
+														)}
+														title={t("settings.labEnableAll")}
+													>
+														{t("settings.labEnableAll")}
+													</button>
+													<button
+														type="button"
+														onClick={() =>
+															toggleProviderDisabled(providerId, true)
+														}
+														disabled={allDisabled}
+														className={cn(
+															"text-[10px] px-1.5 py-0.5 rounded border transition-all cursor-pointer select-none",
+															allDisabled
+																? "border-border text-muted-foreground/40 cursor-not-allowed"
+																: "border-destructive/30 text-destructive hover:bg-destructive/10",
+														)}
+														title={t("settings.labDisableAll")}
+													>
+														{t("settings.labDisableAll")}
+													</button>
+												</div>
+												<div className="flex flex-wrap gap-1.5">
+													{providerModels.map((model) => (
+														<button
+															key={model.id}
+															type="button"
+															onClick={() =>
+																toggleModelDisabled(
+																	providerId,
+																	model.id,
+																	!model.disabled,
+																)
+															}
+															className={cn(
+																"px-2 py-0.5 rounded-md text-[11px] border transition-all cursor-pointer select-none active:scale-95",
+																model.disabled
+																	? "border-border bg-muted/30 text-muted-foreground/60 line-through opacity-50 hover:opacity-70 hover:border-muted-foreground/30"
+																	: "border-primary/40 bg-primary/10 text-primary font-medium hover:bg-primary/15 hover:border-primary/60",
+															)}
+															title={
+																model.disabled
+																	? t("settings.labModelDisabled")
+																	: t("settings.labModelEnabled")
+															}
+														>
+															{model.name || model.id}
+														</button>
+													))}
+												</div>
+											</div>
+										);
+									},
+								)}
+							</div>
+						)}
+					</div>
+
+					{/* Provider Health */}
+					{proxyStatus?.running && proxyStatus.health.length > 0 && (
+						<>
+							<Separator />
+							<div className="space-y-2">
+								<h4 className="text-sm font-medium">
+									{t("settings.labProviderHealth")}
+								</h4>
+								<div className="space-y-1">
+									{proxyStatus.health.map((h) => {
+										const provider = providers.find(
+											(p) => p.id === h.provider_id,
+										);
+										return (
+											<div
+												key={h.provider_id}
+												className="flex items-center justify-between text-xs rounded-md border px-2 py-1.5"
+											>
+												<div className="flex items-center gap-2">
+													<div
+														className={cn(
+															"h-1.5 w-1.5 rounded-full",
+															h.on_cooldown
+																? "bg-yellow-500"
+																: h.healthy
+																	? "bg-green-500"
+																	: "bg-red-500",
+														)}
+													/>
+													<span>{provider?.display_name || h.provider_id}</span>
+												</div>
+												<span className="text-muted-foreground">
+													{h.total_requests > 0 && `${h.total_requests} req`}
+													{h.total_failures > 0 &&
+														` · ${h.total_failures} fail`}
+													{h.on_cooldown && ` · ${t("settings.labOnCooldown")}`}
+												</span>
+											</div>
+										);
+									})}
+								</div>
+							</div>
+						</>
+					)}
+				</>
+			)}
+		</div>
+	);
+}
+
 function PluginsGeneralSection() {
 	const { t } = useTranslation();
 	const plugins = usePluginStore((s) => s.plugins);

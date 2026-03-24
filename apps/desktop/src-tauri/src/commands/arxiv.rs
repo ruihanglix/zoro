@@ -184,11 +184,8 @@ pub async fn translate_paper_html(
                 "Native language not configured. Set it in Settings > AI / Translation.".into(),
             );
         }
-        if config.ai.base_url.is_empty()
-            || config.ai.api_key.is_empty()
-            || config.ai.model.is_empty()
-        {
-            return Err("AI not configured. Set base URL, API key, and model in Settings.".into());
+        if config.ai.model.is_empty() {
+            return Err("AI not configured. Set a default model in Settings.".into());
         }
 
         (
@@ -200,11 +197,16 @@ pub async fn translate_paper_html(
         )
     };
 
-    // Resolve the per-task model for heavy (full-text) translation
-    let mut heavy_config = ai_config.clone();
-    heavy_config.model = ai_config
+    // Resolve the per-task model for heavy (full-text) translation,
+    // which also routes to the correct provider base_url/api_key
+    let heavy_model = ai_config
         .task_model_defaults
         .resolve("heavy", &ai_config.model);
+    let heavy_config = ai_config.resolve_for_model(&heavy_model);
+
+    if heavy_config.base_url.is_empty() || heavy_config.api_key.is_empty() {
+        return Err("AI not configured. Set base URL, API key, and model in Settings.".into());
+    }
 
     // Build glossary prompt for HTML translation
     let glossary_prompt = if ai_config.glossary_enabled {

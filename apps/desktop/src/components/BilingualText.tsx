@@ -38,8 +38,11 @@ export function BilingualText({
 	// keeping only the translated portions.
 	const cleanTranslated = hasTranslation ? stripDelimiters(translated) : null;
 
-	// Original-only mode
-	if (displayMode === "original" || (!hasTranslation && !loading)) {
+	// Show original text when: in original-only mode, or when no translation
+	// is available yet (including while loading). This ensures the user still
+	// sees the original abstract while waiting for the translation result,
+	// instead of a blank area.
+	if (displayMode === "original" || !hasTranslation) {
 		return (
 			<div className={cn("group relative", className)}>
 				{variant === "title" && (

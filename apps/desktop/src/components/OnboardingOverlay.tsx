@@ -8,12 +8,17 @@ import { Separator } from "@/components/ui/separator";
 import * as commands from "@/lib/commands";
 import { supportedLanguages } from "@/lib/i18n";
 import type { SupportedLanguage } from "@/lib/i18n";
+import { cn } from "@/lib/utils";
+import { useLabStore } from "@/stores/labStore";
 import { useTranslationStore } from "@/stores/translationStore";
 import { useUiStore } from "@/stores/uiStore";
 import {
 	BookOpen,
 	Check,
+	ChevronDown,
+	ChevronRight,
 	Download,
+	ExternalLink,
 	FileText,
 	Globe,
 	Languages,
@@ -22,6 +27,7 @@ import {
 	MousePointerClick,
 	Puzzle,
 	Sparkles,
+	Zap,
 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -94,6 +100,8 @@ function inferPresetFromUrl(baseUrl: string): string {
 	return match?.name ?? (baseUrl ? "Custom" : "OpenAI");
 }
 
+type AiMode = "free" | "own";
+
 export function OnboardingOverlay({ onComplete }: { onComplete: () => void }) {
 	const { t } = useTranslation();
 	const language = useUiStore((s) => s.language);
@@ -101,6 +109,17 @@ export function OnboardingOverlay({ onComplete }: { onComplete: () => void }) {
 	const aiConfig = useTranslationStore((s) => s.aiConfig);
 	const fetchAiConfig = useTranslationStore((s) => s.fetchAiConfig);
 	const displayModeStore = useTranslationStore((s) => s.displayMode);
+
+	// Lab store for Free LLM
+	const labProviders = useLabStore((s) => s.providers);
+	const setProviderKey = useLabStore((s) => s.setProviderKey);
+	const setLabEnabled = useLabStore((s) => s.setEnabled);
+	const labInitialize = useLabStore((s) => s.initialize);
+
+	// Initialize lab store on mount to load providers from backend
+	useEffect(() => {
+		labInitialize();
+	}, [labInitialize]);
 
 	// Language state — use existing config if available, otherwise infer from system language
 	const [nativeLang, setNativeLang] = useState(
@@ -110,7 +129,14 @@ export function OnboardingOverlay({ onComplete }: { onComplete: () => void }) {
 		"original" | "bilingual" | "translated"
 	>(() => displayModeStore);
 
-	// AI state — use existing config if available, otherwise use defaults
+	// AI mode: free vs own
+	const [aiMode, setAiMode] = useState<AiMode>("free");
+
+	// Free provider keys (local state before commit)
+	const [freeKeys, setFreeKeys] = useState<Record<string, string>>({});
+	const [showMoreProviders, setShowMoreProviders] = useState(false);
+
+	// Own API state — use existing config if available, otherwise use defaults
 	const [aiBaseUrl, setAiBaseUrl] = useState(
 		() => aiConfig?.baseUrl || "https://api.openai.com/v1",
 	);
@@ -176,16 +202,39 @@ export function OnboardingOverlay({ onComplete }: { onComplete: () => void }) {
 		onComplete();
 	};
 
+	// Check if at least one free provider is configured
+	const freeConfiguredCount = Object.values(freeKeys).filter(
+		(v) => v.trim().length > 0,
+	).length;
+
+	const primaryProviders = labProviders.filter((p) => p.tier === "primary");
+	const secondaryProviders = labProviders.filter((p) => p.tier === "secondary");
+	const visibleProviders = showMoreProviders ? labProviders : primaryProviders;
+
 	const handleGetStarted = async () => {
 		try {
-			// Save language & AI preferences
-			await commands.updateAiConfig({
-				nativeLang: nativeLang,
-				provider: "",
-				baseUrl: aiBaseUrl,
-				...(aiApiKey ? { apiKey: aiApiKey } : {}),
-				model: aiModel,
-			});
+			if (aiMode === "free") {
+				// Save free provider keys to labStore
+				for (const [providerId, key] of Object.entries(freeKeys)) {
+					if (key.trim()) {
+						setProviderKey(providerId, key.trim());
+					}
+				}
+				setLabEnabled(true);
+				// Save language preferences (no custom API config needed for free mode)
+				await commands.updateAiConfig({
+					nativeLang: nativeLang,
+				});
+			} else {
+				// Save language & own API preferences
+				await commands.updateAiConfig({
+					nativeLang: nativeLang,
+					provider: "",
+					baseUrl: aiBaseUrl,
+					...(aiApiKey ? { apiKey: aiApiKey } : {}),
+					model: aiModel,
+				});
+			}
 			await fetchAiConfig();
 		} catch (err) {
 			console.error("Failed to save onboarding config:", err);
@@ -307,119 +356,259 @@ export function OnboardingOverlay({ onComplete }: { onComplete: () => void }) {
 							</span>
 						</div>
 
-						{/* Provider Preset */}
-						<div>
-							<span className="text-xs font-medium text-muted-foreground">
-								{t("onboarding.aiProvider")}
-							</span>
-							<div className="mt-1 flex gap-1">
-								{providerPresets.map((preset) => (
-									<button
-										key={preset.name}
-										type="button"
-										onClick={() => handlePresetChange(preset.name)}
-										className={`flex-1 h-8 rounded-md text-xs font-medium transition-colors ${
-											selectedPreset === preset.name
-												? "bg-primary text-primary-foreground"
-												: "bg-muted text-muted-foreground hover:bg-muted/80"
-										}`}
-									>
-										{preset.name}
-									</button>
-								))}
-							</div>
+						{/* Mode Selector: Free vs Own */}
+						<div className="grid grid-cols-2 gap-2">
+							<button
+								type="button"
+								onClick={() => setAiMode("free")}
+								className={cn(
+									"relative flex flex-col items-center gap-1 rounded-lg border-2 p-3 text-center transition-all",
+									aiMode === "free"
+										? "border-primary bg-primary/5"
+										: "border-border hover:border-muted-foreground/40",
+								)}
+							>
+								<Zap className="h-5 w-5 text-primary" />
+								<span className="text-xs font-semibold">
+									{t("onboarding.freeLlm")}
+								</span>
+								<span className="text-[10px] text-muted-foreground leading-tight">
+									{t("onboarding.freeLlmDesc")}
+								</span>
+								{aiMode === "free" && (
+									<div className="absolute top-1.5 right-1.5 h-4 w-4 rounded-full bg-primary flex items-center justify-center">
+										<Check className="h-2.5 w-2.5 text-primary-foreground" />
+									</div>
+								)}
+							</button>
+							<button
+								type="button"
+								onClick={() => setAiMode("own")}
+								className={cn(
+									"relative flex flex-col items-center gap-1 rounded-lg border-2 p-3 text-center transition-all",
+									aiMode === "own"
+										? "border-primary bg-primary/5"
+										: "border-border hover:border-muted-foreground/40",
+								)}
+							>
+								<Sparkles className="h-5 w-5 text-primary" />
+								<span className="text-xs font-semibold">
+									{t("onboarding.ownApi")}
+								</span>
+								<span className="text-[10px] text-muted-foreground leading-tight">
+									{t("onboarding.ownApiDesc")}
+								</span>
+								{aiMode === "own" && (
+									<div className="absolute top-1.5 right-1.5 h-4 w-4 rounded-full bg-primary flex items-center justify-center">
+										<Check className="h-2.5 w-2.5 text-primary-foreground" />
+									</div>
+								)}
+							</button>
 						</div>
 
-						{/* Base URL — shown for Custom */}
-						{selectedPreset === "Custom" && (
-							<div>
-								<label
-									htmlFor="ob-base-url"
-									className="text-xs font-medium text-muted-foreground"
-								>
-									{t("onboarding.aiBaseUrl")}
-								</label>
-								<input
-									id="ob-base-url"
-									type="text"
-									value={aiBaseUrl}
-									onChange={(e) => {
-										setAiBaseUrl(e.target.value);
-										setAiTestResult(null);
-									}}
-									placeholder={t("onboarding.aiBaseUrlPlaceholder")}
-									className="mt-1 h-8 w-full rounded-md border bg-transparent px-2 text-sm"
-								/>
+						{/* ── Free Mode: Provider Key List ── */}
+						{aiMode === "free" && (
+							<div className="space-y-2">
+								<p className="text-[11px] text-muted-foreground">
+									{t("onboarding.freeProviderLabel")}
+								</p>
+								{visibleProviders.map((provider) => {
+									const hasKey = !!freeKeys[provider.id]?.trim();
+									return (
+										<div
+											key={provider.id}
+											className={cn(
+												"flex items-center gap-2 rounded-md border p-2 transition-colors",
+												hasKey
+													? "border-green-500/30 bg-green-50/50 dark:bg-green-950/20"
+													: "border-border",
+											)}
+										>
+											<div className="w-24 shrink-0">
+												<span className="text-xs font-medium">
+													{provider.display_name}
+												</span>
+											</div>
+											<input
+												type="password"
+												placeholder={
+													provider.key_prefix
+														? `${provider.key_prefix}...`
+														: t("onboarding.freeProviderApiKeyPlaceholder")
+												}
+												value={freeKeys[provider.id] || ""}
+												onChange={(e) =>
+													setFreeKeys((prev) => ({
+														...prev,
+														[provider.id]: e.target.value,
+													}))
+												}
+												className="h-7 flex-1 min-w-0 rounded-md border bg-transparent px-2 text-xs"
+											/>
+											{hasKey && (
+												<Check className="h-3.5 w-3.5 text-green-600 shrink-0" />
+											)}
+											<a
+												href={provider.sign_up_url}
+												target="_blank"
+												rel="noopener noreferrer"
+												className="flex items-center gap-0.5 text-[10px] text-primary hover:underline shrink-0"
+											>
+												{t("settings.labGetKey")}
+												<ExternalLink className="h-2.5 w-2.5" />
+											</a>
+										</div>
+									);
+								})}
+
+								{secondaryProviders.length > 0 && (
+									<button
+										type="button"
+										className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground transition-colors"
+										onClick={() => setShowMoreProviders(!showMoreProviders)}
+									>
+										{showMoreProviders ? (
+											<>
+												<ChevronDown className="h-3 w-3" />
+												{t("onboarding.showLessProviders")}
+											</>
+										) : (
+											<>
+												<ChevronRight className="h-3 w-3" />
+												{t("onboarding.showMoreProviders")} (
+												{secondaryProviders.length})
+											</>
+										)}
+									</button>
+								)}
+
+								{freeConfiguredCount === 0 && (
+									<p className="text-[10px] text-amber-600 dark:text-amber-400">
+										{t("onboarding.freeConfigureAtLeast1")}
+									</p>
+								)}
 							</div>
 						)}
 
-						{/* API Key */}
-						<div>
-							<label
-								htmlFor="ob-api-key"
-								className="text-xs font-medium text-muted-foreground"
-							>
-								{t("onboarding.aiApiKey")}
-							</label>
-							<input
-								id="ob-api-key"
-								type="password"
-								value={aiApiKey}
-								onChange={(e) => {
-									setAiApiKey(e.target.value);
-									setAiTestResult(null);
-								}}
-								placeholder={t("onboarding.aiApiKeyPlaceholder")}
-								className="mt-1 h-8 w-full rounded-md border bg-transparent px-2 text-sm"
-							/>
-						</div>
+						{/* ── Own API Mode ── */}
+						{aiMode === "own" && (
+							<div className="space-y-2">
+								{/* Provider Preset */}
+								<div>
+									<span className="text-xs font-medium text-muted-foreground">
+										{t("onboarding.aiProvider")}
+									</span>
+									<div className="mt-1 flex gap-1">
+										{providerPresets.map((preset) => (
+											<button
+												key={preset.name}
+												type="button"
+												onClick={() => handlePresetChange(preset.name)}
+												className={cn(
+													"flex-1 h-8 rounded-md text-xs font-medium transition-colors",
+													selectedPreset === preset.name
+														? "bg-primary text-primary-foreground"
+														: "bg-muted text-muted-foreground hover:bg-muted/80",
+												)}
+											>
+												{preset.name}
+											</button>
+										))}
+									</div>
+								</div>
 
-						{/* Model */}
-						<div>
-							<label
-								htmlFor="ob-model"
-								className="text-xs font-medium text-muted-foreground"
-							>
-								{t("onboarding.aiModel")}
-							</label>
-							<div className="mt-1 flex gap-2">
-								<input
-									id="ob-model"
-									type="text"
-									value={aiModel}
-									onChange={(e) => {
-										setAiModel(e.target.value);
-										setAiTestResult(null);
-									}}
-									className="h-8 flex-1 rounded-md border bg-transparent px-2 text-sm"
-								/>
-								<Button
-									variant="outline"
-									size="sm"
-									onClick={handleTestConnection}
-									disabled={aiTesting || !aiModel}
-									className="h-8 shrink-0"
-								>
-									{aiTesting ? (
-										<Loader2 className="h-3.5 w-3.5 animate-spin" />
-									) : aiTestResult?.ok ? (
-										<>
-											<Check className="mr-1 h-3.5 w-3.5 text-green-600" />
-											<span className="text-green-600">
-												{t("onboarding.aiTestSuccess")}
-											</span>
-										</>
-									) : (
-										t("onboarding.aiTestConnection")
+								{/* Base URL — shown for Custom */}
+								{selectedPreset === "Custom" && (
+									<div>
+										<label
+											htmlFor="ob-base-url"
+											className="text-xs font-medium text-muted-foreground"
+										>
+											{t("onboarding.aiBaseUrl")}
+										</label>
+										<input
+											id="ob-base-url"
+											type="text"
+											value={aiBaseUrl}
+											onChange={(e) => {
+												setAiBaseUrl(e.target.value);
+												setAiTestResult(null);
+											}}
+											placeholder={t("onboarding.aiBaseUrlPlaceholder")}
+											className="mt-1 h-8 w-full rounded-md border bg-transparent px-2 text-sm"
+										/>
+									</div>
+								)}
+
+								{/* API Key */}
+								<div>
+									<label
+										htmlFor="ob-api-key"
+										className="text-xs font-medium text-muted-foreground"
+									>
+										{t("onboarding.aiApiKey")}
+									</label>
+									<input
+										id="ob-api-key"
+										type="password"
+										value={aiApiKey}
+										onChange={(e) => {
+											setAiApiKey(e.target.value);
+											setAiTestResult(null);
+										}}
+										placeholder={t("onboarding.aiApiKeyPlaceholder")}
+										className="mt-1 h-8 w-full rounded-md border bg-transparent px-2 text-sm"
+									/>
+								</div>
+
+								{/* Model */}
+								<div>
+									<label
+										htmlFor="ob-model"
+										className="text-xs font-medium text-muted-foreground"
+									>
+										{t("onboarding.aiModel")}
+									</label>
+									<div className="mt-1 flex gap-2">
+										<input
+											id="ob-model"
+											type="text"
+											value={aiModel}
+											onChange={(e) => {
+												setAiModel(e.target.value);
+												setAiTestResult(null);
+											}}
+											className="h-8 flex-1 rounded-md border bg-transparent px-2 text-sm"
+										/>
+										<Button
+											variant="outline"
+											size="sm"
+											onClick={handleTestConnection}
+											disabled={aiTesting || !aiModel}
+											className="h-8 shrink-0"
+										>
+											{aiTesting ? (
+												<Loader2 className="h-3.5 w-3.5 animate-spin" />
+											) : aiTestResult?.ok ? (
+												<>
+													<Check className="mr-1 h-3.5 w-3.5 text-green-600" />
+													<span className="text-green-600">
+														{t("onboarding.aiTestSuccess")}
+													</span>
+												</>
+											) : (
+												t("onboarding.aiTestConnection")
+											)}
+										</Button>
+									</div>
+									{aiTestResult && !aiTestResult.ok && (
+										<p className="text-[11px] text-destructive mt-1">
+											{aiTestResult.msg}
+										</p>
 									)}
-								</Button>
+								</div>
 							</div>
-							{aiTestResult && !aiTestResult.ok && (
-								<p className="text-[11px] text-destructive mt-1">
-									{aiTestResult.msg}
-								</p>
-							)}
-						</div>
+						)}
 					</div>
 
 					{/* Quick Tips Section */}

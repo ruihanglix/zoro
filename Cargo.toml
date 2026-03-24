@@ -9,6 +9,8 @@ members = [
   "crates/zoro-metadata",
   "crates/zoro-mcp",
   "crates/zoro-plugins",
+  "crates/zoro-llm-proxy",
+  "crates/zoro-lab-freellm",
   "crates/zoro-storage",
   "crates/zoro-subscriptions",
   "crates/zoro-webdav",

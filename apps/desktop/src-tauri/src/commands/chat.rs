@@ -1130,8 +1130,7 @@ fn build_paper_context(
 /// Extract text content from a PDF file using lopdf.
 /// Iterates over all pages and concatenates extracted text.
 fn extract_pdf_text(pdf_path: &std::path::Path) -> Result<String, String> {
-    let doc = lopdf::Document::load(pdf_path)
-        .map_err(|e| format!("Failed to load PDF: {}", e))?;
+    let doc = lopdf::Document::load(pdf_path).map_err(|e| format!("Failed to load PDF: {}", e))?;
 
     let mut text = String::new();
     let page_count = doc.get_pages().len();
