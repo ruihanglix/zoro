@@ -768,20 +768,27 @@ function buildModelOptions(
 	providers: { id: string; name: string; models: string[] }[],
 ): FlatModelOption[] {
 	const options: FlatModelOption[] = [];
+	let labAutoAdded = false;
 	for (const provider of providers) {
 		for (const model of provider.models) {
-			let label: string;
 			if (model === "__lab_auto__") {
-				label = "✨ Auto (免费模型)";
+				// 只保留一个 Auto 条目，避免多个 provider 都包含该模型时重复
+				if (labAutoAdded) continue;
+				labAutoAdded = true;
+				options.push({
+					providerId: provider.id,
+					providerName: provider.name,
+					model,
+					label: "✨ Auto (免费模型)",
+				});
 			} else {
-				label = `${model} (${provider.name})`;
+				options.push({
+					providerId: provider.id,
+					providerName: provider.name,
+					model,
+					label: `${model} (${provider.name})`,
+				});
 			}
-			options.push({
-				providerId: provider.id,
-				providerName: provider.name,
-				model,
-				label,
-			});
 		}
 	}
 	return options;
