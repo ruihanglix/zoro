@@ -1698,7 +1698,7 @@ function ToolCallBubble({ message }: { message: ChatMessage }) {
 					{message.toolArguments && (
 						<div>
 							<p className="text-[10px] text-muted-foreground font-medium mb-0.5">
-								Arguments
+								Input
 							</p>
 							<pre className="text-[10px] bg-background/60 rounded p-1.5 overflow-x-auto max-h-40 whitespace-pre-wrap break-all">
 								{formatJson(message.toolArguments)}
@@ -1708,9 +1708,9 @@ function ToolCallBubble({ message }: { message: ChatMessage }) {
 					{message.toolResult && (
 						<div>
 							<p className="text-[10px] text-muted-foreground font-medium mb-0.5">
-								Result
+								Output
 							</p>
-							<pre className="text-[10px] bg-background/60 rounded p-1.5 overflow-x-auto max-h-48 whitespace-pre-wrap break-all">
+							<pre className="text-[10px] bg-background/60 rounded p-1.5 overflow-x-auto max-h-60 overflow-y-auto whitespace-pre-wrap break-all">
 								{formatJson(message.toolResult)}
 							</pre>
 						</div>
