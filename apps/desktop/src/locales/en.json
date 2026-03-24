@@ -736,7 +736,7 @@
 		"labModelManagement": "Model Management",
 		"labModelManagementDesc": "Click a model to enable or disable it. Disabled models won't be used in auto-routing or synced to AI settings.",
 		"labModelDisabled": "Model disabled — click to enable",
-"labModelEnabled": "Model enabled — click to disable",
+		"labModelEnabled": "Model enabled — click to disable",
 		"labEnableAll": "Enable All",
 		"labDisableAll": "Disable All",
 		"labProxyRunning": "Proxy Running",

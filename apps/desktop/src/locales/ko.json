@@ -744,7 +744,7 @@
 		"labModelManagement": "모델 관리",
 		"labModelManagementDesc": "모델 이름을 클릭하여 활성화/비활성화합니다. 비활성화된 모델은 자동 라우팅에 사용되지 않습니다.",
 		"labModelDisabled": "모델 비활성화됨 — 클릭하여 활성화",
-"labModelEnabled": "모델 활성화됨 — 클릭하여 비활성화",
+		"labModelEnabled": "모델 활성화됨 — 클릭하여 비활성화",
 		"labEnableAll": "모두 활성화",
 		"labDisableAll": "모두 비활성화",
 		"fetchModels": "모델 가져오기",

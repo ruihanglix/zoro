@@ -735,7 +735,7 @@
 		"labModelManagement": "モデル管理",
 		"labModelManagementDesc": "モデル名をクリックして有効/無効を切り替えます。無効なモデルは自動ルーティングに使用されず、AI設定にも同期されません。",
 		"labModelDisabled": "モデル無効 — クリックで有効化",
-"labModelEnabled": "モデル有効 — クリックで無効化",
+		"labModelEnabled": "モデル有効 — クリックで無効化",
 		"labEnableAll": "すべて有効",
 		"labDisableAll": "すべて無効",
 		"labProxyRunning": "プロキシ稼働中",

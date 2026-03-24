@@ -222,9 +222,6 @@ export const useAgentStore = create<AgentState>((set, get) => ({
 		try {
 			const { activeChatId, messages, chatConfigLoaded, activeAgentName } =
 				get();
-			if (activeChatId && messages.length > 0) {
-				await get().saveCurrentChat();
-			}
 
 			if (!chatConfigLoaded) {
 				await get().fetchChatConfig();
@@ -255,7 +252,9 @@ export const useAgentStore = create<AgentState>((set, get) => ({
 					]
 				: [];
 
-			const newChatId = generateChatId();
+			// Reuse existing chatId when switching agents within the same conversation;
+			// only generate a new one if there is no active chat.
+			const chatId = activeChatId ?? generateChatId();
 			set({
 				activeAgentName: CHAT_AGENT_NAME,
 				sessionId: CHAT_AGENT_NAME,
@@ -264,7 +263,7 @@ export const useAgentStore = create<AgentState>((set, get) => ({
 				connecting: false,
 				error: null,
 				configOptions: [],
-				activeChatId: newChatId,
+				activeChatId: chatId,
 				chatPaperId: paperId ?? null,
 			});
 		} finally {
@@ -278,9 +277,6 @@ export const useAgentStore = create<AgentState>((set, get) => ({
 		}
 
 		const { activeChatId, messages, activeAgentName } = get();
-		if (activeChatId && messages.length > 0) {
-			await get().saveCurrentChat();
-		}
 
 		// Preserve messages with a separator when switching modes
 		const switchingMode =
@@ -297,7 +293,9 @@ export const useAgentStore = create<AgentState>((set, get) => ({
 				]
 			: [];
 
-		const newChatId = generateChatId();
+		// Reuse existing chatId when switching agents within the same conversation;
+		// only generate a new one if there is no active chat.
+		const chatId = activeChatId ?? generateChatId();
 		set({
 			activeAgentName: agentName,
 			sessionId: null,
@@ -306,7 +304,7 @@ export const useAgentStore = create<AgentState>((set, get) => ({
 			connecting: true,
 			error: null,
 			configOptions: [],
-			activeChatId: newChatId,
+			activeChatId: chatId,
 			chatPaperId: null,
 		});
 		try {

@@ -744,7 +744,7 @@
 		"labModelManagement": "Gestion des modèles",
 		"labModelManagementDesc": "Cliquez sur un modèle pour l'activer ou le désactiver. Les modèles désactivés ne sont pas utilisés dans le routage automatique.",
 		"labModelDisabled": "Modèle désactivé — cliquer pour activer",
-"labModelEnabled": "Modèle activé — cliquer pour désactiver",
+		"labModelEnabled": "Modèle activé — cliquer pour désactiver",
 		"labEnableAll": "Tout activer",
 		"labDisableAll": "Tout désactiver",
 		"fetchModels": "Récupérer les modèles",

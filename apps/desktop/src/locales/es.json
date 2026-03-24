@@ -744,7 +744,7 @@
 		"labModelManagement": "Gestión de modelos",
 		"labModelManagementDesc": "Haz clic en un modelo para habilitarlo o deshabilitarlo. Los modelos deshabilitados no se usan en el enrutamiento automático.",
 		"labModelDisabled": "Modelo deshabilitado — clic para habilitar",
-"labModelEnabled": "Modelo habilitado — clic para deshabilitar",
+		"labModelEnabled": "Modelo habilitado — clic para deshabilitar",
 		"labEnableAll": "Habilitar todo",
 		"labDisableAll": "Deshabilitar todo",
 		"fetchModels": "Obtener modelos",

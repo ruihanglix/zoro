@@ -2991,10 +2991,7 @@ export function Settings() {
 													value={htmlConcurrency}
 													onChange={(e) =>
 														setHtmlConcurrency(
-															Math.max(
-																1,
-																Number.parseInt(e.target.value) || 8,
-															),
+															Math.max(1, Number.parseInt(e.target.value) || 8),
 														)
 													}
 													className="h-8 w-20 rounded-md border bg-transparent px-2 text-sm"
@@ -4649,8 +4646,12 @@ function LabSection() {
 
 	const [showMoreProviders, setShowMoreProviders] = useState(false);
 	const [editingKeys, setEditingKeys] = useState<Record<string, string>>({});
-	const [expandedProviders, setExpandedProviders] = useState<Record<string, boolean>>({});
-	const [providerMaskedKeys, setProviderMaskedKeys] = useState<Record<string, string[]>>({});
+	const [expandedProviders, setExpandedProviders] = useState<
+		Record<string, boolean>
+	>({});
+	const [providerMaskedKeys, setProviderMaskedKeys] = useState<
+		Record<string, string[]>
+	>({});
 	const [editingPort, setEditingPort] = useState(false);
 	const [portValue, setPortValue] = useState("");
 
@@ -4783,7 +4784,7 @@ function LabSection() {
 						</p>
 
 						<div className="space-y-2">
-						{visibleProviders.map((provider) => {
+							{visibleProviders.map((provider) => {
 								const isConfigured = provider.has_key;
 								const isEditing = editingKeys[provider.id] !== undefined;
 								const isExpanded = expandedProviders[provider.id] ?? false;
@@ -4811,7 +4812,9 @@ function LabSection() {
 														>
 															{provider.key_count === 1
 																? t("settings.labConfigured")
-																: t("settings.labKeyCount", { count: provider.key_count })}
+																: t("settings.labKeyCount", {
+																		count: provider.key_count,
+																	})}
 															{provider.model_count > 0 &&
 																` · ${provider.model_count}`}
 														</Badge>
@@ -4844,7 +4847,9 @@ function LabSection() {
 															) : (
 																<ChevronRight className="h-3 w-3 mr-1" />
 															)}
-															{t("settings.labViewKeys", { count: provider.key_count })}
+															{t("settings.labViewKeys", {
+																count: provider.key_count,
+															})}
 														</Button>
 													)}
 												</div>
@@ -5114,8 +5119,8 @@ function LabSection() {
 											(m) => m.provider_id === providerId,
 										);
 										if (providerModels.length === 0) return null;
-											const allDisabled = providerModels.every((m) => m.disabled);
-											const allEnabled = providerModels.every((m) => !m.disabled);
+										const allDisabled = providerModels.every((m) => m.disabled);
+										const allEnabled = providerModels.every((m) => !m.disabled);
 										return (
 											<div key={providerId}>
 												<div className="flex items-center gap-2 mb-1.5">
@@ -5124,7 +5129,9 @@ function LabSection() {
 													</p>
 													<button
 														type="button"
-														onClick={() => toggleProviderDisabled(providerId, false)}
+														onClick={() =>
+															toggleProviderDisabled(providerId, false)
+														}
 														disabled={allEnabled}
 														className={cn(
 															"text-[10px] px-1.5 py-0.5 rounded border transition-all cursor-pointer select-none",
@@ -5138,7 +5145,9 @@ function LabSection() {
 													</button>
 													<button
 														type="button"
-														onClick={() => toggleProviderDisabled(providerId, true)}
+														onClick={() =>
+															toggleProviderDisabled(providerId, true)
+														}
 														disabled={allDisabled}
 														className={cn(
 															"text-[10px] px-1.5 py-0.5 rounded border transition-all cursor-pointer select-none",

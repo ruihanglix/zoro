@@ -100,6 +100,7 @@ export function AgentPanel({ cwd, paperId }: AgentPanelProps) {
 
 	const chatPaperId = useAgentStore((s) => s.chatPaperId);
 	const activeTabId = useTabStore((s) => s.activeTabId);
+	const openTab = useTabStore((s) => s.openTab);
 	const papers = useLibraryStore((s) => s.papers);
 
 	const isChatMode = activeAgentName === CHAT_AGENT_NAME;
@@ -328,7 +329,7 @@ export function AgentPanel({ cwd, paperId }: AgentPanelProps) {
 						</div>
 					)}
 
-					<div className="relative flex-1 min-w-0">
+<div className="relative flex-1 min-w-0">
 						<button
 							type="button"
 							className="flex w-full items-center justify-between rounded-md border px-3 py-1.5 text-sm hover:bg-accent/50 transition-colors"
@@ -486,50 +487,65 @@ export function AgentPanel({ cwd, paperId }: AgentPanelProps) {
 						</>
 					)}
 
-					{/* Reader sidebar: collapse actions into dropdown menu */}
+					{/* Reader sidebar: new chat + collapse actions into dropdown menu */}
 					{!isGlobal && sessionId && (
-						<DropdownMenu>
+						<>
 							<TooltipProvider>
 								<Tooltip>
 									<TooltipTrigger asChild>
-										<DropdownMenuTrigger asChild>
-											<Button
-												variant="ghost"
-												size="icon"
-												className="h-8 w-8 shrink-0"
-											>
-												<EllipsisVertical className="h-4 w-4" />
-											</Button>
-										</DropdownMenuTrigger>
+										<Button
+											variant="ghost"
+											size="icon"
+											className="h-8 w-8 shrink-0"
+											onClick={newChat}
+										>
+											<MessageSquarePlus className="h-4 w-4" />
+										</Button>
 									</TooltipTrigger>
-									<TooltipContent>{t("agent.moreActions")}</TooltipContent>
+									<TooltipContent>{t("agent.newChat")}</TooltipContent>
 								</Tooltip>
 							</TooltipProvider>
-							<DropdownMenuContent align="end" className="w-48">
-								{isChatMode && (
-									<>
-										<DropdownMenuItem
-											onClick={() => setShowPresetPicker((v) => !v)}
-										>
-											<Settings className="h-4 w-4 mr-2" />
-											{t("agent.systemPrompt")}
-										</DropdownMenuItem>
-										<DropdownMenuSeparator />
-									</>
-								)}
-								<DropdownMenuItem onClick={clearMessages}>
-									<Trash2 className="h-4 w-4 mr-2" />
-									{t("agent.clearChat")}
-								</DropdownMenuItem>
-								<DropdownMenuItem
-									className="text-destructive focus:text-destructive"
-									onClick={stopSession}
-								>
-									<XCircle className="h-4 w-4 mr-2" />
-									{t("agent.disconnect")}
-								</DropdownMenuItem>
-							</DropdownMenuContent>
-						</DropdownMenu>
+							<DropdownMenu>
+								<TooltipProvider>
+									<Tooltip>
+										<TooltipTrigger asChild>
+											<DropdownMenuTrigger asChild>
+												<Button
+													variant="ghost"
+													size="icon"
+													className="h-8 w-8 shrink-0"
+												>
+													<EllipsisVertical className="h-4 w-4" />
+												</Button>
+											</DropdownMenuTrigger>
+										</TooltipTrigger>
+										<TooltipContent>{t("agent.moreActions")}</TooltipContent>
+									</Tooltip>
+								</TooltipProvider>
+								<DropdownMenuContent align="end" className="w-48">
+									<DropdownMenuItem
+										onClick={() =>
+											openTab({
+												id: "settings",
+												type: "settings",
+												title: t("common.settings"),
+											})
+										}
+									>
+										<Settings className="h-4 w-4 mr-2" />
+										{t("common.settings")}
+									</DropdownMenuItem>
+									<DropdownMenuSeparator />
+									<DropdownMenuItem
+										className="text-destructive focus:text-destructive"
+										onClick={stopSession}
+									>
+										<XCircle className="h-4 w-4 mr-2" />
+										{t("agent.disconnect")}
+									</DropdownMenuItem>
+								</DropdownMenuContent>
+							</DropdownMenu>
+						</>
 					)}
 				</div>
 				{error && <p className="mt-1 text-xs text-destructive">{error}</p>}
@@ -548,28 +564,18 @@ export function AgentPanel({ cwd, paperId }: AgentPanelProps) {
 				</div>
 			)}
 
-			{/* Chat mode: provider + model selector */}
-			{isChatMode && (
+			{/* Chat mode: model selector (shows providers as model options) */}
+			{isChatMode && chatProviders.length > 0 && (
 				<div className="flex items-center gap-1.5 px-4 pb-2">
-					{chatProviders.length > 1 && (
-						<ProviderModelSelector
-							providers={chatProviders}
-							activeProviderId={chatProviderId}
-							activeModel={chatModel}
-							onSelect={(providerId, model) => {
-								setChatProvider(providerId, model);
-							}}
-						/>
-					)}
-					<div className="flex items-center gap-1 rounded-md border px-2 py-0.5 text-xs">
-						<span className="text-muted-foreground">Model:</span>
-						<input
-							className="bg-transparent outline-none max-w-[160px] font-medium"
-							value={chatModel}
-							onChange={(e) => setChatModel(e.target.value)}
-							placeholder="gpt-4o"
-						/>
-					</div>
+					<ChatModelSelector
+						providers={chatProviders}
+						activeProviderId={chatProviderId}
+						onSelect={(providerId) => {
+							const provider = chatProviders.find((p) => p.id === providerId);
+							const model = provider?.models[0] ?? "";
+							setChatProvider(providerId, model);
+						}}
+					/>
 				</div>
 			)}
 
@@ -750,18 +756,21 @@ export function AgentPanel({ cwd, paperId }: AgentPanelProps) {
 	);
 }
 
-// ── Provider + Model selector ────────────────────────────────────────────────
+// ── Chat model selector (provider-level) ─────────────────────────────────────
 
-function ProviderModelSelector({
+function chatModelDisplayName(provider: { id: string; name: string }): string {
+	if (provider.id === "__lab_auto__") return "✨ Auto (免费模型)";
+	return provider.name;
+}
+
+function ChatModelSelector({
 	providers,
 	activeProviderId,
-	activeModel,
 	onSelect,
 }: {
 	providers: { id: string; name: string; models: string[] }[];
 	activeProviderId: string | null;
-	activeModel: string;
-	onSelect: (providerId: string, model: string) => void;
+	onSelect: (providerId: string) => void;
 }) {
 	const [open, setOpen] = useState(false);
 	const ref = useRef<HTMLDivElement>(null);
@@ -778,7 +787,9 @@ function ProviderModelSelector({
 	}, [open]);
 
 	const activeProvider = providers.find((p) => p.id === activeProviderId);
-	const label = activeProvider?.name ?? "Default";
+	const label = activeProvider
+		? chatModelDisplayName(activeProvider)
+		: "Default";
 
 	return (
 		<div ref={ref} className="relative">
@@ -787,68 +798,34 @@ function ProviderModelSelector({
 				className="flex items-center gap-1 rounded-md border px-2 py-0.5 text-xs hover:bg-accent/50 transition-colors"
 				onClick={() => setOpen(!open)}
 			>
-				<span className="text-muted-foreground">Provider:</span>
-				<span className="font-medium max-w-[120px] truncate">{label}</span>
+				<span className="text-muted-foreground">Model:</span>
+				<span className="font-medium max-w-[180px] truncate">{label}</span>
 				<ChevronDown className="h-3 w-3 shrink-0 text-muted-foreground" />
 			</button>
 			{open && (
 				<div className="absolute left-0 top-full z-50 mt-1 max-h-72 min-w-[200px] overflow-y-auto rounded-md border bg-popover p-1 shadow-md">
 					{providers.map((provider) => (
-						<div key={provider.id}>
-							{provider.models.length > 0 ? (
-								provider.models.map((model) => (
-									<button
-										key={`${provider.id}-${model}`}
-										type="button"
-										className={cn(
-											"flex w-full items-center gap-2 rounded-sm px-2 py-1 text-xs text-left hover:bg-accent/50 transition-colors",
-											activeProviderId === provider.id &&
-												activeModel === model &&
-												"bg-accent",
-										)}
-										onClick={() => {
-											onSelect(provider.id, model);
-											setOpen(false);
-										}}
-									>
-										<div className="flex-1 min-w-0">
-											<div className="truncate font-medium">
-												{model}{" "}
-												<span className="font-normal text-muted-foreground">
-													({provider.name})
-												</span>
-											</div>
-										</div>
-										{activeProviderId === provider.id &&
-											activeModel === model && (
-												<Check className="h-3 w-3 shrink-0 text-primary" />
-											)}
-									</button>
-								))
-							) : (
-								<button
-									type="button"
-									className={cn(
-										"flex w-full items-center gap-2 rounded-sm px-2 py-1 text-xs text-left hover:bg-accent/50 transition-colors",
-										activeProviderId === provider.id && "bg-accent",
-									)}
-									onClick={() => {
-										onSelect(provider.id, activeModel);
-										setOpen(false);
-									}}
-								>
-									<div className="flex-1 min-w-0">
-										<div className="truncate font-medium">{provider.name}</div>
-										<div className="truncate text-[10px] text-muted-foreground">
-											Custom model input
-										</div>
-									</div>
-									{activeProviderId === provider.id && (
-										<Check className="h-3 w-3 shrink-0 text-primary" />
-									)}
-								</button>
+						<button
+							key={provider.id}
+							type="button"
+							className={cn(
+								"flex w-full items-center gap-2 rounded-sm px-2 py-1 text-xs text-left hover:bg-accent/50 transition-colors",
+								activeProviderId === provider.id && "bg-accent",
 							)}
-						</div>
+							onClick={() => {
+								onSelect(provider.id);
+								setOpen(false);
+							}}
+						>
+							<div className="flex-1 min-w-0">
+								<div className="truncate font-medium">
+									{chatModelDisplayName(provider)}
+								</div>
+							</div>
+							{activeProviderId === provider.id && (
+								<Check className="h-3 w-3 shrink-0 text-primary" />
+							)}
+						</button>
 					))}
 				</div>
 			)}
