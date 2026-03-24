@@ -50,7 +50,6 @@ import {
 	Settings,
 	Square,
 	Trash2,
-	Wrench,
 	X,
 	XCircle,
 } from "lucide-react";
@@ -1372,6 +1371,8 @@ function MessageBubble({
 	}
 
 	if (message.role === "agent") {
+		// Skip empty agent messages (ghost bubbles from empty/whitespace-only text_chunk)
+		if ((!message.text || !message.text.trim()) && !isStreaming) return null;
 		return (
 			<AgentMessageBubble
 				message={message}
@@ -1382,6 +1383,8 @@ function MessageBubble({
 	}
 
 		if (message.role === "thought") {
+		// Skip empty/whitespace-only thought messages
+		if (!message.text || !message.text.trim()) return null;
 		return (
 			<div className="flex items-start gap-1.5 text-muted-foreground px-1 min-w-0">
 				<Brain className="h-3.5 w-3.5 shrink-0 mt-0.5" />
@@ -1621,45 +1624,50 @@ function ToolCallBubble({ message }: { message: ChatMessage }) {
 	const confirmTool = useAgentStore((s) => s.confirmTool);
 
 	const isPending = message.toolStatus === "pending_confirmation";
+	const isCompleted = message.toolStatus === "completed";
+	const isError = message.toolStatus === "error";
 	const hasDetails = message.toolArguments || message.toolResult;
 
-	const statusIcon =
-		message.toolStatus === "completed" ? (
-			<Check className="h-3 w-3 text-green-500" />
-		) : message.toolStatus === "error" ? (
-			<XCircle className="h-3 w-3 text-destructive" />
-		) : isPending ? (
-			<span className="h-3 w-3 rounded-full border-2 border-amber-500 shrink-0" />
-		) : (
-			<Loader2 className="h-3 w-3 animate-spin" />
-		);
+	const statusIcon = isCompleted ? (
+		<Check className="h-3 w-3 text-green-500 shrink-0" />
+	) : isError ? (
+		<XCircle className="h-3 w-3 text-destructive shrink-0" />
+	) : isPending ? (
+		<span className="h-3 w-3 rounded-full border-2 border-amber-500 shrink-0" />
+	) : (
+		<Loader2 className="h-3 w-3 animate-spin text-muted-foreground shrink-0" />
+	);
 
 	return (
-		<div className="rounded-md border bg-muted/40 text-xs">
-			<div className="flex items-center gap-1.5 px-2 py-1.5">
-				<Wrench className="h-3 w-3 shrink-0 text-muted-foreground" />
-				<span className="flex-1 min-w-0 truncate">
+		<div className="text-xs group">
+			{/* Clickable header row — Cursor style */}
+			<button
+				type="button"
+				className={cn(
+					"flex items-center gap-1.5 w-full text-left px-1.5 py-1 rounded-md transition-colors",
+					"hover:bg-muted/60",
+					expanded && "bg-muted/40",
+				)}
+				onClick={() => hasDetails && setExpanded((v) => !v)}
+			>
+				{statusIcon}
+				<span className="text-muted-foreground flex-1 min-w-0 truncate">
 					{message.toolTitle || "Tool call"}
 				</span>
-				{statusIcon}
 				{hasDetails && (
-					<button
-						type="button"
-						className="p-0.5 text-muted-foreground hover:text-foreground transition-colors"
-						onClick={() => setExpanded((v) => !v)}
-					>
-						<ChevronRight
-							className={cn(
-								"h-3 w-3 transition-transform",
-								expanded && "rotate-90",
-							)}
-						/>
-					</button>
+					<ChevronRight
+						className={cn(
+							"h-3 w-3 text-muted-foreground/50 shrink-0 transition-transform",
+							"opacity-0 group-hover:opacity-100",
+							expanded && "rotate-90 opacity-100",
+						)}
+					/>
 				)}
-			</div>
+			</button>
 
+			{/* Pending confirmation actions */}
 			{isPending && (
-				<div className="flex items-center gap-1.5 px-2 pb-1.5">
+				<div className="flex items-center gap-1.5 pl-6 pb-1">
 					<span className="text-amber-600 text-[10px]">
 						Approve this action?
 					</span>
@@ -1684,14 +1692,15 @@ function ToolCallBubble({ message }: { message: ChatMessage }) {
 				</div>
 			)}
 
+			{/* Expandable details panel */}
 			{expanded && hasDetails && (
-				<div className="border-t px-2 py-1.5 space-y-1">
+				<div className="ml-[18px] mt-0.5 rounded-md border bg-muted/30 px-2 py-1.5 space-y-1.5">
 					{message.toolArguments && (
 						<div>
 							<p className="text-[10px] text-muted-foreground font-medium mb-0.5">
 								Arguments
 							</p>
-							<pre className="text-[10px] bg-background rounded p-1 overflow-x-auto max-h-32 whitespace-pre-wrap">
+							<pre className="text-[10px] bg-background/60 rounded p-1.5 overflow-x-auto max-h-40 whitespace-pre-wrap break-all">
 								{formatJson(message.toolArguments)}
 							</pre>
 						</div>
@@ -1701,7 +1710,7 @@ function ToolCallBubble({ message }: { message: ChatMessage }) {
 							<p className="text-[10px] text-muted-foreground font-medium mb-0.5">
 								Result
 							</p>
-							<pre className="text-[10px] bg-background rounded p-1 overflow-x-auto max-h-48 whitespace-pre-wrap">
+							<pre className="text-[10px] bg-background/60 rounded p-1.5 overflow-x-auto max-h-48 whitespace-pre-wrap break-all">
 								{formatJson(message.toolResult)}
 							</pre>
 						</div>

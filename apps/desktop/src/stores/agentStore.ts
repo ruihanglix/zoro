@@ -42,6 +42,8 @@ interface AgentUpdate {
 	title?: string;
 	status?: string;
 	content_text?: string;
+	raw_input?: string;
+	raw_output?: string;
 	stop_reason?: string;
 	message?: string;
 	entries?: { content: string; status: string }[];
@@ -1283,6 +1285,9 @@ function handleAgentUpdate(
 	},
 	get: () => AgentState,
 ) {
+	// DEBUG: log raw ACP events to inspect tool_call fields
+	console.log("[AgentUpdate]", update.kind, JSON.stringify(update));
+
 	switch (update.kind) {
 		case "text_chunk": {
 			set((s) => {
@@ -1357,6 +1362,8 @@ function handleAgentUpdate(
 					toolCallId: update.tool_call_id,
 					toolTitle: update.title ?? "",
 					toolStatus: update.status ?? "pending",
+					toolArguments: update.raw_input ?? undefined,
+					toolResult: update.raw_output ?? undefined,
 					timestamp: Date.now(),
 					parentId: s.activeLeafId,
 					childrenIds: [],
@@ -1385,6 +1392,8 @@ function handleAgentUpdate(
 							...toolMsg,
 							toolStatus: update.status ?? toolMsg.toolStatus,
 							text: update.content_text ?? toolMsg.text,
+							toolArguments: update.raw_input ?? toolMsg.toolArguments,
+							toolResult: update.raw_output ?? toolMsg.toolResult,
 						},
 					},
 				};
@@ -1418,7 +1427,21 @@ function handleAgentUpdate(
 			break;
 		}
 		case "prompt_done": {
-			set({ streaming: false });
+			// Finalize any tool messages still in non-terminal state
+			set((s) => {
+				const updatedMap = { ...s.messageMap };
+				for (const id of Object.keys(updatedMap)) {
+					const msg = updatedMap[id];
+					if (
+						msg.role === "tool" &&
+						msg.toolStatus !== "completed" &&
+						msg.toolStatus !== "error"
+					) {
+						updatedMap[id] = { ...msg, toolStatus: "completed" };
+					}
+				}
+				return { streaming: false, messageMap: updatedMap };
+			});
 			scheduleSave(get);
 			break;
 		}
@@ -1536,7 +1559,21 @@ function handleChatUpdate(
 			break;
 		}
 		case "done": {
-			set({ streaming: false });
+			// Finalize any tool messages still in non-terminal state
+			set((s) => {
+				const updatedMap = { ...s.messageMap };
+				for (const id of Object.keys(updatedMap)) {
+					const msg = updatedMap[id];
+					if (
+						msg.role === "tool" &&
+						msg.toolStatus !== "completed" &&
+						msg.toolStatus !== "error"
+					) {
+						updatedMap[id] = { ...msg, toolStatus: "completed" };
+					}
+				}
+				return { streaming: false, messageMap: updatedMap };
+			});
 			scheduleSave(get);
 			break;
 		}

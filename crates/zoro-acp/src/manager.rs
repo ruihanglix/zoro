@@ -35,6 +35,8 @@ pub enum AgentUpdate {
         tool_call_id: String,
         title: String,
         status: String,
+        raw_input: Option<String>,
+        raw_output: Option<String>,
     },
     #[serde(rename = "tool_call_update")]
     ToolCallUpdate {
@@ -42,6 +44,8 @@ pub enum AgentUpdate {
         tool_call_id: String,
         status: String,
         content_text: Option<String>,
+        raw_input: Option<String>,
+        raw_output: Option<String>,
     },
     #[serde(rename = "plan")]
     Plan {
@@ -573,11 +577,15 @@ impl agent_client_protocol::Client for AcpClient {
             }
             SessionUpdate::ToolCall(tc) => {
                 let status = format!("{:?}", tc.status);
+                let raw_input = tc.raw_input.map(|v| serde_json::to_string(&v).unwrap_or_default());
+                let raw_output = tc.raw_output.map(|v| serde_json::to_string(&v).unwrap_or_default());
                 (self.on_update)(AgentUpdate::ToolCall {
                     session_id,
                     tool_call_id: tc.tool_call_id.to_string(),
                     title: tc.title,
                     status,
+                    raw_input,
+                    raw_output,
                 });
             }
             SessionUpdate::ToolCallUpdate(tcu) => {
@@ -598,11 +606,15 @@ impl agent_client_protocol::Client for AcpClient {
                         _ => None,
                     })
                 });
+                let raw_input = tcu.fields.raw_input.map(|v| serde_json::to_string(&v).unwrap_or_default());
+                let raw_output = tcu.fields.raw_output.map(|v| serde_json::to_string(&v).unwrap_or_default());
                 (self.on_update)(AgentUpdate::ToolCallUpdate {
                     session_id,
                     tool_call_id: tcu.tool_call_id.to_string(),
                     status,
                     content_text,
+                    raw_input,
+                    raw_output,
                 });
             }
             SessionUpdate::Plan(plan) => {
