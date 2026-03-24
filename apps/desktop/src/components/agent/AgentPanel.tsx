@@ -274,7 +274,7 @@ export function AgentPanel({ cwd, paperId }: AgentPanelProps) {
 	const activeAgent = agents.find((a) => a.name === activeAgentName);
 
 	const chatArea = (
-		<div className="flex h-full w-full flex-col">
+		<div className="flex h-full w-full min-w-0 flex-col overflow-hidden">
 			{/* Header: Agent selector + session controls */}
 			<div className="px-4 py-3">
 				<div className="flex items-center gap-1.5">
@@ -596,8 +596,8 @@ export function AgentPanel({ cwd, paperId }: AgentPanelProps) {
 					</p>
 				</div>
 			) : messages.length > 0 ? (
-				<ScrollArea className="flex-1">
-					<div ref={scrollRef} className="flex flex-col gap-2 px-4 pb-4">
+			<ScrollArea className="flex-1 min-w-0">
+					<div ref={scrollRef} className="flex flex-col gap-2 px-4 pb-4 overflow-hidden">
 						{messages.map((msg, idx) => (
 							<MessageBubble
 								key={msg.id}
@@ -746,12 +746,12 @@ export function AgentPanel({ cwd, paperId }: AgentPanelProps) {
 		</div>
 	);
 
-	if (!isGlobal) {
-		return <div className="flex h-full w-full bg-background">{chatArea}</div>;
+		if (!isGlobal) {
+		return <div className="flex h-full w-full min-w-0 bg-background overflow-hidden">{chatArea}</div>;
 	}
 
 	return (
-		<div className="flex h-full w-full bg-background">
+		<div className="flex h-full w-full min-w-0 bg-background overflow-hidden">
 			{sidebarOpen && (
 				<ChatSidebar
 					sessions={chatSessions}
@@ -1381,11 +1381,11 @@ function MessageBubble({
 		);
 	}
 
-	if (message.role === "thought") {
+		if (message.role === "thought") {
 		return (
-			<div className="flex items-start gap-1.5 text-muted-foreground px-1">
+			<div className="flex items-start gap-1.5 text-muted-foreground px-1 min-w-0">
 				<Brain className="h-3.5 w-3.5 shrink-0 mt-0.5" />
-				<p className="text-xs italic whitespace-pre-wrap">{message.text}</p>
+				<p className="text-xs italic whitespace-pre-wrap break-words min-w-0">{message.text}</p>
 			</div>
 		);
 	}
@@ -1533,7 +1533,7 @@ function UserMessageBubble({
 	}
 
 	return (
-		<div className="group flex flex-col items-end gap-1">
+		<div className="group flex flex-col items-end gap-1 min-w-0">
 			<div className="max-w-[85%] rounded-lg bg-primary px-3 py-2 text-primary-foreground">
 				{message.images && message.images.length > 0 && (
 					<div className="mb-2 flex flex-wrap gap-1">
@@ -1547,7 +1547,7 @@ function UserMessageBubble({
 						))}
 					</div>
 				)}
-				<p className="text-sm whitespace-pre-wrap">{message.text}</p>
+				<p className="text-sm whitespace-pre-wrap break-words">{message.text}</p>
 			</div>
 			<div className="flex items-center gap-1 h-5">
 				<BranchNavigator messageId={message.id} />
@@ -1580,7 +1580,7 @@ function AgentMessageBubble({
 	const regenerateLastResponse = useAgentStore((s) => s.regenerateLastResponse);
 
 	return (
-		<div className="group flex flex-col items-start gap-1">
+		<div className="group flex flex-col items-start gap-1 min-w-0">
 			<div className="max-w-[85%] rounded-lg bg-muted px-3 py-2">
 				<div
 					className={cn(
