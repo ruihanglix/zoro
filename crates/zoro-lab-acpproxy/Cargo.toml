@@ -1,0 +1,17 @@
+[package]
+name = "zoro-lab-acpproxy"
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0"
+description = "ACP Proxy: converts ACP Agent sessions into an OpenAI-compatible local API server"
+
+[dependencies]
+zoro-acp = { path = "../zoro-acp" }
+axum = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tokio = { workspace = true }
+tracing = { workspace = true }
+thiserror = { workspace = true }
+uuid = { workspace = true }
+futures = { workspace = true }

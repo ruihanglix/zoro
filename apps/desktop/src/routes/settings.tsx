@@ -22,6 +22,7 @@ import type { SupportedLanguage } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 import { createPluginSDK } from "@/plugins/PluginManager";
 import { usePluginStore } from "@/plugins/pluginStore";
+import { useAcpProxyStore } from "@/stores/acpProxyStore";
 import { useLabStore } from "@/stores/labStore";
 import { useLibraryStore } from "@/stores/libraryStore";
 import { useTranslationStore } from "@/stores/translationStore";
@@ -37,6 +38,7 @@ import {
 	ArrowUp,
 	Book,
 	Bot,
+	Check,
 	CheckCircle,
 	ChevronDown,
 	ChevronRight,
@@ -69,6 +71,7 @@ import {
 	Sun,
 	Terminal,
 	Trash2,
+	X,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -4705,6 +4708,142 @@ function LabSection() {
 		}
 	};
 
+	// ── ACP Proxy ──────────────────────────────────────────
+	const {
+		config: acpConfig,
+		status: acpStatus,
+		agents: acpAgents,
+		configOptions: acpConfigOptions,
+		configOptionsLoading: acpConfigOptionsLoading,
+		loading: acpLoading,
+		error: acpError,
+		initialize: acpInitialize,
+		setEnabled: acpSetEnabled,
+		updateConfig: acpUpdateConfig,
+		start: acpStart,
+		stop: acpStop,
+		refreshStatus: acpRefreshStatus,
+		fetchConfigOptions: acpFetchConfigOptions,
+	} = useAcpProxyStore();
+
+	const [acpEditingPort, setAcpEditingPort] = useState(false);
+	const [acpPortValue, setAcpPortValue] = useState("");
+	const [acpEditingWorkers, setAcpEditingWorkers] = useState(false);
+	const [acpWorkersValue, setAcpWorkersValue] = useState("");
+	const [acpEditingToken, setAcpEditingToken] = useState(false);
+	const [acpTokenValue, setAcpTokenValue] = useState("");
+
+	useEffect(() => {
+		acpInitialize();
+	}, [acpInitialize]);
+
+	// Poll ACP status while running
+	useEffect(() => {
+		if (!acpStatus?.running) return;
+		const timer = setInterval(acpRefreshStatus, 3000);
+		return () => clearInterval(timer);
+	}, [acpStatus?.running, acpRefreshStatus]);
+
+	const handleAcpToggle = async () => {
+		if (!acpConfig) return;
+		await acpSetEnabled(!acpConfig.enabled);
+	};
+
+	const handleAcpAgentChange = async (agentName: string) => {
+		if (!acpConfig) return;
+		// Reset mode/model when agent changes
+		await acpUpdateConfig({
+			...acpConfig,
+			agentName,
+			modeConfigId: "",
+			modeValue: "",
+			modelConfigId: "",
+			modelValue: "",
+		});
+		// Fetch config options for the new agent
+		acpFetchConfigOptions(agentName);
+	};
+
+	const handleAcpSavePort = async () => {
+		if (!acpConfig) return;
+		const port = Number.parseInt(acpPortValue, 10);
+		if (port >= 1024 && port <= 65535) {
+			await acpUpdateConfig({ ...acpConfig, port });
+			setAcpEditingPort(false);
+		}
+	};
+
+	const handleAcpSaveWorkers = async () => {
+		if (!acpConfig) return;
+		const count = Number.parseInt(acpWorkersValue, 10);
+		if (count >= 1) {
+			await acpUpdateConfig({ ...acpConfig, workerCount: count });
+			setAcpEditingWorkers(false);
+		}
+	};
+
+	const handleAcpSaveToken = async () => {
+		if (!acpConfig) return;
+		await acpUpdateConfig({ ...acpConfig, accessToken: acpTokenValue });
+		setAcpEditingToken(false);
+	};
+
+	const handleAcpLanToggle = async () => {
+		if (!acpConfig) return;
+		await acpUpdateConfig({ ...acpConfig, lanAccess: !acpConfig.lanAccess });
+	};
+
+	const handleAcpConfigOptionChange = async (
+		category: string,
+		configId: string,
+		value: string,
+	) => {
+		if (!acpConfig) return;
+		if (category === "mode") {
+			await acpUpdateConfig({
+				...acpConfig,
+				modeConfigId: configId,
+				modeValue: value,
+			});
+		} else if (category === "model") {
+			await acpUpdateConfig({
+				...acpConfig,
+				modelConfigId: configId,
+				modelValue: value,
+			});
+		}
+	};
+
+	const acpWorkerStatusIcon = (s: string) => {
+		switch (s) {
+			case "warming":
+				return "🟡";
+			case "idle":
+				return "🟢";
+			case "busy":
+				return "🔵";
+			case "error":
+				return "🔴";
+			default:
+				return "⚪";
+		}
+	};
+
+	const acpWorkerStatusLabel = (s: string) => {
+		switch (s) {
+			case "warming":
+				return t("settings.acpWorkerWarming");
+			case "idle":
+				return t("settings.acpWorkerIdle");
+			case "busy":
+				return t("settings.acpWorkerBusy");
+			case "error":
+				return t("settings.acpWorkerError");
+			default:
+				return s;
+		}
+	};
+
 	return (
 		<div className="space-y-5">
 			{/* Title + Toggle */}
@@ -5240,6 +5379,421 @@ function LabSection() {
 							</div>
 						</>
 					)}
+				</>
+			)}
+
+			{/* ── ACP Proxy ──────────────────────────────────────── */}
+			<Separator className="my-6" />
+
+			<div>
+				<h3 className="text-sm font-semibold">{t("settings.acpProxyTitle")}</h3>
+				<p className="text-[11px] text-muted-foreground mt-1">
+					{t("settings.acpProxyDesc")}
+				</p>
+				<div className="flex items-center gap-3 mt-3">
+					<button
+						type="button"
+						onClick={handleAcpToggle}
+						disabled={acpLoading}
+						className={cn(
+							"relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors",
+							acpConfig?.enabled ? "bg-primary" : "bg-muted-foreground/30",
+						)}
+					>
+						<span
+							className={cn(
+								"pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow-sm transition-transform",
+								acpConfig?.enabled ? "translate-x-4" : "translate-x-0",
+							)}
+						/>
+					</button>
+					<span className="text-xs font-medium">
+						{t("settings.acpProxyEnabled")}
+					</span>
+				</div>
+			</div>
+
+			{/* ACP Error display */}
+			{acpError && (
+				<div className="rounded-md border border-destructive/30 bg-destructive/5 p-2 text-xs text-destructive">
+					{acpError}
+				</div>
+			)}
+
+			{acpConfig?.enabled && (
+				<>
+					{/* Proxy Status */}
+					<div className="flex items-center gap-2 rounded-md border p-2.5 text-xs">
+						<div
+							className={cn(
+								"h-2 w-2 rounded-full",
+								acpStatus?.running ? "bg-green-500" : "bg-red-500",
+							)}
+						/>
+						<span className="font-medium">
+							{acpStatus?.running
+								? t("settings.acpProxyRunning")
+								: t("settings.acpProxyStopped")}
+						</span>
+						{acpStatus?.running && (
+							<span className="text-muted-foreground">
+								{acpStatus.listenAddr}:{acpStatus.port} ·{" "}
+								{acpStatus.workerCount} {t("settings.acpWorkers")}
+								{acpStatus.queueSize > 0 &&
+									` · ${acpStatus.queueSize} ${t("settings.acpQueued")}`}
+							</span>
+						)}
+					</div>
+
+					<Separator />
+
+					{/* Agent Selection */}
+					<div>
+						<h4 className="text-sm font-medium mb-1">
+							{t("settings.acpAgent")}
+						</h4>
+						<p className="text-[11px] text-muted-foreground mb-2">
+							{t("settings.acpAgentHint")}
+						</p>
+						<div className="flex flex-wrap gap-1.5">
+							{acpAgents.map((agent) => (
+								<button
+									key={agent.name}
+									type="button"
+									onClick={() => handleAcpAgentChange(agent.name)}
+									className={cn(
+										"px-2.5 py-1 rounded-md text-xs border transition-all cursor-pointer select-none",
+										acpConfig.agentName === agent.name
+											? "border-primary/60 bg-primary/10 text-primary font-medium"
+											: "border-border hover:border-muted-foreground/30",
+									)}
+								>
+									{agent.title || agent.name}
+								</button>
+							))}
+							{acpAgents.length === 0 && (
+								<p className="text-xs text-muted-foreground italic">
+									{t("settings.acpNoAgents")}
+								</p>
+							)}
+						</div>
+					</div>
+
+					{/* Mode & Model Selection (from agent config options) */}
+					{acpConfig.agentName && acpConfigOptions.length > 0 && (
+						<div className="flex flex-wrap items-center gap-3 mt-2">
+							{acpConfigOptions.map((opt) => {
+								const category = opt.category ?? "other";
+								const currentValue =
+									category === "mode"
+										? acpConfig.modeValue
+										: category === "model"
+											? acpConfig.modelValue
+											: "";
+								const displayLabel =
+									category === "mode"
+										? t("settings.acpMode")
+										: category === "model"
+											? t("settings.acpModel")
+											: opt.name;
+								return (
+									<div key={opt.id} className="flex flex-col gap-1">
+										<span className="text-[10px] text-muted-foreground font-medium">
+											{displayLabel}
+										</span>
+										<div className="flex flex-wrap gap-1">
+											{opt.options.map((o) => (
+												<button
+													key={o.value}
+													type="button"
+													onClick={() =>
+														handleAcpConfigOptionChange(
+															category,
+															opt.id,
+															o.value,
+														)
+													}
+													className={cn(
+														"px-2 py-0.5 rounded text-xs border transition-all cursor-pointer select-none",
+														(currentValue || opt.current_value) === o.value
+															? "border-primary/60 bg-primary/10 text-primary font-medium"
+															: "border-border hover:border-muted-foreground/30",
+													)}
+												>
+													{o.name}
+												</button>
+											))}
+										</div>
+									</div>
+								);
+							})}
+						</div>
+					)}
+					{acpConfig.agentName && acpConfigOptionsLoading && (
+						<p className="text-[10px] text-muted-foreground italic mt-1">
+							{t("settings.acpLoadingOptions")}
+						</p>
+					)}
+
+					<Separator />
+
+					{/* Worker Count */}
+					<div className="flex items-center justify-between">
+						<div>
+							<span className="text-xs font-medium">
+								{t("settings.acpWorkerCount")}
+							</span>
+							<p className="text-[10px] text-muted-foreground">
+								{t("settings.acpWorkerCountHint")}
+							</p>
+						</div>
+						{acpEditingWorkers ? (
+							<div className="flex items-center gap-1.5">
+								<input
+									type="number"
+									min={1}
+									value={acpWorkersValue}
+									onChange={(e) => setAcpWorkersValue(e.target.value)}
+									onKeyDown={(e) => e.key === "Enter" && handleAcpSaveWorkers()}
+									className="w-16 h-7 rounded-md border bg-background px-2 text-xs"
+									autoFocus
+								/>
+								<Button
+									size="sm"
+									variant="ghost"
+									onClick={handleAcpSaveWorkers}
+									className="h-7 px-2"
+								>
+									<Check className="h-3 w-3" />
+								</Button>
+								<Button
+									size="sm"
+									variant="ghost"
+									onClick={() => setAcpEditingWorkers(false)}
+									className="h-7 px-2"
+								>
+									<X className="h-3 w-3" />
+								</Button>
+							</div>
+						) : (
+							<button
+								type="button"
+								onClick={() => {
+									setAcpWorkersValue(String(acpConfig.workerCount));
+									setAcpEditingWorkers(true);
+								}}
+								className="text-xs text-primary hover:underline cursor-pointer"
+							>
+								{acpConfig.workerCount}
+							</button>
+						)}
+					</div>
+
+					{/* Port */}
+					<div className="flex items-center justify-between">
+						<span className="text-xs font-medium">{t("settings.acpPort")}</span>
+						{acpEditingPort ? (
+							<div className="flex items-center gap-1.5">
+								<input
+									type="number"
+									min={1024}
+									max={65535}
+									value={acpPortValue}
+									onChange={(e) => setAcpPortValue(e.target.value)}
+									onKeyDown={(e) => e.key === "Enter" && handleAcpSavePort()}
+									className="w-20 h-7 rounded-md border bg-background px-2 text-xs"
+									autoFocus
+								/>
+								<Button
+									size="sm"
+									variant="ghost"
+									onClick={handleAcpSavePort}
+									className="h-7 px-2"
+								>
+									<Check className="h-3 w-3" />
+								</Button>
+								<Button
+									size="sm"
+									variant="ghost"
+									onClick={() => setAcpEditingPort(false)}
+									className="h-7 px-2"
+								>
+									<X className="h-3 w-3" />
+								</Button>
+							</div>
+						) : (
+							<button
+								type="button"
+								onClick={() => {
+									setAcpPortValue(String(acpConfig.port));
+									setAcpEditingPort(true);
+								}}
+								className="text-xs text-primary hover:underline cursor-pointer"
+							>
+								{acpConfig.port}
+							</button>
+						)}
+					</div>
+
+					{/* LAN Access */}
+					<div className="flex items-center justify-between">
+						<span className="text-xs font-medium">
+							{t("settings.acpLanAccess")}
+						</span>
+						<button
+							type="button"
+							onClick={handleAcpLanToggle}
+							className={cn(
+								"relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors",
+								acpConfig.lanAccess ? "bg-primary" : "bg-muted-foreground/30",
+							)}
+						>
+							<span
+								className={cn(
+									"pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow-sm transition-transform",
+									acpConfig.lanAccess ? "translate-x-4" : "translate-x-0",
+								)}
+							/>
+						</button>
+					</div>
+
+					{/* Access Token */}
+					<div className="flex items-center justify-between">
+						<div>
+							<span className="text-xs font-medium">
+								{t("settings.acpAccessToken")}
+							</span>
+							<p className="text-[10px] text-muted-foreground">
+								{t("settings.acpAccessTokenHint")}
+							</p>
+						</div>
+						{acpEditingToken ? (
+							<div className="flex items-center gap-1.5">
+								<input
+									type="password"
+									value={acpTokenValue}
+									onChange={(e) => setAcpTokenValue(e.target.value)}
+									onKeyDown={(e) => e.key === "Enter" && handleAcpSaveToken()}
+									placeholder={t("settings.acpTokenPlaceholder")}
+									className="w-40 h-7 rounded-md border bg-background px-2 text-xs"
+									autoFocus
+								/>
+								<Button
+									size="sm"
+									variant="ghost"
+									onClick={handleAcpSaveToken}
+									className="h-7 px-2"
+								>
+									<Check className="h-3 w-3" />
+								</Button>
+								<Button
+									size="sm"
+									variant="ghost"
+									onClick={() => setAcpEditingToken(false)}
+									className="h-7 px-2"
+								>
+									<X className="h-3 w-3" />
+								</Button>
+							</div>
+						) : (
+							<button
+								type="button"
+								onClick={() => {
+									setAcpTokenValue(acpConfig.accessToken);
+									setAcpEditingToken(true);
+								}}
+								className="text-xs text-primary hover:underline cursor-pointer"
+							>
+								{acpConfig.accessToken
+									? t("settings.acpTokenSet")
+									: t("settings.acpTokenEmpty")}
+							</button>
+						)}
+					</div>
+
+					{/* Worker Status (when running) */}
+					{acpStatus?.running && acpStatus.workers.length > 0 && (
+						<>
+							<Separator />
+							<div className="space-y-2">
+								<h4 className="text-sm font-medium">
+									{t("settings.acpWorkerStatus")}
+								</h4>
+								<div className="space-y-1">
+									{acpStatus.workers.map((w) => (
+										<div
+											key={w.index}
+											className="flex items-center justify-between text-xs rounded-md border px-2 py-1.5"
+										>
+											<div className="flex items-center gap-2">
+												<span>{acpWorkerStatusIcon(w.status)}</span>
+												<span>Worker {w.index + 1}</span>
+											</div>
+											<span className="text-muted-foreground">
+												{acpWorkerStatusLabel(w.status)}
+											</span>
+										</div>
+									))}
+								</div>
+								{acpStatus.queueSize > 0 && (
+									<p className="text-[10px] text-muted-foreground">
+										{t("settings.acpQueueWaiting", {
+											count: acpStatus.queueSize,
+										})}
+									</p>
+								)}
+							</div>
+						</>
+					)}
+
+					{/* Proxy URL display */}
+					{acpStatus?.running && (
+						<>
+							<Separator />
+							<div className="rounded-md border bg-muted/30 p-2.5">
+								<p className="text-[10px] text-muted-foreground mb-1">
+									{t("settings.acpEndpoint")}
+								</p>
+								<code className="text-xs font-mono">
+									http://
+									{acpStatus.listenAddr === "0.0.0.0"
+										? "127.0.0.1"
+										: acpStatus.listenAddr}
+									:{acpStatus.port}/v1
+								</code>
+							</div>
+						</>
+					)}
+
+					{/* Start / Stop buttons */}
+					<div className="flex items-center gap-2">
+						{!acpStatus?.running ? (
+							<Button
+								size="sm"
+								onClick={acpStart}
+								disabled={acpLoading || !acpConfig.agentName}
+								className="h-7 text-xs"
+							>
+								{acpLoading && (
+									<Loader2 className="mr-1 h-3 w-3 animate-spin" />
+								)}
+								{t("settings.acpStart")}
+							</Button>
+						) : (
+							<Button
+								size="sm"
+								variant="outline"
+								onClick={acpStop}
+								disabled={acpLoading}
+								className="h-7 text-xs"
+							>
+								{acpLoading && (
+									<Loader2 className="mr-1 h-3 w-3 animate-spin" />
+								)}
+								{t("settings.acpStop")}
+							</Button>
+						)}
+					</div>
 				</>
 			)}
 		</div>

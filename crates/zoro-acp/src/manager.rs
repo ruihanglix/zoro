@@ -585,26 +585,38 @@ impl agent_client_protocol::Client for AcpClient {
                     tracing::debug!("  content[{}]: {:?}", i, block);
                 }
                 // Collect all text from content blocks
-                let content_texts: Vec<String> = tc.content.iter().filter_map(|b| match b {
-                    ToolCallContent::Content(c) => {
-                        if let ContentBlock::Text(t) = &c.content {
-                            Some(t.text.clone())
-                        } else {
-                            None
+                let content_texts: Vec<String> = tc
+                    .content
+                    .iter()
+                    .filter_map(|b| match b {
+                        ToolCallContent::Content(c) => {
+                            if let ContentBlock::Text(t) = &c.content {
+                                Some(t.text.clone())
+                            } else {
+                                None
+                            }
                         }
-                    }
-                    _ => None,
-                }).collect();
-                let content_text = if content_texts.is_empty() { None } else { Some(content_texts.join("\n")) };
+                        _ => None,
+                    })
+                    .collect();
+                let content_text = if content_texts.is_empty() {
+                    None
+                } else {
+                    Some(content_texts.join("\n"))
+                };
                 // raw_input: use SDK value, filter out empty "{}"
-                let raw_input_json = tc.raw_input.map(|v| serde_json::to_string(&v).unwrap_or_default());
+                let raw_input_json = tc
+                    .raw_input
+                    .map(|v| serde_json::to_string(&v).unwrap_or_default());
                 let raw_input = match raw_input_json.as_deref() {
                     Some("{}") | Some("null") => content_text.clone(),
                     None => content_text.clone(),
                     _ => raw_input_json,
                 };
                 // raw_output: use SDK value, or fall back to content_text
-                let raw_output_json = tc.raw_output.map(|v| serde_json::to_string(&v).unwrap_or_default());
+                let raw_output_json = tc
+                    .raw_output
+                    .map(|v| serde_json::to_string(&v).unwrap_or_default());
                 let raw_output = raw_output_json.or(content_text);
                 (self.on_update)(AgentUpdate::ToolCall {
                     session_id,
@@ -631,27 +643,44 @@ impl agent_client_protocol::Client for AcpClient {
                     }
                 }
                 // Collect all text from content blocks
-                let content_text = tcu.fields.content.as_ref().and_then(|blocks: &Vec<ToolCallContent>| {
-                    let texts: Vec<String> = blocks.iter().filter_map(|b| match b {
-                        ToolCallContent::Content(c) => {
-                            if let ContentBlock::Text(t) = &c.content {
-                                Some(t.text.clone())
-                            } else {
+                let content_text =
+                    tcu.fields
+                        .content
+                        .as_ref()
+                        .and_then(|blocks: &Vec<ToolCallContent>| {
+                            let texts: Vec<String> = blocks
+                                .iter()
+                                .filter_map(|b| match b {
+                                    ToolCallContent::Content(c) => {
+                                        if let ContentBlock::Text(t) = &c.content {
+                                            Some(t.text.clone())
+                                        } else {
+                                            None
+                                        }
+                                    }
+                                    _ => None,
+                                })
+                                .collect();
+                            if texts.is_empty() {
                                 None
+                            } else {
+                                Some(texts.join("\n"))
                             }
-                        }
-                        _ => None,
-                    }).collect();
-                    if texts.is_empty() { None } else { Some(texts.join("\n")) }
-                });
+                        });
                 // raw_input: filter empty values
-                let raw_input_json = tcu.fields.raw_input.map(|v| serde_json::to_string(&v).unwrap_or_default());
+                let raw_input_json = tcu
+                    .fields
+                    .raw_input
+                    .map(|v| serde_json::to_string(&v).unwrap_or_default());
                 let raw_input = match raw_input_json.as_deref() {
                     Some("{}") | Some("null") => None,
                     _ => raw_input_json,
                 };
                 // raw_output: use SDK value, or fall back to content_text
-                let raw_output_json = tcu.fields.raw_output.map(|v| serde_json::to_string(&v).unwrap_or_default());
+                let raw_output_json = tcu
+                    .fields
+                    .raw_output
+                    .map(|v| serde_json::to_string(&v).unwrap_or_default());
                 let raw_output = raw_output_json.or(content_text.clone());
                 (self.on_update)(AgentUpdate::ToolCallUpdate {
                     session_id,

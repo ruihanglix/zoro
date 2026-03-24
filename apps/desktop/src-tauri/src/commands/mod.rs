@@ -13,6 +13,7 @@ pub mod debug;
 pub mod http_proxy;
 pub mod import_export;
 pub mod lab;
+pub mod lab_acp;
 pub mod library;
 pub mod mcp;
 pub mod notes;

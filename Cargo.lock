@@ -7306,6 +7306,7 @@ dependencies = [
  "zoro-arxiv",
  "zoro-core",
  "zoro-db",
+ "zoro-lab-acpproxy",
  "zoro-lab-freellm",
  "zoro-llm-proxy",
  "zoro-metadata",
@@ -7313,6 +7314,21 @@ dependencies = [
  "zoro-storage",
  "zoro-subscriptions",
  "zoro-webdav",
+]
+
+[[package]]
+name = "zoro-lab-acpproxy"
+version = "0.1.0"
+dependencies = [
+ "axum",
+ "futures",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.18",
+ "tokio",
+ "tracing",
+ "uuid",
+ "zoro-acp",
 ]
 
 [[package]]

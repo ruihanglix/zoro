@@ -1487,3 +1487,51 @@ export interface ProxyResponse {
 
 export const httpProxyGet = (url: string, headers?: Record<string, string>) =>
 	invoke<ProxyResponse>("http_proxy_get", { url, headers: headers ?? null });
+
+// ── ACP Proxy (Lab) ──────────────────────────────────────────────────────────
+
+export interface AcpProxyWorkerInfo {
+	index: number;
+	status: "warming" | "idle" | "busy" | "error";
+}
+
+export interface AcpProxyStatus {
+	running: boolean;
+	port: number;
+	listenAddr: string;
+	workerCount: number;
+	queueSize: number;
+	workers: AcpProxyWorkerInfo[];
+}
+
+export interface AcpProxyConfig {
+	enabled: boolean;
+	agentName: string;
+	modeConfigId: string;
+	modeValue: string;
+	modelConfigId: string;
+	modelValue: string;
+	workerCount: number;
+	port: number;
+	lanAccess: boolean;
+	accessToken: string;
+}
+
+export const acpProxyGetConfig = () =>
+	invoke<AcpProxyConfig>("acp_proxy_get_config");
+
+export const acpProxyUpdateConfig = (config: AcpProxyConfig) =>
+	invoke<void>("acp_proxy_update_config", { config });
+
+export const acpProxyGetStatus = () =>
+	invoke<AcpProxyStatus>("acp_proxy_get_status");
+
+export const acpProxyStart = () => invoke<AcpProxyStatus>("acp_proxy_start");
+
+export const acpProxyStop = () => invoke<void>("acp_proxy_stop");
+
+export const acpProxySetEnabled = (enabled: boolean) =>
+	invoke<AcpProxyStatus>("acp_proxy_set_enabled", { enabled });
+
+export const acpProxyFetchConfigOptions = (agentName: string) =>
+	invoke<ConfigOptionInfo[]>("acp_proxy_fetch_config_options", { agentName });

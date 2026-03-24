@@ -595,8 +595,11 @@ export function AgentPanel({ cwd, paperId }: AgentPanelProps) {
 					</p>
 				</div>
 			) : messages.length > 0 ? (
-			<ScrollArea className="flex-1 min-w-0">
-					<div ref={scrollRef} className="flex flex-col gap-2 px-4 pb-4 overflow-hidden">
+				<ScrollArea className="flex-1 min-w-0">
+					<div
+						ref={scrollRef}
+						className="flex flex-col gap-2 px-4 pb-4 overflow-hidden"
+					>
 						{messages.map((msg, idx) => (
 							<MessageBubble
 								key={msg.id}
@@ -745,8 +748,12 @@ export function AgentPanel({ cwd, paperId }: AgentPanelProps) {
 		</div>
 	);
 
-		if (!isGlobal) {
-		return <div className="flex h-full w-full min-w-0 bg-background overflow-hidden">{chatArea}</div>;
+	if (!isGlobal) {
+		return (
+			<div className="flex h-full w-full min-w-0 bg-background overflow-hidden">
+				{chatArea}
+			</div>
+		);
 	}
 
 	return (
@@ -1382,13 +1389,15 @@ function MessageBubble({
 		);
 	}
 
-		if (message.role === "thought") {
+	if (message.role === "thought") {
 		// Skip empty/whitespace-only thought messages
 		if (!message.text || !message.text.trim()) return null;
 		return (
 			<div className="flex items-start gap-1.5 text-muted-foreground px-1 min-w-0">
 				<Brain className="h-3.5 w-3.5 shrink-0 mt-0.5" />
-				<p className="text-xs italic whitespace-pre-wrap break-words min-w-0">{message.text}</p>
+				<p className="text-xs italic whitespace-pre-wrap break-words min-w-0">
+					{message.text}
+				</p>
 			</div>
 		);
 	}
@@ -1550,7 +1559,9 @@ function UserMessageBubble({
 						))}
 					</div>
 				)}
-				<p className="text-sm whitespace-pre-wrap break-words">{message.text}</p>
+				<p className="text-sm whitespace-pre-wrap break-words">
+					{message.text}
+				</p>
 			</div>
 			<div className="flex items-center gap-1 h-5">
 				<BranchNavigator messageId={message.id} />

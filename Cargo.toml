@@ -11,6 +11,7 @@ members = [
   "crates/zoro-plugins",
   "crates/zoro-llm-proxy",
   "crates/zoro-lab-freellm",
+  "crates/zoro-lab-acpproxy",
   "crates/zoro-storage",
   "crates/zoro-subscriptions",
   "crates/zoro-webdav",
