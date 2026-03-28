@@ -786,6 +786,8 @@
 		"labModelEnabled": "모델 활성화됨 — 클릭하여 비활성화",
 		"labEnableAll": "모두 활성화",
 		"labDisableAll": "모두 비활성화",
+		"labShowAllModels": "모두 표시 ({{count}})",
+		"labCollapseModels": "접기",
 		"fetchModels": "모델 가져오기",
 		"clearModels": "모델 목록 지우기",
 		"modelsDesc": "Enter를 눌러 모델 이름을 추가하거나 '모델 가져오기'를 클릭하세요.",

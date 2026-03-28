@@ -910,8 +910,10 @@ export function Settings() {
 				isDefault: false,
 			};
 			const additionalProviders = (config.providers || [])
-				// Hide old internal lab providers, but keep __lab_proxy__ visible
-				// Also exclude __main__ since it's handled separately above
+				// Hide old internal lab providers, but keep __lab_proxy__ and
+				// __acp_proxy__ visible (they are virtual providers injected at
+				// runtime and should appear in the UI when enabled).
+				// Exclude __main__ since it's handled separately above.
 				.filter(
 					(p) =>
 						p.id !== "__main__" &&
@@ -1316,7 +1318,7 @@ export function Settings() {
 		try {
 			// All user-configured providers (exclude internal lab providers and __main__)
 			const userProviders = aiProviders.filter(
-				(p) => p.id !== "__main__" && !p.id.startsWith("__lab_"),
+				(p) => p.id !== "__main__" && p.id !== "__acp_proxy__" && !p.id.startsWith("__lab_"),
 			);
 
 			// __main__ provider holds the primary (fallback) base_url and api_key.
@@ -4655,6 +4657,9 @@ function LabSection() {
 	const [providerMaskedKeys, setProviderMaskedKeys] = useState<
 		Record<string, string[]>
 	>({});
+	const [expandedModelGroups, setExpandedModelGroups] = useState<
+		Record<string, boolean>
+	>({});
 	const [editingPort, setEditingPort] = useState(false);
 	const [portValue, setPortValue] = useState("");
 
@@ -5297,10 +5302,19 @@ function LabSection() {
 														title={t("settings.labDisableAll")}
 													>
 														{t("settings.labDisableAll")}
-													</button>
-												</div>
+										</button>
+									</div>
+									{(() => {
+										const COLLAPSED_COUNT = 10;
+										const isExpanded = expandedModelGroups[providerId] ?? false;
+										const shouldCollapse = providerModels.length > COLLAPSED_COUNT;
+										const visibleModels = shouldCollapse && !isExpanded
+											? providerModels.slice(0, COLLAPSED_COUNT)
+											: providerModels;
+										return (
+											<>
 												<div className="flex flex-wrap gap-1.5">
-													{providerModels.map((model) => (
+													{visibleModels.map((model) => (
 														<button
 															key={model.id}
 															type="button"
@@ -5327,6 +5341,33 @@ function LabSection() {
 														</button>
 													))}
 												</div>
+												{shouldCollapse && (
+													<button
+														type="button"
+														onClick={() =>
+															setExpandedModelGroups((prev) => ({
+																...prev,
+																[providerId]: !isExpanded,
+															}))
+														}
+														className="flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground transition-colors cursor-pointer select-none mt-1"
+													>
+														{isExpanded ? (
+															<>
+																<ChevronDown className="h-3 w-3" />
+																{t("settings.labCollapseModels")}
+															</>
+														) : (
+															<>
+																<ChevronRight className="h-3 w-3" />
+																{t("settings.labShowAllModels", { count: providerModels.length })}
+															</>
+														)}
+													</button>
+												)}
+											</>
+										);
+									})()}
 											</div>
 										);
 									},

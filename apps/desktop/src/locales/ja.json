@@ -745,6 +745,8 @@
 		"labModelEnabled": "モデル有効 — クリックで無効化",
 		"labEnableAll": "すべて有効",
 		"labDisableAll": "すべて無効",
+		"labShowAllModels": "すべて表示 ({{count}})",
+		"labCollapseModels": "折りたたむ",
 		"labProxyRunning": "プロキシ稼働中",
 		"labProxyStopped": "プロキシ停止中",
 		"labProxyProviders": "プロバイダー",

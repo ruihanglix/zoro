@@ -528,6 +528,9 @@ pub async fn update_ai_config(
     if let Some(new_providers) = input.providers {
         config.ai.providers = new_providers
             .into_iter()
+            // Filter out virtual ACP proxy provider – it is injected at runtime
+            // by get_ai_config and must never be persisted to the config file.
+            .filter(|p| p.id != "__acp_proxy__")
             .map(|p| {
                 // Preserve existing api_key if no new one is provided
                 let existing_key = config

@@ -746,6 +746,8 @@
 		"labModelEnabled": "模型已启用 — 点击禁用",
 		"labEnableAll": "全部启用",
 		"labDisableAll": "全部禁用",
+		"labShowAllModels": "显示全部 ({{count}})",
+		"labCollapseModels": "收起",
 		"labProxyRunning": "代理运行中",
 		"labProxyStopped": "代理已停止",
 		"labProxyProviders": "个提供商",

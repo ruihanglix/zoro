@@ -786,6 +786,8 @@
 		"labModelEnabled": "Modelo habilitado — clic para deshabilitar",
 		"labEnableAll": "Habilitar todo",
 		"labDisableAll": "Deshabilitar todo",
+		"labShowAllModels": "Mostrar todos ({{count}})",
+		"labCollapseModels": "Colapsar",
 		"fetchModels": "Obtener modelos",
 		"clearModels": "Limpiar modelos",
 		"modelsDesc": "Presiona Enter para agregar un nombre de modelo, o haz clic en 'Obtener modelos'.",

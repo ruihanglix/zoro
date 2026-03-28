@@ -786,6 +786,8 @@
 		"labModelEnabled": "Модель включена — нажмите для отключения",
 		"labEnableAll": "Включить все",
 		"labDisableAll": "Отключить все",
+		"labShowAllModels": "Показать все ({{count}})",
+		"labCollapseModels": "Свернуть",
 		"fetchModels": "Получить модели",
 		"clearModels": "Очистить модели",
 		"modelsDesc": "Нажмите Enter для добавления имени модели или нажмите 'Получить модели'.",

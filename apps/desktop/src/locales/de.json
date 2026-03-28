@@ -786,6 +786,8 @@
 		"labModelEnabled": "Modell aktiviert — klicken zum Deaktivieren",
 		"labEnableAll": "Alle aktivieren",
 		"labDisableAll": "Alle deaktivieren",
+		"labShowAllModels": "Alle anzeigen ({{count}})",
+		"labCollapseModels": "Einklappen",
 		"fetchModels": "Modelle abrufen",
 		"clearModels": "Modelle löschen",
 		"modelsDesc": "Enter drücken um Modellnamen hinzuzufügen, oder 'Modelle abrufen' klicken.",

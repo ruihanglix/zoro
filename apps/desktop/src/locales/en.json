@@ -746,6 +746,8 @@
 		"labModelEnabled": "Model enabled — click to disable",
 		"labEnableAll": "Enable All",
 		"labDisableAll": "Disable All",
+		"labShowAllModels": "Show all ({{count}})",
+		"labCollapseModels": "Collapse",
 		"labProxyRunning": "Proxy Running",
 		"labProxyStopped": "Proxy Stopped",
 		"labProxyProviders": "providers",
