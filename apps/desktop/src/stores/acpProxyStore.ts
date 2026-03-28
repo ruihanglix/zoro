@@ -99,8 +99,7 @@ export const useAcpProxyStore = create<AcpProxyState>((set, get) => ({
 			if (config.enabled && config.agentName && !status?.running) {
 				try {
 					const newStatus = await commands.acpProxyStart();
-					const freshConfig = await commands.acpProxyGetConfig();
-					set({ status: newStatus, config: freshConfig });
+					set({ status: newStatus });
 				} catch {
 					// Not critical — proxy just stays not-running until user manually starts
 				}
@@ -138,8 +137,7 @@ export const useAcpProxyStore = create<AcpProxyState>((set, get) => ({
 			if (newConfig.enabled && newConfig.agentName && !status?.running) {
 				try {
 					const newStatus = await commands.acpProxyStart();
-					const freshConfig = await commands.acpProxyGetConfig();
-					set({ status: newStatus, config: freshConfig });
+					set({ status: newStatus });
 				} catch {
 					// Not critical
 				}
