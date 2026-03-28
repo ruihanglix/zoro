@@ -20,6 +20,8 @@ interface AcpProxyState {
 	agents: AgentInfoResponse[];
 	configOptions: ConfigOptionInfo[];
 	configOptionsLoading: boolean;
+	/** Per-agent cache for config options (mode/model lists) */
+	configOptionsCache: Record<string, ConfigOptionInfo[]>;
 
 	// UI state
 	loading: boolean;
@@ -47,6 +49,7 @@ export const useAcpProxyStore = create<AcpProxyState>((set, get) => ({
 	agents: [],
 	configOptions: [],
 	configOptionsLoading: false,
+	configOptionsCache: {},
 	loading: false,
 	error: null,
 
@@ -58,14 +61,21 @@ export const useAcpProxyStore = create<AcpProxyState>((set, get) => ({
 				commands.acpProxyGetStatus(),
 				commands.acpListAgents(),
 			]);
+
+			// Restore cached config options for the selected agent (instant display)
+			const cached = config.agentName
+				? get().configOptionsCache[config.agentName] ?? []
+				: [];
+
 			set({
 				config,
 				status,
 				agents,
+				configOptions: cached,
 				loading: false,
 			});
 
-			// Auto-fetch config options for the selected agent
+			// Fetch fresh config options in the background
 			if (config.agentName) {
 				get().fetchConfigOptions(config.agentName);
 			}
@@ -111,10 +121,14 @@ export const useAcpProxyStore = create<AcpProxyState>((set, get) => ({
 	},
 
 	switchAgent: async (agentName) => {
-		const { config } = get();
+		const { config, configOptionsCache } = get();
 		if (!config) return;
 
-		// Immediately update UI: highlight the new agent, clear stale options, show loading
+		// Restore cached config options for the target agent (instant display, no flicker)
+		const cached = configOptionsCache[agentName] ?? [];
+		const hasCached = cached.length > 0;
+
+		// Immediately update UI: highlight the new agent, show cached options or loading
 		const newConfig = {
 			...config,
 			agentName,
@@ -125,8 +139,8 @@ export const useAcpProxyStore = create<AcpProxyState>((set, get) => ({
 		};
 		set({
 			config: newConfig,
-			configOptions: [],
-			configOptionsLoading: true,
+			configOptions: cached,
+			configOptionsLoading: !hasCached, // Only show loading spinner if no cache
 		});
 
 		// Persist the config change and auto-start if needed
@@ -147,13 +161,25 @@ export const useAcpProxyStore = create<AcpProxyState>((set, get) => ({
 			set({ error: String(err) });
 		}
 
-		// Fetch config options for the new agent
+		// Fetch fresh config options in the background (updates cache + UI)
 		try {
 			const options = await commands.acpProxyFetchConfigOptions(agentName);
-			set({ configOptions: options, configOptionsLoading: false });
+			// Only update if the user hasn't switched to another agent in the meantime
+			if (get().config?.agentName === agentName) {
+				set({
+					configOptions: options,
+					configOptionsLoading: false,
+					configOptionsCache: {
+						...get().configOptionsCache,
+						[agentName]: options,
+					},
+				});
+			}
 		} catch (err) {
 			console.error("[acp-proxy] Failed to fetch config options:", err);
-			set({ configOptions: [], configOptionsLoading: false });
+			if (get().config?.agentName === agentName) {
+				set({ configOptionsLoading: false });
+			}
 		}
 	},
 
@@ -197,12 +223,31 @@ export const useAcpProxyStore = create<AcpProxyState>((set, get) => ({
 
 	fetchConfigOptions: async (agentName) => {
 		try {
-			set({ configOptionsLoading: true });
+			// If we have cached options, show them immediately without loading spinner
+			const cached = get().configOptionsCache[agentName];
+			if (cached && cached.length > 0) {
+				set({ configOptions: cached, configOptionsLoading: false });
+			} else {
+				set({ configOptionsLoading: true });
+			}
+
 			const options = await commands.acpProxyFetchConfigOptions(agentName);
-			set({ configOptions: options, configOptionsLoading: false });
+			// Only update if the user hasn't switched to another agent in the meantime
+			if (get().config?.agentName === agentName) {
+				set({
+					configOptions: options,
+					configOptionsLoading: false,
+					configOptionsCache: {
+						...get().configOptionsCache,
+						[agentName]: options,
+					},
+				});
+			}
 		} catch (err) {
 			console.error("[acp-proxy] Failed to fetch config options:", err);
-			set({ configOptions: [], configOptionsLoading: false });
+			if (get().config?.agentName === agentName) {
+				set({ configOptions: [], configOptionsLoading: false });
+			}
 		}
 	},
 }));
