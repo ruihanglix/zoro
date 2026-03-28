@@ -285,8 +285,8 @@ pub async fn acp_proxy_set_enabled(
 }
 
 /// Fetch available config options (mode, model, etc.) for a given agent.
-/// Starts a temporary session, collects config_options from the session init,
-/// then immediately stops the session and returns the options.
+/// Starts a temporary session, collects config_options from the session init
+/// or from an async ConfigOptionUpdate notification, then stops the session.
 #[tauri::command]
 pub async fn acp_proxy_fetch_config_options(
     agent_name: String,
@@ -307,9 +307,12 @@ pub async fn acp_proxy_fetch_config_options(
         ..agent_config
     };
 
-    // Collect config_options from the session start callback
+    // Collect config_options from the session callback (may arrive via
+    // new_session response OR via an async ConfigOptionUpdate notification).
     let config_options = Arc::new(Mutex::new(Vec::<zoro_acp::ConfigOptionInfo>::new()));
     let opts_clone = config_options.clone();
+    let notify = Arc::new(tokio::sync::Notify::new());
+    let notify_clone = notify.clone();
 
     let manager = acp_state.manager.lock().await;
 
@@ -325,15 +328,28 @@ pub async fn acp_proxy_fetch_config_options(
                 if let Ok(mut guard) = opts_clone.try_lock() {
                     *guard = opts;
                 }
+                notify_clone.notify_one();
             }
         })
         .await;
 
     match session_result {
         Ok(_session_id) => {
-            // Give a tiny delay for the callback to fire
-            tokio::time::sleep(std::time::Duration::from_millis(100)).await;
-            // Stop the probe session immediately
+            // Config options may arrive synchronously (in new_session response)
+            // or asynchronously (via ConfigOptionUpdate notification).
+            // Check if we already have them; if not, wait up to 3 seconds.
+            {
+                let current = config_options.lock().await;
+                if current.is_empty() {
+                    drop(current);
+                    let _ = tokio::time::timeout(
+                        std::time::Duration::from_secs(3),
+                        notify.notified(),
+                    )
+                    .await;
+                }
+            }
+            // Stop the probe session
             let _ = manager.stop_session(&probe_name).await;
             let result = config_options.lock().await.clone();
             Ok(result)
