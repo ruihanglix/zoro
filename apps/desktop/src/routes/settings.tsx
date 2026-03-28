@@ -4725,6 +4725,7 @@ function LabSection() {
 		initialize: acpInitialize,
 		setEnabled: acpSetEnabled,
 		updateConfig: acpUpdateConfig,
+		switchAgent: acpSwitchAgent,
 		start: acpStart,
 		stop: acpStop,
 		refreshStatus: acpRefreshStatus,
@@ -4756,17 +4757,7 @@ function LabSection() {
 
 	const handleAcpAgentChange = async (agentName: string) => {
 		if (!acpConfig) return;
-		// Reset mode/model when agent changes
-		await acpUpdateConfig({
-			...acpConfig,
-			agentName,
-			modeConfigId: "",
-			modeValue: "",
-			modelConfigId: "",
-			modelValue: "",
-		});
-		// Fetch config options for the new agent
-		acpFetchConfigOptions(agentName);
+		acpSwitchAgent(agentName);
 	};
 
 	const handleAcpSavePort = async () => {

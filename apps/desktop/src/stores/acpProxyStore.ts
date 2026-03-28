@@ -29,6 +29,7 @@ interface AcpProxyState {
 	initialize: () => Promise<void>;
 	setEnabled: (enabled: boolean) => Promise<void>;
 	updateConfig: (config: AcpProxyConfig) => Promise<void>;
+	switchAgent: (agentName: string) => Promise<void>;
 	start: () => Promise<void>;
 	stop: () => Promise<void>;
 	refreshStatus: () => Promise<void>;
@@ -107,6 +108,54 @@ export const useAcpProxyStore = create<AcpProxyState>((set, get) => ({
 		} catch (err) {
 			console.error("[acp-proxy] Failed to update config:", err);
 			set({ error: String(err), loading: false });
+		}
+	},
+
+	switchAgent: async (agentName) => {
+		const { config } = get();
+		if (!config) return;
+
+		// Immediately update UI: highlight the new agent, clear stale options, show loading
+		const newConfig = {
+			...config,
+			agentName,
+			modeConfigId: "",
+			modeValue: "",
+			modelConfigId: "",
+			modelValue: "",
+		};
+		set({
+			config: newConfig,
+			configOptions: [],
+			configOptionsLoading: true,
+		});
+
+		// Persist the config change and auto-start if needed
+		try {
+			await commands.acpProxyUpdateConfig(newConfig);
+
+			const { status } = get();
+			if (newConfig.enabled && newConfig.agentName && !status?.running) {
+				try {
+					const newStatus = await commands.acpProxyStart();
+					const freshConfig = await commands.acpProxyGetConfig();
+					set({ status: newStatus, config: freshConfig });
+				} catch {
+					// Not critical
+				}
+			}
+		} catch (err) {
+			console.error("[acp-proxy] Failed to update config:", err);
+			set({ error: String(err) });
+		}
+
+		// Fetch config options for the new agent
+		try {
+			const options = await commands.acpProxyFetchConfigOptions(agentName);
+			set({ configOptions: options, configOptionsLoading: false });
+		} catch (err) {
+			console.error("[acp-proxy] Failed to fetch config options:", err);
+			set({ configOptions: [], configOptionsLoading: false });
 		}
 	},
 
