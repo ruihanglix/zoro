@@ -87,3 +87,32 @@ pub fn save_config(data_dir: &Path, config: &AcpProxyConfig) {
         }
     }
 }
+
+// ── Config options cache persistence ─────────────────────────────────────────
+
+fn options_cache_path(data_dir: &Path) -> PathBuf {
+    data_dir.join("acp_proxy_options_cache.json")
+}
+
+/// Load the per-agent config options cache from disk.
+/// Returns a map of agent_name → Vec<ConfigOptionInfo> (as raw JSON values).
+pub fn load_options_cache(data_dir: &Path) -> std::collections::HashMap<String, serde_json::Value> {
+    let path = options_cache_path(data_dir);
+    match std::fs::read_to_string(&path) {
+        Ok(content) => serde_json::from_str(&content).unwrap_or_default(),
+        Err(_) => std::collections::HashMap::new(),
+    }
+}
+
+/// Save the per-agent config options cache to disk.
+pub fn save_options_cache(
+    data_dir: &Path,
+    cache: &std::collections::HashMap<String, serde_json::Value>,
+) {
+    let path = options_cache_path(data_dir);
+    if let Ok(json) = serde_json::to_string_pretty(cache) {
+        if let Err(e) = std::fs::write(&path, json) {
+            tracing::error!(error = %e, "Failed to save ACP proxy options cache");
+        }
+    }
+}

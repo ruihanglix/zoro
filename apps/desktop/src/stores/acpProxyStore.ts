@@ -56,15 +56,19 @@ export const useAcpProxyStore = create<AcpProxyState>((set, get) => ({
 	initialize: async () => {
 		try {
 			set({ loading: true, error: null });
-			const [config, status, agents] = await Promise.all([
+			const [config, status, agents, persistedCache] = await Promise.all([
 				commands.acpProxyGetConfig(),
 				commands.acpProxyGetStatus(),
 				commands.acpListAgents(),
+				commands.acpProxyGetOptionsCache(),
 			]);
+
+			// Merge persisted cache (from disk) with any in-memory cache
+			const mergedCache = { ...persistedCache, ...get().configOptionsCache };
 
 			// Restore cached config options for the selected agent (instant display)
 			const cached = config.agentName
-				? get().configOptionsCache[config.agentName] ?? []
+				? mergedCache[config.agentName] ?? []
 				: [];
 
 			set({
@@ -72,12 +76,18 @@ export const useAcpProxyStore = create<AcpProxyState>((set, get) => ({
 				status,
 				agents,
 				configOptions: cached,
+				configOptionsCache: mergedCache,
 				loading: false,
 			});
 
-			// Fetch fresh config options in the background
+			// Fetch fresh config options in the background (only if no cache)
 			if (config.agentName) {
-				get().fetchConfigOptions(config.agentName);
+				if (cached.length === 0) {
+					get().fetchConfigOptions(config.agentName);
+				} else {
+					// Have cache — still refresh in background but don't show loading
+					get().fetchConfigOptions(config.agentName);
+				}
 			}
 		} catch (err) {
 			console.error("[acp-proxy] Failed to initialize:", err);
@@ -166,14 +176,17 @@ export const useAcpProxyStore = create<AcpProxyState>((set, get) => ({
 			const options = await commands.acpProxyFetchConfigOptions(agentName);
 			// Only update if the user hasn't switched to another agent in the meantime
 			if (get().config?.agentName === agentName) {
+				const newCache = {
+					...get().configOptionsCache,
+					[agentName]: options,
+				};
 				set({
 					configOptions: options,
 					configOptionsLoading: false,
-					configOptionsCache: {
-						...get().configOptionsCache,
-						[agentName]: options,
-					},
+					configOptionsCache: newCache,
 				});
+				// Persist cache to disk
+				commands.acpProxySaveOptionsCache(newCache).catch(() => {});
 			}
 		} catch (err) {
 			console.error("[acp-proxy] Failed to fetch config options:", err);
@@ -234,14 +247,17 @@ export const useAcpProxyStore = create<AcpProxyState>((set, get) => ({
 			const options = await commands.acpProxyFetchConfigOptions(agentName);
 			// Only update if the user hasn't switched to another agent in the meantime
 			if (get().config?.agentName === agentName) {
+				const newCache = {
+					...get().configOptionsCache,
+					[agentName]: options,
+				};
 				set({
 					configOptions: options,
 					configOptionsLoading: false,
-					configOptionsCache: {
-						...get().configOptionsCache,
-						[agentName]: options,
-					},
+					configOptionsCache: newCache,
 				});
+				// Persist cache to disk
+				commands.acpProxySaveOptionsCache(newCache).catch(() => {});
 			}
 		} catch (err) {
 			console.error("[acp-proxy] Failed to fetch config options:", err);

@@ -360,3 +360,23 @@ pub async fn acp_proxy_fetch_config_options(
         }
     }
 }
+
+/// Get the persisted config options cache (agent_name → config options).
+/// Used by the frontend to instantly display cached mode/model lists on startup.
+#[tauri::command]
+pub async fn acp_proxy_get_options_cache(
+    state: State<'_, AcpProxyState>,
+) -> Result<std::collections::HashMap<String, serde_json::Value>, String> {
+    Ok(zoro_lab_acpproxy::config::load_options_cache(&state.data_dir))
+}
+
+/// Save the config options cache to disk.
+/// Called by the frontend after fetching fresh config options from an agent.
+#[tauri::command]
+pub async fn acp_proxy_save_options_cache(
+    state: State<'_, AcpProxyState>,
+    cache: std::collections::HashMap<String, serde_json::Value>,
+) -> Result<(), String> {
+    zoro_lab_acpproxy::config::save_options_cache(&state.data_dir, &cache);
+    Ok(())
+}

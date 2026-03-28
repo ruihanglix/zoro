@@ -1535,3 +1535,10 @@ export const acpProxySetEnabled = (enabled: boolean) =>
 
 export const acpProxyFetchConfigOptions = (agentName: string) =>
 	invoke<ConfigOptionInfo[]>("acp_proxy_fetch_config_options", { agentName });
+
+export const acpProxyGetOptionsCache = () =>
+	invoke<Record<string, ConfigOptionInfo[]>>("acp_proxy_get_options_cache");
+
+export const acpProxySaveOptionsCache = (
+	cache: Record<string, ConfigOptionInfo[]>,
+) => invoke<void>("acp_proxy_save_options_cache", { cache });

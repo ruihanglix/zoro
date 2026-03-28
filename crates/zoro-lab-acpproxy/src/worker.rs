@@ -221,16 +221,67 @@ async fn run_worker(
                 "ACP Proxy worker session established"
             );
 
-            // Apply config overrides (mode, model, etc.)
-            for (ref cid, ref val) in &config_overrides {
-                if !cid.is_empty() && !val.is_empty() {
-                    let mgr = acp_manager.lock().await;
-                    if let Err(e) = mgr.set_config_option(&worker_name, cid, val).await {
+            // Apply config overrides (mode, model, etc.) with retry.
+            // ACP agents (especially OpenCode) may need a moment after session
+            // creation before they accept config changes. We retry a few times
+            // with increasing delays to handle this race.
+            if !config_overrides.is_empty() {
+                // Give the agent a moment to finish its internal init
+                tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+
+                const MAX_RETRIES: usize = 3;
+                const RETRY_DELAY_MS: u64 = 1000;
+
+                for (ref cid, ref val) in &config_overrides {
+                    if cid.is_empty() || val.is_empty() {
+                        continue;
+                    }
+                    let mut success = false;
+                    for attempt in 0..MAX_RETRIES {
+                        let mgr = acp_manager.lock().await;
+                        match mgr.set_config_option(&worker_name, cid, val).await {
+                            Ok(_) => {
+                                tracing::info!(
+                                    worker = index,
+                                    config_id = %cid,
+                                    value = %val,
+                                    "Config option applied on ACP Proxy worker"
+                                );
+                                success = true;
+                                break;
+                            }
+                            Err(e) => {
+                                if attempt + 1 < MAX_RETRIES {
+                                    tracing::info!(
+                                        worker = index,
+                                        config_id = %cid,
+                                        attempt = attempt + 1,
+                                        error = %e,
+                                        "Retrying set_config_option on ACP Proxy worker"
+                                    );
+                                    drop(mgr);
+                                    tokio::time::sleep(std::time::Duration::from_millis(
+                                        RETRY_DELAY_MS * (attempt as u64 + 1),
+                                    ))
+                                    .await;
+                                } else {
+                                    tracing::error!(
+                                        worker = index,
+                                        config_id = %cid,
+                                        value = %val,
+                                        error = %e,
+                                        "Failed to set config option on ACP Proxy worker after {} retries",
+                                        MAX_RETRIES
+                                    );
+                                }
+                            }
+                        }
+                    }
+                    if !success {
                         tracing::warn!(
                             worker = index,
                             config_id = %cid,
-                            error = %e,
-                            "Failed to set config option on ACP Proxy worker"
+                            "Config option could not be applied — agent may use default settings"
                         );
                     }
                 }
