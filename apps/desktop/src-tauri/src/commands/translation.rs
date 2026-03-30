@@ -280,7 +280,20 @@ pub async fn delete_translations(
 
 /// Get the current AI configuration.
 #[tauri::command]
-pub async fn get_ai_config(state: State<'_, AppState>) -> Result<AiConfigResponse, String> {
+pub async fn get_ai_config(
+    state: State<'_, AppState>,
+    acp_proxy_state: State<'_, crate::commands::lab_acp::AcpProxyState>,
+) -> Result<AiConfigResponse, String> {
+    // Read ACP Proxy config first (async lock) before acquiring the sync lock
+    let acp_proxy_info = {
+        let proxy_cfg = acp_proxy_state.config.lock().await;
+        if proxy_cfg.enabled {
+            Some((proxy_cfg.port,))
+        } else {
+            None
+        }
+    };
+
     let config = state
         .config
         .lock()
@@ -313,18 +326,33 @@ pub async fn get_ai_config(state: State<'_, AppState>) -> Result<AiConfigRespons
             qps: config.ai.pdf_translation.qps,
             extra_args: config.ai.pdf_translation.extra_args.clone(),
         },
-        providers: config
-            .ai
-            .providers
-            .iter()
-            .map(|p| AiProviderResponse {
-                id: p.id.clone(),
-                name: p.name.clone(),
-                base_url: p.base_url.clone(),
-                api_key_set: !p.api_key.is_empty(),
-                models: p.models.clone(),
-            })
-            .collect(),
+        providers: {
+            let mut providers: Vec<AiProviderResponse> = config
+                .ai
+                .providers
+                .iter()
+                .map(|p| AiProviderResponse {
+                    id: p.id.clone(),
+                    name: p.name.clone(),
+                    base_url: p.base_url.clone(),
+                    api_key_set: !p.api_key.is_empty(),
+                    models: p.models.clone(),
+                })
+                .collect();
+
+            // Inject ACP Proxy as a virtual provider if enabled
+            if let Some((port,)) = acp_proxy_info {
+                providers.push(AiProviderResponse {
+                    id: "__acp_proxy__".to_string(),
+                    name: "ACP Proxy".to_string(),
+                    base_url: format!("http://127.0.0.1:{}/v1", port),
+                    api_key_set: true, // No real key needed
+                    models: vec!["Zoro-ACP-Proxy".to_string()],
+                });
+            }
+
+            providers
+        },
         task_model_defaults: TaskModelDefaultsResponse {
             quick_translation: config.ai.task_model_defaults.quick_translation.clone(),
             normal_translation: config.ai.task_model_defaults.normal_translation.clone(),
@@ -500,6 +528,9 @@ pub async fn update_ai_config(
     if let Some(new_providers) = input.providers {
         config.ai.providers = new_providers
             .into_iter()
+            // Filter out virtual ACP proxy provider – it is injected at runtime
+            // by get_ai_config and must never be persisted to the config file.
+            .filter(|p| p.id != "__acp_proxy__")
             .map(|p| {
                 // Preserve existing api_key if no new one is provided
                 let existing_key = config

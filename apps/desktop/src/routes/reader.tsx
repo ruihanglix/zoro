@@ -1432,7 +1432,7 @@ function ReaderMetadataPanel({
 		);
 
 	return (
-		<div className="flex h-full flex-col">
+		<div className="flex h-full min-w-0 flex-col overflow-hidden">
 			{/* Tab bar */}
 			<div className="flex border-b text-xs">
 				{(
@@ -1516,7 +1516,7 @@ function ReaderMetadataPanel({
 
 			{/* Agent panel */}
 			{activeTab === "agent" && (
-				<div className="flex-1 overflow-hidden">
+				<div className="flex-1 min-w-0 overflow-hidden">
 					<AgentPanel cwd={paperDir} paperId={paper.id} />
 				</div>
 			)}

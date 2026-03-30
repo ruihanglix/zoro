@@ -22,6 +22,7 @@ import type { SupportedLanguage } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 import { createPluginSDK } from "@/plugins/PluginManager";
 import { usePluginStore } from "@/plugins/pluginStore";
+import { useAcpProxyStore } from "@/stores/acpProxyStore";
 import { useLabStore } from "@/stores/labStore";
 import { useLibraryStore } from "@/stores/libraryStore";
 import { useTranslationStore } from "@/stores/translationStore";
@@ -37,6 +38,7 @@ import {
 	ArrowUp,
 	Book,
 	Bot,
+	Check,
 	CheckCircle,
 	ChevronDown,
 	ChevronRight,
@@ -69,6 +71,7 @@ import {
 	Sun,
 	Terminal,
 	Trash2,
+	X,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -907,8 +910,10 @@ export function Settings() {
 				isDefault: false,
 			};
 			const additionalProviders = (config.providers || [])
-				// Hide old internal lab providers, but keep __lab_proxy__ visible
-				// Also exclude __main__ since it's handled separately above
+				// Hide old internal lab providers, but keep __lab_proxy__ and
+				// __acp_proxy__ visible (they are virtual providers injected at
+				// runtime and should appear in the UI when enabled).
+				// Exclude __main__ since it's handled separately above.
 				.filter(
 					(p) =>
 						p.id !== "__main__" &&
@@ -1019,6 +1024,13 @@ export function Settings() {
 	}, [labInitialize]);
 
 	useEffect(() => {
+		// Skip sync until lab store has finished initializing (proxyStatus
+		// starts as null and is set to a real object after initialize()).
+		// Without this guard the effect fires on the null→object transition
+		// and may briefly remove the __lab_proxy__ provider before the proxy
+		// has had a chance to start, causing a visible flicker in the list.
+		if (labProxyStatus === null) return;
+
 		const syncLabProxyProvider = async () => {
 			try {
 				const config = await commands.getAiConfig();
@@ -1313,7 +1325,7 @@ export function Settings() {
 		try {
 			// All user-configured providers (exclude internal lab providers and __main__)
 			const userProviders = aiProviders.filter(
-				(p) => p.id !== "__main__" && !p.id.startsWith("__lab_"),
+				(p) => p.id !== "__main__" && p.id !== "__acp_proxy__" && !p.id.startsWith("__lab_"),
 			);
 
 			// __main__ provider holds the primary (fallback) base_url and api_key.
@@ -4652,12 +4664,14 @@ function LabSection() {
 	const [providerMaskedKeys, setProviderMaskedKeys] = useState<
 		Record<string, string[]>
 	>({});
+	const [expandedModelGroups, setExpandedModelGroups] = useState<
+		Record<string, boolean>
+	>({});
 	const [editingPort, setEditingPort] = useState(false);
 	const [portValue, setPortValue] = useState("");
 
 	const primaryProviders = providers.filter((p) => p.tier === "primary");
 	const secondaryProviders = providers.filter((p) => p.tier === "secondary");
-	const visibleProviders = showMoreProviders ? providers : primaryProviders;
 
 	const routingStrategy = config?.routing_strategy || "auto";
 	const configuredCount = getConfiguredCount();
@@ -4702,6 +4716,139 @@ function LabSection() {
 		if (port >= 1024 && port <= 65535) {
 			await setProxyPort(port);
 			setEditingPort(false);
+		}
+	};
+
+	// ── ACP Proxy ──────────────────────────────────────────
+	const {
+		config: acpConfig,
+		status: acpStatus,
+		agents: acpAgents,
+		configOptions: acpConfigOptions,
+		configOptionsLoading: acpConfigOptionsLoading,
+		loading: acpLoading,
+		initializing: acpInitializing,
+		error: acpError,
+		initialize: acpInitialize,
+		setEnabled: acpSetEnabled,
+		updateConfig: acpUpdateConfig,
+		switchAgent: acpSwitchAgent,
+		start: acpStart,
+		stop: acpStop,
+		refreshStatus: acpRefreshStatus,
+	} = useAcpProxyStore();
+
+	const [acpEditingPort, setAcpEditingPort] = useState(false);
+	const [acpPortValue, setAcpPortValue] = useState("");
+	const [acpEditingWorkers, setAcpEditingWorkers] = useState(false);
+	const [acpWorkersValue, setAcpWorkersValue] = useState("");
+	const [acpEditingToken, setAcpEditingToken] = useState(false);
+	const [acpTokenValue, setAcpTokenValue] = useState("");
+
+	useEffect(() => {
+		acpInitialize();
+	}, [acpInitialize]);
+
+	// Poll ACP status while running
+	useEffect(() => {
+		if (!acpStatus?.running) return;
+		const timer = setInterval(acpRefreshStatus, 3000);
+		return () => clearInterval(timer);
+	}, [acpStatus?.running, acpRefreshStatus]);
+
+	const handleAcpToggle = async () => {
+		if (!acpConfig) return;
+		await acpSetEnabled(!acpConfig.enabled);
+	};
+
+	const handleAcpAgentChange = async (agentName: string) => {
+		if (!acpConfig) return;
+		acpSwitchAgent(agentName);
+	};
+
+	const handleAcpSavePort = async () => {
+		if (!acpConfig) return;
+		const port = Number.parseInt(acpPortValue, 10);
+		if (port >= 1024 && port <= 65535) {
+			await acpUpdateConfig({ ...acpConfig, port });
+			setAcpEditingPort(false);
+		}
+	};
+
+	const handleAcpSaveWorkers = async () => {
+		if (!acpConfig) return;
+		const count = Number.parseInt(acpWorkersValue, 10);
+		if (count >= 1) {
+			await acpUpdateConfig({ ...acpConfig, workerCount: count });
+			setAcpEditingWorkers(false);
+		}
+	};
+
+	const handleAcpSaveToken = async () => {
+		if (!acpConfig) return;
+		await acpUpdateConfig({ ...acpConfig, accessToken: acpTokenValue });
+		setAcpEditingToken(false);
+	};
+
+	const handleAcpLanToggle = async () => {
+		if (!acpConfig) return;
+		await acpUpdateConfig({ ...acpConfig, lanAccess: !acpConfig.lanAccess });
+	};
+
+	const handleAcpConfigOptionChange = async (
+		category: string,
+		configId: string,
+		value: string,
+	) => {
+		if (!acpConfig) return;
+		if (category === "mode") {
+			await acpUpdateConfig({
+				...acpConfig,
+				modeConfigId: configId,
+				modeValue: value,
+			});
+		} else if (category === "model") {
+			await acpUpdateConfig({
+				...acpConfig,
+				modelConfigId: configId,
+				modelValue: value,
+			});
+		}
+		// Apply the config change to running workers in real-time
+		if (acpStatus?.running) {
+			commands.acpProxyApplyConfigOption(configId, value).catch((err) => {
+				console.warn("[acp-proxy] Failed to apply config option to workers:", err);
+			});
+		}
+	};
+
+	const acpWorkerStatusIcon = (s: string) => {
+		switch (s) {
+			case "warming":
+				return "🟡";
+			case "idle":
+				return "🟢";
+			case "busy":
+				return "🔵";
+			case "error":
+				return "🔴";
+			default:
+				return "⚪";
+		}
+	};
+
+	const acpWorkerStatusLabel = (s: string) => {
+		switch (s) {
+			case "warming":
+				return t("settings.acpWorkerWarming");
+			case "idle":
+				return t("settings.acpWorkerIdle");
+			case "busy":
+				return t("settings.acpWorkerBusy");
+			case "error":
+				return t("settings.acpWorkerError");
+			default:
+				return s;
 		}
 	};
 
@@ -4784,7 +4931,7 @@ function LabSection() {
 						</p>
 
 						<div className="space-y-2">
-							{visibleProviders.map((provider) => {
+							{primaryProviders.map((provider) => {
 								const isConfigured = provider.has_key;
 								const isEditing = editingKeys[provider.id] !== undefined;
 								const isExpanded = expandedProviders[provider.id] ?? false;
@@ -4950,17 +5097,170 @@ function LabSection() {
 							>
 								{showMoreProviders ? (
 									<>
-										<ChevronDown className="h-3 w-3" />
+										<ChevronRight className="h-3 w-3 transition-transform rotate-90" />
 										{t("settings.labShowLess")}
 									</>
 								) : (
 									<>
-										<ChevronRight className="h-3 w-3" />
+										<ChevronRight className="h-3 w-3 transition-transform" />
 										{t("settings.labShowMore")} ({secondaryProviders.length})
 									</>
 								)}
 							</button>
 						)}
+
+						{showMoreProviders && (
+							<div className="space-y-2 mt-2">
+								{secondaryProviders.map((provider) => {
+									const isConfigured = provider.has_key;
+									const isEditing = editingKeys[provider.id] !== undefined;
+									const isExpanded = expandedProviders[provider.id] ?? false;
+									const maskedKeys = providerMaskedKeys[provider.id] ?? [];
+									return (
+										<div
+											key={provider.id}
+											className={cn(
+												"rounded-md border p-2.5 transition-colors",
+												isConfigured
+													? "border-green-500/30 bg-green-50/50 dark:bg-green-950/20"
+													: "border-border",
+											)}
+										>
+											<div className="flex items-center gap-3">
+												<div className="min-w-0 flex-1">
+													<div className="flex items-center gap-2">
+														<span className="text-sm font-medium">
+															{provider.display_name}
+														</span>
+														{isConfigured && (
+															<span className="inline-flex items-center gap-1 rounded-full bg-green-100 dark:bg-green-900/40 px-2 py-0.5 text-[10px] font-medium text-green-700 dark:text-green-400">
+																{t("settings.labConfigured")} · {provider.model_count}
+															</span>
+														)}
+													</div>
+												</div>
+												<div className="flex items-center gap-1.5 shrink-0">
+													<button
+														type="button"
+														onClick={() =>
+															setEditingKeys((prev) => ({
+																...prev,
+																[provider.id]: prev[provider.id] ?? "",
+															}))
+														}
+														className="flex items-center gap-1 text-[11px] text-primary hover:underline"
+													>
+														<Plus className="h-3 w-3" />
+														{t("settings.labAddKey")}
+													</button>
+													{maskedKeys.length > 0 && (
+														<button
+															type="button"
+															onClick={() =>
+																setExpandedProviders((prev) => ({
+																	...prev,
+																	[provider.id]: !prev[provider.id],
+																}))
+															}
+															className="flex items-center gap-0.5 text-[11px] text-muted-foreground hover:text-foreground transition-colors"
+														>
+															<ChevronRight
+																className={cn(
+																	"h-3 w-3 transition-transform",
+																	isExpanded && "rotate-90",
+																)}
+															/>
+															{maskedKeys.length} {t("settings.labKeyCount")}
+														</button>
+													)}
+													<a
+														href={provider.sign_up_url}
+														target="_blank"
+														rel="noopener noreferrer"
+														className="flex items-center gap-0.5 text-[11px] text-primary hover:underline"
+													>
+														{t("settings.labGetKey")}
+														<ExternalLink className="h-2.5 w-2.5" />
+													</a>
+												</div>
+											</div>
+
+											{isEditing && (
+												<div className="flex items-center gap-1.5 mt-2">
+													<input
+														type="password"
+														placeholder={
+															provider.key_prefix
+																? `${provider.key_prefix}...`
+																: t("onboarding.freeProviderApiKeyPlaceholder")
+														}
+														value={editingKeys[provider.id] || ""}
+														onChange={(e) =>
+															setEditingKeys((prev) => ({
+																...prev,
+																[provider.id]: e.target.value,
+															}))
+														}
+														onKeyDown={(e) => {
+															if (e.key === "Enter") handleSaveKey(provider.id);
+														}}
+														className="h-7 flex-1 rounded-md border bg-transparent px-2 text-xs"
+														autoFocus
+													/>
+													<Button
+														variant="default"
+														size="sm"
+														className="h-7 px-2 text-xs"
+														disabled={!editingKeys[provider.id]?.trim()}
+														onClick={() => handleSaveKey(provider.id)}
+													>
+														{t("common.save")}
+													</Button>
+													<Button
+														variant="ghost"
+														size="sm"
+														className="h-7 px-2 text-xs"
+														onClick={() =>
+															setEditingKeys((prev) => {
+																const next = { ...prev };
+																delete next[provider.id];
+																return next;
+															})
+														}
+													>
+														{t("common.cancel")}
+													</Button>
+												</div>
+											)}
+
+											{isExpanded && maskedKeys.length > 0 && (
+												<div className="mt-2 space-y-1">
+													{maskedKeys.map((maskedKey, idx) => (
+														<div
+															key={`${provider.id}-key-${idx}`}
+															className="flex items-center justify-between rounded border px-2 py-1 text-xs"
+														>
+															<span className="font-mono text-muted-foreground">
+																{maskedKey}
+															</span>
+															<button
+																type="button"
+																onClick={() => handleRemoveKey(provider.id, idx)}
+																className="text-destructive hover:text-destructive/80 transition-colors ml-2"
+																title={t("common.delete")}
+															>
+																<Trash2 className="h-3 w-3" />
+															</button>
+														</div>
+													))}
+												</div>
+											)}
+										</div>
+									);
+								})}
+							</div>
+						)}
+
 					</div>
 
 					<Separator />
@@ -5158,10 +5458,47 @@ function LabSection() {
 														title={t("settings.labDisableAll")}
 													>
 														{t("settings.labDisableAll")}
+										</button>
+									</div>
+								{(() => {
+										const COLLAPSED_COUNT = 10;
+										const isExpanded = expandedModelGroups[providerId] ?? false;
+										const shouldCollapse = providerModels.length > COLLAPSED_COUNT;
+										// When collapsed, prioritize enabled models at the top
+										const sortedModels = shouldCollapse && !isExpanded
+											? [...providerModels].sort((a, b) => Number(a.disabled) - Number(b.disabled))
+											: providerModels;
+										const visibleModels = shouldCollapse && !isExpanded
+											? sortedModels.slice(0, COLLAPSED_COUNT)
+											: sortedModels;
+										return (
+											<>
+												{shouldCollapse && (
+													<button
+														type="button"
+														onClick={() =>
+															setExpandedModelGroups((prev) => ({
+																...prev,
+																[providerId]: !isExpanded,
+															}))
+														}
+														className="flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground transition-colors cursor-pointer select-none mb-1"
+													>
+										{isExpanded ? (
+														<>
+															<ChevronRight className="h-3 w-3 transition-transform rotate-90" />
+															{t("settings.labCollapseModels")}
+														</>
+													) : (
+														<>
+															<ChevronRight className="h-3 w-3 transition-transform" />
+															{t("settings.labShowAllModels", { count: providerModels.length })}
+															</>
+														)}
 													</button>
-												</div>
+												)}
 												<div className="flex flex-wrap gap-1.5">
-													{providerModels.map((model) => (
+													{visibleModels.map((model) => (
 														<button
 															key={model.id}
 															type="button"
@@ -5188,6 +5525,9 @@ function LabSection() {
 														</button>
 													))}
 												</div>
+											</>
+										);
+									})()}
 											</div>
 										);
 									},
@@ -5240,6 +5580,438 @@ function LabSection() {
 							</div>
 						</>
 					)}
+				</>
+			)}
+
+			{/* ── ACP Proxy ──────────────────────────────────────── */}
+			<Separator className="my-6" />
+
+			<div>
+				<h3 className="text-sm font-semibold">{t("settings.acpProxyTitle")}</h3>
+				<p className="text-[11px] text-muted-foreground mt-1">
+					{t("settings.acpProxyDesc")}
+				</p>
+				<div className="flex items-center gap-3 mt-3">
+					<button
+						type="button"
+						onClick={handleAcpToggle}
+						disabled={acpLoading || acpInitializing}
+						className={cn(
+							"relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors",
+							acpInitializing
+								? "bg-muted-foreground/20 animate-pulse"
+								: acpConfig?.enabled
+									? "bg-primary"
+									: "bg-muted-foreground/30",
+						)}
+					>
+						<span
+							className={cn(
+								"pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow-sm transition-transform",
+								acpConfig?.enabled ? "translate-x-4" : "translate-x-0",
+							)}
+						/>
+					</button>
+					<span className="text-xs font-medium">
+						{acpInitializing
+							? t("settings.acpProxyLoading")
+							: t("settings.acpProxyEnabled")}
+					</span>
+				</div>
+			</div>
+
+			{/* ACP Error display */}
+			{acpError && (
+				<div className="rounded-md border border-destructive/30 bg-destructive/5 p-2 text-xs text-destructive">
+					{acpError}
+				</div>
+			)}
+
+			{acpConfig?.enabled && (
+				<>
+					{/* Proxy Status */}
+					<div className="flex items-center gap-2 rounded-md border p-2.5 text-xs">
+						<div
+							className={cn(
+								"h-2 w-2 rounded-full",
+								acpStatus?.running
+									? "bg-green-500"
+									: acpStatus?.starting
+										? "bg-yellow-500 animate-pulse"
+										: "bg-red-500",
+							)}
+						/>
+						<span className="font-medium">
+							{acpStatus?.running
+								? t("settings.acpProxyRunning")
+								: acpStatus?.starting
+									? t("settings.acpProxyStarting")
+									: t("settings.acpProxyStopped")}
+						</span>
+						{acpStatus?.running && (
+							<span className="text-muted-foreground">
+								{acpStatus.listenAddr}:{acpStatus.port} ·{" "}
+								{acpStatus.workerCount} {t("settings.acpWorkers")}
+								{acpStatus.queueSize > 0 &&
+									` · ${acpStatus.queueSize} ${t("settings.acpQueued")}`}
+							</span>
+						)}
+					</div>
+
+					<Separator />
+
+					{/* Agent Selection */}
+					<div>
+						<h4 className="text-sm font-medium mb-1">
+							{t("settings.acpAgent")}
+						</h4>
+						<p className="text-[11px] text-muted-foreground mb-2">
+							{t("settings.acpAgentHint")}
+						</p>
+						<div className="flex flex-wrap gap-1.5">
+							{acpAgents.map((agent) => (
+								<button
+									key={agent.name}
+									type="button"
+									onClick={() => handleAcpAgentChange(agent.name)}
+									className={cn(
+										"px-2.5 py-1 rounded-md text-xs border transition-all cursor-pointer select-none",
+										acpConfig.agentName === agent.name
+											? "border-primary/60 bg-primary/10 text-primary font-medium"
+											: "border-border hover:border-muted-foreground/30",
+									)}
+								>
+									{agent.title || agent.name}
+								</button>
+							))}
+							{acpAgents.length === 0 && (
+								<p className="text-xs text-muted-foreground italic">
+									{t("settings.acpNoAgents")}
+								</p>
+							)}
+						</div>
+					</div>
+
+					{/* Mode & Model Selection (from agent config options) */}
+					{acpConfig.agentName && acpConfigOptions.length > 0 && (
+						<div className="flex flex-wrap items-center gap-3 mt-2">
+							{acpConfigOptions.map((opt) => {
+								const category = opt.category ?? "other";
+								const currentValue =
+									category === "mode"
+										? acpConfig.modeValue
+										: category === "model"
+											? acpConfig.modelValue
+											: "";
+								const displayLabel =
+									category === "mode"
+										? t("settings.acpMode")
+										: category === "model"
+											? t("settings.acpModel")
+											: opt.name;
+								return (
+									<div key={opt.id} className="flex flex-col gap-1">
+										<span className="text-[10px] text-muted-foreground font-medium">
+											{displayLabel}
+										</span>
+										{category === "model" && (
+											<p className="text-[9px] text-muted-foreground/70 italic -mt-0.5">
+												{t("settings.acpModelMayNotApply")}
+											</p>
+										)}
+										<div className="flex flex-wrap gap-1">
+											{opt.options.map((o) => (
+												<button
+													key={o.value}
+													type="button"
+													onClick={() =>
+														handleAcpConfigOptionChange(
+															category,
+															opt.id,
+															o.value,
+														)
+													}
+													className={cn(
+														"px-2 py-0.5 rounded text-xs border transition-all cursor-pointer select-none",
+														(currentValue || opt.current_value) === o.value
+															? "border-primary/60 bg-primary/10 text-primary font-medium"
+															: "border-border hover:border-muted-foreground/30",
+													)}
+												>
+													{o.name}
+												</button>
+											))}
+										</div>
+									</div>
+								);
+							})}
+						</div>
+					)}
+					{acpConfig.agentName && acpConfigOptionsLoading && (
+						<p className="text-[10px] text-muted-foreground italic mt-1">
+							{t("settings.acpLoadingOptions")}
+						</p>
+					)}
+
+					<Separator />
+
+					{/* Worker Count */}
+					<div className="flex items-center justify-between">
+						<div>
+							<span className="text-xs font-medium">
+								{t("settings.acpWorkerCount")}
+							</span>
+							<p className="text-[10px] text-muted-foreground">
+								{t("settings.acpWorkerCountHint")}
+							</p>
+						</div>
+						{acpEditingWorkers ? (
+							<div className="flex items-center gap-1.5">
+								<input
+									type="number"
+									min={1}
+									value={acpWorkersValue}
+									onChange={(e) => setAcpWorkersValue(e.target.value)}
+									onKeyDown={(e) => e.key === "Enter" && handleAcpSaveWorkers()}
+									className="w-16 h-7 rounded-md border bg-background px-2 text-xs"
+									autoFocus
+								/>
+								<Button
+									size="sm"
+									variant="ghost"
+									onClick={handleAcpSaveWorkers}
+									className="h-7 px-2"
+								>
+									<Check className="h-3 w-3" />
+								</Button>
+								<Button
+									size="sm"
+									variant="ghost"
+									onClick={() => setAcpEditingWorkers(false)}
+									className="h-7 px-2"
+								>
+									<X className="h-3 w-3" />
+								</Button>
+							</div>
+						) : (
+							<button
+								type="button"
+								onClick={() => {
+									setAcpWorkersValue(String(acpConfig.workerCount));
+									setAcpEditingWorkers(true);
+								}}
+								className="text-xs text-primary hover:underline cursor-pointer"
+							>
+								{acpConfig.workerCount}
+							</button>
+						)}
+					</div>
+
+					{/* Port */}
+					<div className="flex items-center justify-between">
+						<span className="text-xs font-medium">{t("settings.acpPort")}</span>
+						{acpEditingPort ? (
+							<div className="flex items-center gap-1.5">
+								<input
+									type="number"
+									min={1024}
+									max={65535}
+									value={acpPortValue}
+									onChange={(e) => setAcpPortValue(e.target.value)}
+									onKeyDown={(e) => e.key === "Enter" && handleAcpSavePort()}
+									className="w-20 h-7 rounded-md border bg-background px-2 text-xs"
+									autoFocus
+								/>
+								<Button
+									size="sm"
+									variant="ghost"
+									onClick={handleAcpSavePort}
+									className="h-7 px-2"
+								>
+									<Check className="h-3 w-3" />
+								</Button>
+								<Button
+									size="sm"
+									variant="ghost"
+									onClick={() => setAcpEditingPort(false)}
+									className="h-7 px-2"
+								>
+									<X className="h-3 w-3" />
+								</Button>
+							</div>
+						) : (
+							<button
+								type="button"
+								onClick={() => {
+									setAcpPortValue(String(acpConfig.port));
+									setAcpEditingPort(true);
+								}}
+								className="text-xs text-primary hover:underline cursor-pointer"
+							>
+								{acpConfig.port}
+							</button>
+						)}
+					</div>
+
+					{/* LAN Access */}
+					<div className="flex items-center justify-between">
+						<span className="text-xs font-medium">
+							{t("settings.acpLanAccess")}
+						</span>
+						<button
+							type="button"
+							onClick={handleAcpLanToggle}
+							className={cn(
+								"relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors",
+								acpConfig.lanAccess ? "bg-primary" : "bg-muted-foreground/30",
+							)}
+						>
+							<span
+								className={cn(
+									"pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow-sm transition-transform",
+									acpConfig.lanAccess ? "translate-x-4" : "translate-x-0",
+								)}
+							/>
+						</button>
+					</div>
+
+					{/* Access Token */}
+					<div className="flex items-center justify-between">
+						<div>
+							<span className="text-xs font-medium">
+								{t("settings.acpAccessToken")}
+							</span>
+							<p className="text-[10px] text-muted-foreground">
+								{t("settings.acpAccessTokenHint")}
+							</p>
+						</div>
+						{acpEditingToken ? (
+							<div className="flex items-center gap-1.5">
+								<input
+									type="password"
+									value={acpTokenValue}
+									onChange={(e) => setAcpTokenValue(e.target.value)}
+									onKeyDown={(e) => e.key === "Enter" && handleAcpSaveToken()}
+									placeholder={t("settings.acpTokenPlaceholder")}
+									className="w-40 h-7 rounded-md border bg-background px-2 text-xs"
+									autoFocus
+								/>
+								<Button
+									size="sm"
+									variant="ghost"
+									onClick={handleAcpSaveToken}
+									className="h-7 px-2"
+								>
+									<Check className="h-3 w-3" />
+								</Button>
+								<Button
+									size="sm"
+									variant="ghost"
+									onClick={() => setAcpEditingToken(false)}
+									className="h-7 px-2"
+								>
+									<X className="h-3 w-3" />
+								</Button>
+							</div>
+						) : (
+							<button
+								type="button"
+								onClick={() => {
+									setAcpTokenValue(acpConfig.accessToken);
+									setAcpEditingToken(true);
+								}}
+								className="text-xs text-primary hover:underline cursor-pointer"
+							>
+								{acpConfig.accessToken
+									? t("settings.acpTokenSet")
+									: t("settings.acpTokenEmpty")}
+							</button>
+						)}
+					</div>
+
+					{/* Worker Status (when running) */}
+					{acpStatus?.running && acpStatus.workers.length > 0 && (
+						<>
+							<Separator />
+							<div className="space-y-2">
+								<h4 className="text-sm font-medium">
+									{t("settings.acpWorkerStatus")}
+								</h4>
+								<div className="space-y-1">
+									{acpStatus.workers.map((w) => (
+										<div
+											key={w.index}
+											className="flex items-center justify-between text-xs rounded-md border px-2 py-1.5"
+										>
+											<div className="flex items-center gap-2">
+												<span>{acpWorkerStatusIcon(w.status)}</span>
+												<span>Worker {w.index + 1}</span>
+											</div>
+											<span className="text-muted-foreground">
+												{acpWorkerStatusLabel(w.status)}
+											</span>
+										</div>
+									))}
+								</div>
+								{acpStatus.queueSize > 0 && (
+									<p className="text-[10px] text-muted-foreground">
+										{t("settings.acpQueueWaiting", {
+											count: acpStatus.queueSize,
+										})}
+									</p>
+								)}
+							</div>
+						</>
+					)}
+
+					{/* Proxy URL display */}
+					{acpStatus?.running && (
+						<>
+							<Separator />
+							<div className="rounded-md border bg-muted/30 p-2.5">
+								<p className="text-[10px] text-muted-foreground mb-1">
+									{t("settings.acpEndpoint")}
+								</p>
+								<code className="text-xs font-mono">
+									http://
+									{acpStatus.listenAddr === "0.0.0.0"
+										? "127.0.0.1"
+										: acpStatus.listenAddr}
+									:{acpStatus.port}/v1
+								</code>
+							</div>
+						</>
+					)}
+
+					{/* Start / Stop buttons */}
+					<div className="flex items-center gap-2">
+						{!acpStatus?.running ? (
+							<Button
+								size="sm"
+								onClick={acpStart}
+								disabled={acpLoading || !acpConfig.agentName}
+								className="h-7 text-xs"
+							>
+								{acpLoading && (
+									<Loader2 className="mr-1 h-3 w-3 animate-spin" />
+								)}
+								{t("settings.acpStart")}
+							</Button>
+						) : (
+							<Button
+								size="sm"
+								variant="outline"
+								onClick={acpStop}
+								disabled={acpLoading}
+								className="h-7 text-xs"
+							>
+								{acpLoading && (
+									<Loader2 className="mr-1 h-3 w-3 animate-spin" />
+								)}
+								{t("settings.acpStop")}
+							</Button>
+						)}
+					</div>
 				</>
 			)}
 		</div>

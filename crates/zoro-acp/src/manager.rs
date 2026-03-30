@@ -13,7 +13,7 @@ use agent_client_protocol::{
     ProtocolVersion, RequestPermissionOutcome, RequestPermissionRequest, RequestPermissionResponse,
     SelectedPermissionOutcome, SessionConfigKind, SessionConfigOption, SessionConfigOptionCategory,
     SessionConfigSelectOptions, SessionNotification, SessionUpdate, SetSessionConfigOptionRequest,
-    StopReason, TextContent, ToolCallContent,
+    SetSessionModeRequest, SetSessionModelRequest, StopReason, TextContent, ToolCallContent,
 };
 use tokio::sync::{mpsc, oneshot, Mutex};
 use tokio_util::compat::{TokioAsyncReadCompatExt, TokioAsyncWriteCompatExt};
@@ -35,6 +35,8 @@ pub enum AgentUpdate {
         tool_call_id: String,
         title: String,
         status: String,
+        raw_input: Option<String>,
+        raw_output: Option<String>,
     },
     #[serde(rename = "tool_call_update")]
     ToolCallUpdate {
@@ -42,6 +44,8 @@ pub enum AgentUpdate {
         tool_call_id: String,
         status: String,
         content_text: Option<String>,
+        raw_input: Option<String>,
+        raw_output: Option<String>,
     },
     #[serde(rename = "plan")]
     Plan {
@@ -439,14 +443,99 @@ async fn spawn_agent_connection(
 
     let session_id = session_response.session_id.to_string();
 
+    // Collect all config options from different sources:
+    // 1. config_options (generic ACP config)
+    // 2. modes (session mode state) -> converted to ConfigOptionInfo
+    // 3. models (session model state, unstable) -> converted to ConfigOptionInfo
+    let mut all_config_options: Vec<ConfigOptionInfo> = Vec::new();
+
     if let Some(ref opts) = session_response.config_options {
-        let converted = convert_config_options(opts);
-        if !converted.is_empty() {
-            (on_update)(AgentUpdate::ConfigOptions {
-                session_id: session_id.clone(),
-                config_options: converted,
-            });
+        all_config_options.extend(convert_config_options(opts));
+    }
+
+    // Convert modes -> ConfigOptionInfo with category "mode"
+    // Skip if config_options already contains a "mode" category entry (avoid duplicates)
+    let has_mode = all_config_options
+        .iter()
+        .any(|o| o.category.as_deref() == Some("mode"));
+    if !has_mode {
+        if let Some(ref mode_state) = session_response.modes {
+            tracing::info!(
+                current_mode_id = %mode_state.current_mode_id,
+                available_count = mode_state.available_modes.len(),
+                "ACP session modes received"
+            );
+            for m in &mode_state.available_modes {
+                tracing::info!(
+                    mode_id = %m.id,
+                    name = %m.name,
+                    "ACP available mode"
+                );
+            }
+            let mode_option = ConfigOptionInfo {
+                id: "mode".to_string(),
+                name: "Mode".to_string(),
+                description: None,
+                category: Some("mode".to_string()),
+                current_value: mode_state.current_mode_id.to_string(),
+                options: mode_state
+                    .available_modes
+                    .iter()
+                    .map(|m| ConfigOptionValue {
+                        value: m.id.to_string(),
+                        name: m.name.clone(),
+                        description: m.description.clone(),
+                    })
+                    .collect(),
+            };
+            all_config_options.push(mode_option);
         }
+    } // !has_mode
+
+    // Convert models -> ConfigOptionInfo with category "model"
+    // Skip if config_options already contains a "model" category entry (avoid duplicates)
+    let has_model = all_config_options
+        .iter()
+        .any(|o| o.category.as_deref() == Some("model"));
+    if !has_model {
+        if let Some(ref model_state) = session_response.models {
+            tracing::info!(
+                current_model_id = %model_state.current_model_id,
+                available_count = model_state.available_models.len(),
+                "ACP session models received"
+            );
+            for m in &model_state.available_models {
+                tracing::info!(
+                    model_id = %m.model_id,
+                    name = %m.name,
+                    "ACP available model"
+                );
+            }
+            let model_option = ConfigOptionInfo {
+                id: "model".to_string(),
+                name: "Model".to_string(),
+                description: None,
+                category: Some("model".to_string()),
+                current_value: model_state.current_model_id.to_string(),
+                options: model_state
+                    .available_models
+                    .iter()
+                    .map(|m| ConfigOptionValue {
+                        value: m.model_id.to_string(),
+                        name: m.name.clone(),
+                        description: m.description.clone(),
+                    })
+                    .collect(),
+            };
+            all_config_options.push(model_option);
+        }
+    } // !has_model
+
+    if !all_config_options.is_empty() {
+        (on_update)(AgentUpdate::ConfigOptions {
+            session_id: session_id.clone(),
+            config_options: all_config_options,
+        });
     }
 
     Ok((session_id, connection))
@@ -498,13 +587,76 @@ async fn run_command_loop(
                 value,
                 reply,
             } => {
-                let request =
-                    SetSessionConfigOptionRequest::new(session_id.to_owned(), config_id, value);
-                let result = connection
-                    .set_session_config_option(request)
-                    .await
-                    .map(|r| convert_config_options(&r.config_options))
-                    .map_err(|e| AcpError::Protocol(format!("set_config_option failed: {}", e)));
+                // Route to the appropriate ACP method based on config_id:
+                // - "mode" -> session/set_mode
+                // - "model" -> session/set_model (unstable)
+                // - anything else -> session/set_config_option
+                tracing::info!(
+                    session_id = %session_id,
+                    config_id = %config_id,
+                    value = %value,
+                    "ACP set_config_option dispatching"
+                );
+                let result = if config_id == "mode" {
+                    tracing::info!(
+                        session_id = %session_id,
+                        mode_id = %value,
+                        "ACP calling set_session_mode"
+                    );
+                    let request = SetSessionModeRequest::new(session_id.to_owned(), value);
+                    connection
+                        .set_session_mode(request)
+                        .await
+                        .map(|_| Vec::new())
+                        .map_err(|e| {
+                            tracing::error!(
+                                session_id = %session_id,
+                                error = %e,
+                                "ACP set_session_mode failed"
+                            );
+                            AcpError::Protocol(format!("set_session_mode failed: {}", e))
+                        })
+                } else if config_id == "model" {
+                    tracing::info!(
+                        session_id = %session_id,
+                        model_id = %value,
+                        "ACP calling set_session_model"
+                    );
+                    let request = SetSessionModelRequest::new(session_id.to_owned(), value);
+                    match connection.set_session_model(request).await {
+                        Ok(_resp) => {
+                            tracing::info!(
+                                session_id = %session_id,
+                                "ACP set_session_model succeeded"
+                            );
+                            Ok(Vec::new())
+                        }
+                        Err(e) => {
+                            // Some agents (e.g. OpenCode) don't support dynamic
+                            // model switching via ACP. Treat this as non-fatal:
+                            // the agent will use its own default model instead.
+                            tracing::warn!(
+                                session_id = %session_id,
+                                error = %e,
+                                "ACP set_session_model failed (non-fatal) — agent will use its default model"
+                            );
+                            Ok(Vec::new())
+                        }
+                    }
+                } else {
+                    tracing::info!(
+                        session_id = %session_id,
+                        config_id = %config_id,
+                        "ACP calling set_session_config_option (generic)"
+                    );
+                    let request =
+                        SetSessionConfigOptionRequest::new(session_id.to_owned(), config_id, value);
+                    connection
+                        .set_session_config_option(request)
+                        .await
+                        .map(|r| convert_config_options(&r.config_options))
+                        .map_err(|e| AcpError::Protocol(format!("set_config_option failed: {}", e)))
+                };
                 let _ = reply.send(result);
             }
             AgentCommand::Stop => {
@@ -573,11 +725,54 @@ impl agent_client_protocol::Client for AcpClient {
             }
             SessionUpdate::ToolCall(tc) => {
                 let status = format!("{:?}", tc.status);
+                tracing::debug!(
+                    "ACP ToolCall id={} title={:?} status={} content_len={} raw_input={:?} raw_output={:?}",
+                    tc.tool_call_id, tc.title, status, tc.content.len(), tc.raw_input, tc.raw_output
+                );
+                for (i, block) in tc.content.iter().enumerate() {
+                    tracing::debug!("  content[{}]: {:?}", i, block);
+                }
+                // Collect all text from content blocks
+                let content_texts: Vec<String> = tc
+                    .content
+                    .iter()
+                    .filter_map(|b| match b {
+                        ToolCallContent::Content(c) => {
+                            if let ContentBlock::Text(t) = &c.content {
+                                Some(t.text.clone())
+                            } else {
+                                None
+                            }
+                        }
+                        _ => None,
+                    })
+                    .collect();
+                let content_text = if content_texts.is_empty() {
+                    None
+                } else {
+                    Some(content_texts.join("\n"))
+                };
+                // raw_input: use SDK value, filter out empty "{}"
+                let raw_input_json = tc
+                    .raw_input
+                    .map(|v| serde_json::to_string(&v).unwrap_or_default());
+                let raw_input = match raw_input_json.as_deref() {
+                    Some("{}") | Some("null") => content_text.clone(),
+                    None => content_text.clone(),
+                    _ => raw_input_json,
+                };
+                // raw_output: use SDK value, or fall back to content_text
+                let raw_output_json = tc
+                    .raw_output
+                    .map(|v| serde_json::to_string(&v).unwrap_or_default());
+                let raw_output = raw_output_json.or(content_text);
                 (self.on_update)(AgentUpdate::ToolCall {
                     session_id,
                     tool_call_id: tc.tool_call_id.to_string(),
                     title: tc.title,
                     status,
+                    raw_input,
+                    raw_output,
                 });
             }
             SessionUpdate::ToolCallUpdate(tcu) => {
@@ -586,23 +781,62 @@ impl agent_client_protocol::Client for AcpClient {
                     .status
                     .map(|s| format!("{:?}", s))
                     .unwrap_or_default();
-                let content_text = tcu.fields.content.and_then(|blocks: Vec<ToolCallContent>| {
-                    blocks.into_iter().find_map(|b| match b {
-                        ToolCallContent::Content(c) => {
-                            if let ContentBlock::Text(t) = c.content {
-                                Some(t.text)
-                            } else {
+                tracing::debug!(
+                    "ACP ToolCallUpdate id={} status={} content={:?} raw_input={:?} raw_output={:?}",
+                    tcu.tool_call_id, status, tcu.fields.content.as_ref().map(|c| c.len()), tcu.fields.raw_input, tcu.fields.raw_output
+                );
+                if let Some(ref blocks) = tcu.fields.content {
+                    for (i, block) in blocks.iter().enumerate() {
+                        tracing::debug!("  update content[{}]: {:?}", i, block);
+                    }
+                }
+                // Collect all text from content blocks
+                let content_text =
+                    tcu.fields
+                        .content
+                        .as_ref()
+                        .and_then(|blocks: &Vec<ToolCallContent>| {
+                            let texts: Vec<String> = blocks
+                                .iter()
+                                .filter_map(|b| match b {
+                                    ToolCallContent::Content(c) => {
+                                        if let ContentBlock::Text(t) = &c.content {
+                                            Some(t.text.clone())
+                                        } else {
+                                            None
+                                        }
+                                    }
+                                    _ => None,
+                                })
+                                .collect();
+                            if texts.is_empty() {
                                 None
+                            } else {
+                                Some(texts.join("\n"))
                             }
-                        }
-                        _ => None,
-                    })
-                });
+                        });
+                // raw_input: filter empty values
+                let raw_input_json = tcu
+                    .fields
+                    .raw_input
+                    .map(|v| serde_json::to_string(&v).unwrap_or_default());
+                let raw_input = match raw_input_json.as_deref() {
+                    Some("{}") | Some("null") => None,
+                    _ => raw_input_json,
+                };
+                // raw_output: use SDK value, or fall back to content_text
+                let raw_output_json = tcu
+                    .fields
+                    .raw_output
+                    .map(|v| serde_json::to_string(&v).unwrap_or_default());
+                let raw_output = raw_output_json.or(content_text.clone());
                 (self.on_update)(AgentUpdate::ToolCallUpdate {
                     session_id,
                     tool_call_id: tcu.tool_call_id.to_string(),
                     status,
                     content_text,
+                    raw_input,
+                    raw_output,
                 });
             }
             SessionUpdate::Plan(plan) => {
@@ -627,6 +861,26 @@ impl agent_client_protocol::Client for AcpClient {
                         config_options: converted,
                     });
                 }
+            }
+            SessionUpdate::CurrentModeUpdate(mode_update) => {
+                // When the agent notifies us of a mode change, emit a
+                // ConfigOptions update so the frontend can refresh the
+                // current mode indicator.
+                tracing::info!("ACP mode changed to: {}", mode_update.current_mode_id);
+                // We only know the new current_mode_id here; the full list
+                // of available modes is not re-sent. Emit a minimal update
+                // so the frontend can at least update the selected value.
+                (self.on_update)(AgentUpdate::ConfigOptions {
+                    session_id,
+                    config_options: vec![ConfigOptionInfo {
+                        id: "mode".to_string(),
+                        name: "Mode".to_string(),
+                        description: None,
+                        category: Some("mode".to_string()),
+                        current_value: mode_update.current_mode_id.to_string(),
+                        options: Vec::new(),
+                    }],
+                });
             }
             _ => {
                 tracing::debug!("Unhandled ACP session update for {}", session_id);

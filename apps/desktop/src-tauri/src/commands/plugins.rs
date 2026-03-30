@@ -237,6 +237,19 @@ pub async fn plugin_ai_chat(
         return Err("No model configured. Please set a model in Settings → AI.".into());
     }
 
+    // Resolve provider-specific base_url/api_key for special models (e.g. ACP Proxy)
+    let resolved = config.ai.resolve_for_model(&model);
+    let base_url = if resolved.base_url != config.ai.base_url && !resolved.base_url.is_empty() {
+        resolved.base_url
+    } else {
+        base_url
+    };
+    let api_key = if resolved.api_key != config.ai.api_key && !resolved.api_key.is_empty() {
+        resolved.api_key
+    } else {
+        api_key
+    };
+
     let temperature = input.temperature.unwrap_or(0.7);
 
     // Build API messages
@@ -305,6 +318,19 @@ pub async fn plugin_ai_chat_stream(
     if model.is_empty() {
         return Err("No model configured. Please set a model in Settings → AI.".into());
     }
+
+    // Resolve provider-specific base_url/api_key for special models (e.g. ACP Proxy)
+    let resolved = config.ai.resolve_for_model(&model);
+    let base_url = if resolved.base_url != config.ai.base_url && !resolved.base_url.is_empty() {
+        resolved.base_url
+    } else {
+        base_url
+    };
+    let api_key = if resolved.api_key != config.ai.api_key && !resolved.api_key.is_empty() {
+        resolved.api_key
+    } else {
+        api_key
+    };
 
     // Build API messages as serde_json::Value for the streaming client
     let mut api_messages: Vec<serde_json::Value> = Vec::new();

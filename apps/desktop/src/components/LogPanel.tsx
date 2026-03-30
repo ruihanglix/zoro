@@ -9,7 +9,7 @@ import type { LogEntry } from "@/lib/commands";
 import * as commands from "@/lib/commands";
 import { cn } from "@/lib/utils";
 import { listen } from "@tauri-apps/api/event";
-import { ChevronDown, ChevronUp, Trash2 } from "lucide-react";
+import { Check, ChevronDown, ChevronUp, ClipboardCopy, Trash2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 
@@ -78,12 +78,30 @@ export function LogPanel() {
 		autoScrollRef.current = atBottom;
 	};
 
+	const [copied, setCopied] = useState(false);
+
 	const handleClear = async () => {
 		try {
 			await commands.clearLogs();
 			setLogs([]);
 		} catch (err) {
 			console.error("Failed to clear logs:", err);
+		}
+	};
+
+	const handleCopyAll = async () => {
+		const text = filteredLogs
+			.map(
+				(entry) =>
+					`${entry.timestamp} [${entry.level}] ${entry.target}: ${entry.message}`,
+			)
+			.join("\n");
+		try {
+			await navigator.clipboard.writeText(text);
+			setCopied(true);
+			setTimeout(() => setCopied(false), 2000);
+		} catch (err) {
+			console.error("Failed to copy logs:", err);
 		}
 	};
 
@@ -141,8 +159,21 @@ export function LogPanel() {
 						variant="ghost"
 						size="icon"
 						className="h-6 w-6"
+						onClick={handleCopyAll}
+						title={t("log.copyAll")}
+					>
+						{copied ? (
+							<Check className="h-3.5 w-3.5 text-green-500" />
+						) : (
+							<ClipboardCopy className="h-3.5 w-3.5" />
+						)}
+					</Button>
+					<Button
+						variant="ghost"
+						size="icon"
+						className="h-6 w-6"
 						onClick={handleClear}
-						title={t("common.clear")}
+						title={t("log.clear")}
 					>
 						<Trash2 className="h-3.5 w-3.5" />
 					</Button>

@@ -11,6 +11,7 @@ members = [
   "crates/zoro-plugins",
   "crates/zoro-llm-proxy",
   "crates/zoro-lab-freellm",
+  "crates/zoro-lab-acpproxy",
   "crates/zoro-storage",
   "crates/zoro-subscriptions",
   "crates/zoro-webdav",
@@ -49,4 +50,4 @@ base64 = "0.22"
 url = "2"
 futures = "0.3"
 portable-pty = "0.9"
-agent-client-protocol = "0.10"
+agent-client-protocol = { version = "0.10", features = ["unstable_session_model"] }

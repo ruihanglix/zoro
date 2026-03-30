@@ -324,6 +324,26 @@ impl AiConfig {
             return cfg;
         }
 
+        // Special case: ACP Proxy model — resolve to the local proxy server.
+        // The port is read from the ACP proxy config file in the data dir,
+        // but as a lightweight fallback we use the default port 29171.
+        if model == "Zoro-ACP-Proxy" {
+            // Check providers first (the virtual provider may have been persisted)
+            for p in &self.providers {
+                if p.id == "__acp_proxy__" || p.models.contains(&model.to_string()) {
+                    if !p.base_url.is_empty() {
+                        cfg.base_url = p.base_url.clone();
+                    }
+                    cfg.api_key = "acp-proxy".to_string();
+                    return cfg;
+                }
+            }
+            // Fallback to default port
+            cfg.base_url = "http://127.0.0.1:29171/v1".to_string();
+            cfg.api_key = "acp-proxy".to_string();
+            return cfg;
+        }
+
         // Check if this model belongs to an additional provider
         for p in &self.providers {
             if p.models.contains(&model.to_string()) {

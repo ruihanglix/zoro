@@ -265,7 +265,7 @@ pub async fn chat_send_message(
     }
 
     // Resolve provider: use explicit provider_id if given, else fall back to default
-    let (base_url, api_key, default_model) = match &input.provider_id {
+    let (mut base_url, mut api_key, default_model) = match &input.provider_id {
         Some(pid) if pid != "default" => {
             let p = config
                 .ai
@@ -290,13 +290,21 @@ pub async fn chat_send_message(
         ),
     };
 
-    if base_url.is_empty() {
-        return Err("Selected provider has no base URL configured.".into());
-    }
-
     let model = input.model.unwrap_or(default_model);
     if model.is_empty() {
         return Err("No model configured. Please set a model in Settings → AI.".into());
+    }
+
+    // Resolve provider-specific base_url/api_key for special models
+    // (e.g. Zoro-ACP-Proxy routes to the local ACP proxy server)
+    let resolved = config.ai.resolve_for_model(&model);
+    if resolved.base_url != config.ai.base_url && !resolved.base_url.is_empty() {
+        base_url = resolved.base_url;
+        api_key = resolved.api_key;
+    }
+
+    if base_url.is_empty() {
+        return Err("Selected provider has no base URL configured.".into());
     }
 
     // Build system prompt with paper context

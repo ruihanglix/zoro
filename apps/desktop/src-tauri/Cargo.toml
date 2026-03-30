@@ -14,6 +14,7 @@ zoro-ai = { path = "../../../crates/zoro-ai" }
 zoro-arxiv = { path = "../../../crates/zoro-arxiv" }
 zoro-core = { path = "../../../crates/zoro-core" }
 zoro-lab-freellm = { path = "../../../crates/zoro-lab-freellm" }
+zoro-lab-acpproxy = { path = "../../../crates/zoro-lab-acpproxy" }
 zoro-llm-proxy = { path = "../../../crates/zoro-llm-proxy" }
 zoro-db = { path = "../../../crates/zoro-db" }
 zoro-metadata = { path = "../../../crates/zoro-metadata" }

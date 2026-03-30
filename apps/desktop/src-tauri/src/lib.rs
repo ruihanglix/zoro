@@ -177,6 +177,14 @@ pub fn run() {
             };
             app.manage(lab_state);
 
+            // Initialize ACP Proxy state
+            let acp_proxy_state = commands::lab_acp::AcpProxyState::new(&data_dir);
+            let acp_proxy_enabled = {
+                let cfg = acp_proxy_state.config.blocking_lock();
+                cfg.enabled && !cfg.agent_name.is_empty()
+            };
+            app.manage(acp_proxy_state);
+
             // Initialize Plugin state
             let plugin_registry = zoro_plugins::PluginRegistry::new(data_dir.clone());
             app.manage(commands::plugins::PluginState {
@@ -243,6 +251,80 @@ pub fn run() {
                             tracing::error!(error = %e, "Failed to auto-start Lab LLM proxy");
                         }
                     }
+                });
+            }
+
+            // Auto-start ACP Proxy if enabled and agent is configured
+            if acp_proxy_enabled {
+                // Mark as starting so the frontend can show "starting" state
+                // instead of "disabled" while the proxy is being initialized.
+                {
+                    let proxy_state_ref = app.state::<commands::lab_acp::AcpProxyState>();
+                    *proxy_state_ref.starting.blocking_lock() = true;
+                }
+
+                let app_handle_acp = app.handle().clone();
+                tauri::async_runtime::spawn(async move {
+                    use tauri::Manager;
+                    let proxy_state = app_handle_acp.state::<commands::lab_acp::AcpProxyState>();
+                    let acp_state = app_handle_acp.state::<AcpState>();
+                    let config = proxy_state.config.lock().await.clone();
+
+                    // Find agent config
+                    let acp_config = zoro_acp::config::load_config(&acp_state.data_dir);
+                    let agent_config = match acp_config.agents.iter().find(|a| a.name == config.agent_name) {
+                        Some(c) => c.clone(),
+                        None => {
+                            tracing::error!(agent = %config.agent_name, "ACP Proxy: agent not found, skipping auto-start");
+                            *proxy_state.starting.lock().await = false;
+                            return;
+                        }
+                    };
+
+                    let mut config_overrides = Vec::new();
+                    if !config.mode_config_id.is_empty() && !config.mode_value.is_empty() {
+                        config_overrides.push((config.mode_config_id.clone(), config.mode_value.clone()));
+                    }
+                    if !config.model_config_id.is_empty() && !config.model_value.is_empty() {
+                        config_overrides.push((config.model_config_id.clone(), config.model_value.clone()));
+                    }
+                    let listen_addr = if config.lan_access { "0.0.0.0" } else { "127.0.0.1" };
+
+                    // Start worker pool
+                    let pool = match zoro_lab_acpproxy::WorkerPool::start(
+                        acp_state.manager.clone(),
+                        agent_config,
+                        config_overrides,
+                        config.worker_count,
+                    ).await {
+                        Ok(p) => std::sync::Arc::new(p),
+                        Err(e) => {
+                            tracing::error!(error = %e, "Failed to auto-start ACP Proxy worker pool");
+                            *proxy_state.starting.lock().await = false;
+                            return;
+                        }
+                    };
+
+                    *proxy_state.pool.lock().await = Some(pool.clone());
+
+                    // Start HTTP server
+                    match zoro_lab_acpproxy::AcpProxyServer::start(
+                        pool,
+                        listen_addr,
+                        config.port,
+                        config.access_token.clone(),
+                    ).await {
+                        Ok(server) => {
+                            tracing::info!(port = server.port(), "ACP Proxy auto-started");
+                            *proxy_state.server.lock().await = Some(server);
+                        }
+                        Err(e) => {
+                            tracing::error!(error = %e, "Failed to auto-start ACP Proxy server");
+                        }
+                    }
+
+                    // Clear starting flag
+                    *proxy_state.starting.lock().await = false;
                 });
             }
 
@@ -474,6 +556,17 @@ pub fn run() {
             commands::lab::lab_set_enabled,
             commands::lab::lab_set_proxy_port,
             commands::lab::lab_set_lan_access,
+            // Lab ACP Proxy
+            commands::lab_acp::acp_proxy_get_config,
+            commands::lab_acp::acp_proxy_update_config,
+            commands::lab_acp::acp_proxy_get_status,
+            commands::lab_acp::acp_proxy_start,
+            commands::lab_acp::acp_proxy_stop,
+            commands::lab_acp::acp_proxy_set_enabled,
+            commands::lab_acp::acp_proxy_apply_config_option,
+            commands::lab_acp::acp_proxy_fetch_config_options,
+            commands::lab_acp::acp_proxy_get_options_cache,
+            commands::lab_acp::acp_proxy_save_options_cache,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

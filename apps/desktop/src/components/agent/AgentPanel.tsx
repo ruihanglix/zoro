@@ -31,6 +31,7 @@ import {
 	Brain,
 	Check,
 	ChevronDown,
+	ChevronLeft,
 	ChevronRight,
 	EllipsisVertical,
 	FileText,
@@ -43,11 +44,12 @@ import {
 	MessageSquarePlus,
 	PanelLeft,
 	PanelLeftClose,
+	Pencil,
+	RefreshCw,
 	Send,
 	Settings,
 	Square,
 	Trash2,
-	Wrench,
 	X,
 	XCircle,
 } from "lucide-react";
@@ -68,7 +70,8 @@ export function AgentPanel({ cwd, paperId }: AgentPanelProps) {
 	const agents = useAgentStore((s) => s.agents);
 	const activeAgentName = useAgentStore((s) => s.activeAgentName);
 	const sessionId = useAgentStore((s) => s.sessionId);
-	const messages = useAgentStore((s) => s.messages);
+	const getActiveBranch = useAgentStore((s) => s.getActiveBranch);
+	const messageMap = useAgentStore((s) => s.messageMap);
 	const streaming = useAgentStore((s) => s.streaming);
 	const connecting = useAgentStore((s) => s.connecting);
 	const error = useAgentStore((s) => s.error);
@@ -92,7 +95,6 @@ export function AgentPanel({ cwd, paperId }: AgentPanelProps) {
 	const chatActivePreset = useAgentStore((s) => s.chatActivePreset);
 	const setChatActivePreset = useAgentStore((s) => s.setChatActivePreset);
 	const chatModel = useAgentStore((s) => s.chatModel);
-	const setChatModel = useAgentStore((s) => s.setChatModel);
 	const chatProviderId = useAgentStore((s) => s.chatProviderId);
 	const chatProviders = useAgentStore((s) => s.chatProviders);
 	const setChatProvider = useAgentStore((s) => s.setChatProvider);
@@ -192,9 +194,12 @@ export function AgentPanel({ cwd, paperId }: AgentPanelProps) {
 		}
 	}, []);
 
+	const messages = getActiveBranch();
+	const totalMessageCount = Object.keys(messageMap).length;
+
 	const prevMessageCount = useRef(0);
-	if (messages.length !== prevMessageCount.current) {
-		prevMessageCount.current = messages.length;
+	if (totalMessageCount !== prevMessageCount.current) {
+		prevMessageCount.current = totalMessageCount;
 		requestAnimationFrame(scrollToBottom);
 	}
 
@@ -268,7 +273,7 @@ export function AgentPanel({ cwd, paperId }: AgentPanelProps) {
 	const activeAgent = agents.find((a) => a.name === activeAgentName);
 
 	const chatArea = (
-		<div className="flex h-full w-full flex-col">
+		<div className="flex h-full w-full min-w-0 flex-col overflow-hidden">
 			{/* Header: Agent selector + session controls */}
 			<div className="px-4 py-3">
 				<div className="flex items-center gap-1.5">
@@ -329,7 +334,7 @@ export function AgentPanel({ cwd, paperId }: AgentPanelProps) {
 						</div>
 					)}
 
-<div className="relative flex-1 min-w-0">
+					<div className="relative flex-1 min-w-0">
 						<button
 							type="button"
 							className="flex w-full items-center justify-between rounded-md border px-3 py-1.5 text-sm hover:bg-accent/50 transition-colors"
@@ -590,10 +595,20 @@ export function AgentPanel({ cwd, paperId }: AgentPanelProps) {
 					</p>
 				</div>
 			) : messages.length > 0 ? (
-				<ScrollArea className="flex-1">
-					<div ref={scrollRef} className="flex flex-col gap-2 px-4 pb-4">
-						{messages.map((msg) => (
-							<MessageBubble key={msg.id} message={msg} />
+				<ScrollArea className="flex-1 min-w-0">
+					<div
+						ref={scrollRef}
+						className="flex flex-col gap-2 px-4 pb-4 overflow-hidden"
+					>
+						{messages.map((msg, idx) => (
+							<MessageBubble
+								key={msg.id}
+								message={msg}
+								isLastAgent={
+									msg.role === "agent" && idx === messages.length - 1
+								}
+								isStreaming={streaming}
+							/>
 						))}
 						{connecting && (
 							<div className="flex items-center gap-1.5 text-xs text-muted-foreground px-1 py-1">
@@ -734,11 +749,15 @@ export function AgentPanel({ cwd, paperId }: AgentPanelProps) {
 	);
 
 	if (!isGlobal) {
-		return <div className="flex h-full w-full bg-background">{chatArea}</div>;
+		return (
+			<div className="flex h-full w-full min-w-0 bg-background overflow-hidden">
+				{chatArea}
+			</div>
+		);
 	}
 
 	return (
-		<div className="flex h-full w-full bg-background">
+		<div className="flex h-full w-full min-w-0 bg-background overflow-hidden">
 			{sidebarOpen && (
 				<ChatSidebar
 					sessions={chatSessions}
@@ -1297,59 +1316,88 @@ function ChatSidebar({
 	);
 }
 
+// ── Branch navigation component ─────────────────────────────────────────────
+
+function BranchNavigator({ messageId }: { messageId: string }) {
+	const getSiblingInfo = useAgentStore((s) => s.getSiblingInfo);
+	const switchSibling = useAgentStore((s) => s.switchSibling);
+
+	const info = getSiblingInfo(messageId);
+	if (!info) return null;
+
+	return (
+		<div className="flex items-center gap-0.5 text-[10px] text-muted-foreground select-none">
+			<button
+				type="button"
+				className={cn(
+					"p-0.5 rounded transition-colors",
+					info.index > 0
+						? "hover:bg-accent hover:text-foreground cursor-pointer"
+						: "opacity-30 cursor-default",
+				)}
+				onClick={() => info.index > 0 && switchSibling(messageId, "prev")}
+				disabled={info.index <= 0}
+			>
+				<ChevronLeft className="h-3 w-3" />
+			</button>
+			<span className="tabular-nums px-0.5">
+				{info.index + 1}/{info.total}
+			</span>
+			<button
+				type="button"
+				className={cn(
+					"p-0.5 rounded transition-colors",
+					info.index < info.total - 1
+						? "hover:bg-accent hover:text-foreground cursor-pointer"
+						: "opacity-30 cursor-default",
+				)}
+				onClick={() =>
+					info.index < info.total - 1 && switchSibling(messageId, "next")
+				}
+				disabled={info.index >= info.total - 1}
+			>
+				<ChevronRight className="h-3 w-3" />
+			</button>
+		</div>
+	);
+}
+
 // ── Message bubble ──────────────────────────────────────────────────────────
 
-function MessageBubble({ message }: { message: ChatMessage }) {
+function MessageBubble({
+	message,
+	isLastAgent = false,
+	isStreaming = false,
+}: {
+	message: ChatMessage;
+	isLastAgent?: boolean;
+	isStreaming?: boolean;
+}) {
 	if (message.role === "user") {
-		return (
-			<div className="flex justify-end">
-				<div className="max-w-[85%] rounded-lg bg-primary px-3 py-2 text-primary-foreground">
-					{message.images && message.images.length > 0 && (
-						<div className="mb-2 flex flex-wrap gap-1">
-							{message.images.map((img) => (
-								<img
-									key={`user-img-${img.mimeType}-${img.base64Data.slice(0, 16)}`}
-									src={`data:${img.mimeType};base64,${img.base64Data}`}
-									alt="Attached"
-									className="h-20 w-auto rounded"
-								/>
-							))}
-						</div>
-					)}
-					<p className="text-sm whitespace-pre-wrap">{message.text}</p>
-				</div>
-			</div>
-		);
+		return <UserMessageBubble message={message} isStreaming={isStreaming} />;
 	}
 
 	if (message.role === "agent") {
+		// Skip empty agent messages (ghost bubbles from empty/whitespace-only text_chunk)
+		if ((!message.text || !message.text.trim()) && !isStreaming) return null;
 		return (
-			<div className="flex justify-start">
-				<div className="max-w-[85%] rounded-lg bg-muted px-3 py-2">
-					<div
-						className={cn(
-							"prose prose-sm dark:prose-invert max-w-none break-words",
-							"prose-p:my-1.5 prose-headings:my-2 prose-li:my-0.5",
-							"prose-pre:rounded-md prose-pre:bg-black/20 [&_pre]:overflow-x-auto [&_pre]:max-w-full",
-							"prose-code:bg-black/20 prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-code:text-[0.85em] prose-code:before:content-none prose-code:after:content-none",
-							"prose-blockquote:border-primary/40",
-							"prose-a:text-primary prose-a:no-underline hover:prose-a:underline",
-							"prose-ol:pl-4 prose-ul:pl-4",
-							"prose-img:rounded-md",
-						)}
-					>
-						<Markdown remarkPlugins={[remarkGfm]}>{message.text}</Markdown>
-					</div>
-				</div>
-			</div>
+			<AgentMessageBubble
+				message={message}
+				isLastAgent={isLastAgent}
+				isStreaming={isStreaming}
+			/>
 		);
 	}
 
 	if (message.role === "thought") {
+		// Skip empty/whitespace-only thought messages
+		if (!message.text || !message.text.trim()) return null;
 		return (
-			<div className="flex items-start gap-1.5 text-muted-foreground px-1">
+			<div className="flex items-start gap-1.5 text-muted-foreground px-1 min-w-0">
 				<Brain className="h-3.5 w-3.5 shrink-0 mt-0.5" />
-				<p className="text-xs italic whitespace-pre-wrap">{message.text}</p>
+				<p className="text-xs italic whitespace-pre-wrap break-words min-w-0">
+					{message.text}
+				</p>
 			</div>
 		);
 	}
@@ -1403,6 +1451,183 @@ function MessageBubble({ message }: { message: ChatMessage }) {
 	return null;
 }
 
+// ── User message bubble with edit support ────────────────────────────────────
+
+function UserMessageBubble({
+	message,
+	isStreaming,
+}: {
+	message: ChatMessage;
+	isStreaming: boolean;
+}) {
+	const [editing, setEditing] = useState(false);
+	const [editText, setEditText] = useState(message.text);
+	const editRef = useRef<HTMLTextAreaElement>(null);
+	const editAndRegenerate = useAgentStore((s) => s.editAndRegenerate);
+
+	const handleStartEdit = useCallback(() => {
+		setEditText(message.text);
+		setEditing(true);
+		requestAnimationFrame(() => {
+			if (editRef.current) {
+				editRef.current.focus();
+				editRef.current.style.height = "auto";
+				editRef.current.style.height = `${editRef.current.scrollHeight}px`;
+			}
+		});
+	}, [message.text]);
+
+	const handleCancelEdit = useCallback(() => {
+		setEditing(false);
+		setEditText(message.text);
+	}, [message.text]);
+
+	const handleSubmitEdit = useCallback(() => {
+		const trimmed = editText.trim();
+		if (!trimmed) return;
+		setEditing(false);
+		if (trimmed !== message.text) {
+			editAndRegenerate(message.id, trimmed, message.images);
+		}
+	}, [editText, message.id, message.text, message.images, editAndRegenerate]);
+
+	const handleEditKeyDown = useCallback(
+		(e: React.KeyboardEvent) => {
+			if (e.key === "Enter" && !e.shiftKey) {
+				e.preventDefault();
+				handleSubmitEdit();
+			}
+			if (e.key === "Escape") {
+				handleCancelEdit();
+			}
+		},
+		[handleSubmitEdit, handleCancelEdit],
+	);
+
+	if (editing) {
+		return (
+			<div className="flex justify-end">
+				<div className="max-w-[85%] w-full rounded-lg border-2 border-primary/50 bg-primary/5 px-3 py-2">
+					<textarea
+						ref={editRef}
+						className="w-full resize-none bg-transparent text-sm focus:outline-none min-h-[38px] max-h-[200px]"
+						value={editText}
+						onChange={(e) => {
+							setEditText(e.target.value);
+							const el = e.target;
+							el.style.height = "auto";
+							el.style.height = `${Math.min(el.scrollHeight, 200)}px`;
+						}}
+						onKeyDown={handleEditKeyDown}
+					/>
+					<div className="flex items-center justify-end gap-1.5 mt-1.5">
+						<Button
+							variant="ghost"
+							size="sm"
+							className="h-6 px-2 text-xs"
+							onClick={handleCancelEdit}
+						>
+							Cancel
+						</Button>
+						<Button
+							size="sm"
+							className="h-6 px-2 text-xs"
+							onClick={handleSubmitEdit}
+							disabled={!editText.trim()}
+						>
+							<Send className="h-3 w-3 mr-1" />
+							Submit & Regenerate
+						</Button>
+					</div>
+				</div>
+			</div>
+		);
+	}
+
+	return (
+		<div className="group flex flex-col items-end gap-1 min-w-0">
+			<div className="max-w-[85%] rounded-lg bg-primary px-3 py-2 text-primary-foreground">
+				{message.images && message.images.length > 0 && (
+					<div className="mb-2 flex flex-wrap gap-1">
+						{message.images.map((img) => (
+							<img
+								key={`user-img-${img.mimeType}-${img.base64Data.slice(0, 16)}`}
+								src={`data:${img.mimeType};base64,${img.base64Data}`}
+								alt="Attached"
+								className="h-20 w-auto rounded"
+							/>
+						))}
+					</div>
+				)}
+				<p className="text-sm whitespace-pre-wrap break-words">
+					{message.text}
+				</p>
+			</div>
+			<div className="flex items-center gap-1 h-5">
+				<BranchNavigator messageId={message.id} />
+				{!isStreaming && (
+					<button
+						type="button"
+						className="p-0.5 rounded text-muted-foreground opacity-0 group-hover:opacity-100 hover:bg-accent hover:text-foreground transition-all"
+						onClick={handleStartEdit}
+						title="Edit & regenerate"
+					>
+						<Pencil className="h-3 w-3" />
+					</button>
+				)}
+			</div>
+		</div>
+	);
+}
+
+// ── Agent message bubble with regenerate support ────────────────────────────
+
+function AgentMessageBubble({
+	message,
+	isLastAgent,
+	isStreaming,
+}: {
+	message: ChatMessage;
+	isLastAgent: boolean;
+	isStreaming: boolean;
+}) {
+	const regenerateLastResponse = useAgentStore((s) => s.regenerateLastResponse);
+
+	return (
+		<div className="group flex flex-col items-start gap-1 min-w-0">
+			<div className="max-w-[85%] rounded-lg bg-muted px-3 py-2">
+				<div
+					className={cn(
+						"prose prose-sm dark:prose-invert max-w-none break-words",
+						"prose-p:my-1.5 prose-headings:my-2 prose-li:my-0.5",
+						"prose-pre:rounded-md prose-pre:bg-black/20 [&_pre]:overflow-x-auto [&_pre]:max-w-full",
+						"prose-code:bg-black/20 prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-code:text-[0.85em] prose-code:before:content-none prose-code:after:content-none",
+						"prose-blockquote:border-primary/40",
+						"prose-a:text-primary prose-a:no-underline hover:prose-a:underline",
+						"prose-ol:pl-4 prose-ul:pl-4",
+						"prose-img:rounded-md",
+					)}
+				>
+					<Markdown remarkPlugins={[remarkGfm]}>{message.text}</Markdown>
+				</div>
+			</div>
+			<div className="flex items-center gap-1 h-5">
+				<BranchNavigator messageId={message.id} />
+				{isLastAgent && !isStreaming && (
+					<button
+						type="button"
+						className="p-0.5 rounded text-muted-foreground opacity-0 group-hover:opacity-100 hover:bg-accent hover:text-foreground transition-all"
+						onClick={regenerateLastResponse}
+						title="Regenerate response"
+					>
+						<RefreshCw className="h-3 w-3" />
+					</button>
+				)}
+			</div>
+		</div>
+	);
+}
+
 // ── Tool call bubble with expandable details + confirmation ─────────────────
 
 function ToolCallBubble({ message }: { message: ChatMessage }) {
@@ -1410,45 +1635,50 @@ function ToolCallBubble({ message }: { message: ChatMessage }) {
 	const confirmTool = useAgentStore((s) => s.confirmTool);
 
 	const isPending = message.toolStatus === "pending_confirmation";
+	const isCompleted = message.toolStatus === "completed";
+	const isError = message.toolStatus === "error";
 	const hasDetails = message.toolArguments || message.toolResult;
 
-	const statusIcon =
-		message.toolStatus === "completed" ? (
-			<Check className="h-3 w-3 text-green-500" />
-		) : message.toolStatus === "error" ? (
-			<XCircle className="h-3 w-3 text-destructive" />
-		) : isPending ? (
-			<span className="h-3 w-3 rounded-full border-2 border-amber-500 shrink-0" />
-		) : (
-			<Loader2 className="h-3 w-3 animate-spin" />
-		);
+	const statusIcon = isCompleted ? (
+		<Check className="h-3 w-3 text-green-500 shrink-0" />
+	) : isError ? (
+		<XCircle className="h-3 w-3 text-destructive shrink-0" />
+	) : isPending ? (
+		<span className="h-3 w-3 rounded-full border-2 border-amber-500 shrink-0" />
+	) : (
+		<Loader2 className="h-3 w-3 animate-spin text-muted-foreground shrink-0" />
+	);
 
 	return (
-		<div className="rounded-md border bg-muted/40 text-xs">
-			<div className="flex items-center gap-1.5 px-2 py-1.5">
-				<Wrench className="h-3 w-3 shrink-0 text-muted-foreground" />
-				<span className="flex-1 min-w-0 truncate">
+		<div className="text-xs group">
+			{/* Clickable header row — Cursor style */}
+			<button
+				type="button"
+				className={cn(
+					"flex items-center gap-1.5 w-full text-left px-1.5 py-1 rounded-md transition-colors",
+					"hover:bg-muted/60",
+					expanded && "bg-muted/40",
+				)}
+				onClick={() => hasDetails && setExpanded((v) => !v)}
+			>
+				{statusIcon}
+				<span className="text-muted-foreground flex-1 min-w-0 truncate">
 					{message.toolTitle || "Tool call"}
 				</span>
-				{statusIcon}
 				{hasDetails && (
-					<button
-						type="button"
-						className="p-0.5 text-muted-foreground hover:text-foreground transition-colors"
-						onClick={() => setExpanded((v) => !v)}
-					>
-						<ChevronRight
-							className={cn(
-								"h-3 w-3 transition-transform",
-								expanded && "rotate-90",
-							)}
-						/>
-					</button>
+					<ChevronRight
+						className={cn(
+							"h-3 w-3 text-muted-foreground/50 shrink-0 transition-transform",
+							"opacity-0 group-hover:opacity-100",
+							expanded && "rotate-90 opacity-100",
+						)}
+					/>
 				)}
-			</div>
+			</button>
 
+			{/* Pending confirmation actions */}
 			{isPending && (
-				<div className="flex items-center gap-1.5 px-2 pb-1.5">
+				<div className="flex items-center gap-1.5 pl-6 pb-1">
 					<span className="text-amber-600 text-[10px]">
 						Approve this action?
 					</span>
@@ -1473,14 +1703,15 @@ function ToolCallBubble({ message }: { message: ChatMessage }) {
 				</div>
 			)}
 
+			{/* Expandable details panel */}
 			{expanded && hasDetails && (
-				<div className="border-t px-2 py-1.5 space-y-1">
+				<div className="ml-[18px] mt-0.5 rounded-md border bg-muted/30 px-2 py-1.5 space-y-1.5">
 					{message.toolArguments && (
 						<div>
 							<p className="text-[10px] text-muted-foreground font-medium mb-0.5">
-								Arguments
+								Input
 							</p>
-							<pre className="text-[10px] bg-background rounded p-1 overflow-x-auto max-h-32 whitespace-pre-wrap">
+							<pre className="text-[10px] bg-background/60 rounded p-1.5 overflow-x-auto max-h-40 whitespace-pre-wrap break-all">
 								{formatJson(message.toolArguments)}
 							</pre>
 						</div>
@@ -1488,9 +1719,9 @@ function ToolCallBubble({ message }: { message: ChatMessage }) {
 					{message.toolResult && (
 						<div>
 							<p className="text-[10px] text-muted-foreground font-medium mb-0.5">
-								Result
+								Output
 							</p>
-							<pre className="text-[10px] bg-background rounded p-1 overflow-x-auto max-h-48 whitespace-pre-wrap">
+							<pre className="text-[10px] bg-background/60 rounded p-1.5 overflow-x-auto max-h-60 overflow-y-auto whitespace-pre-wrap break-all">
 								{formatJson(message.toolResult)}
 							</pre>
 						</div>
