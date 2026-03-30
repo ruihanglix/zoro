@@ -16,6 +16,7 @@ import {
 	BookOpen,
 	Check,
 	ChevronDown,
+	ChevronUp,
 	ChevronRight,
 	Download,
 	ExternalLink,
@@ -467,10 +468,10 @@ export function OnboardingOverlay({ onComplete }: { onComplete: () => void }) {
 										className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground transition-colors"
 										onClick={() => setShowMoreProviders(!showMoreProviders)}
 									>
-										{showMoreProviders ? (
-											<>
-												<ChevronDown className="h-3 w-3" />
-												{t("onboarding.showLessProviders")}
+								{showMoreProviders ? (
+									<>
+										<ChevronUp className="h-3 w-3" />
+										{t("onboarding.showLessProviders")}
 											</>
 										) : (
 											<>

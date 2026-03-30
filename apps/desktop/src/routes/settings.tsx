@@ -42,6 +42,7 @@ import {
 	CheckCircle,
 	ChevronDown,
 	ChevronRight,
+	ChevronUp,
 	Cloud,
 	Download,
 	ExternalLink,
@@ -5092,12 +5093,12 @@ function LabSection() {
 							>
 								{showMoreProviders ? (
 									<>
-										<ChevronDown className="h-3 w-3" />
+										<ChevronUp className="h-3 w-3" />
 										{t("settings.labShowLess")}
 									</>
 								) : (
 									<>
-										<ChevronRight className="h-3 w-3" />
+										<ChevronDown className="h-3 w-3" />
 										{t("settings.labShowMore")} ({secondaryProviders.length})
 									</>
 								)}
@@ -5302,13 +5303,17 @@ function LabSection() {
 														{t("settings.labDisableAll")}
 										</button>
 									</div>
-									{(() => {
+								{(() => {
 										const COLLAPSED_COUNT = 10;
 										const isExpanded = expandedModelGroups[providerId] ?? false;
 										const shouldCollapse = providerModels.length > COLLAPSED_COUNT;
-										const visibleModels = shouldCollapse && !isExpanded
-											? providerModels.slice(0, COLLAPSED_COUNT)
+										// When collapsed, prioritize enabled models at the top
+										const sortedModels = shouldCollapse && !isExpanded
+											? [...providerModels].sort((a, b) => Number(a.disabled) - Number(b.disabled))
 											: providerModels;
+										const visibleModels = shouldCollapse && !isExpanded
+											? sortedModels.slice(0, COLLAPSED_COUNT)
+											: sortedModels;
 										return (
 											<>
 												<div className="flex flex-wrap gap-1.5">
@@ -5350,15 +5355,15 @@ function LabSection() {
 														}
 														className="flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground transition-colors cursor-pointer select-none mt-1"
 													>
-														{isExpanded ? (
-															<>
-																<ChevronDown className="h-3 w-3" />
-																{t("settings.labCollapseModels")}
-															</>
-														) : (
-															<>
-																<ChevronRight className="h-3 w-3" />
-																{t("settings.labShowAllModels", { count: providerModels.length })}
+											{isExpanded ? (
+												<>
+													<ChevronUp className="h-3 w-3" />
+													{t("settings.labCollapseModels")}
+												</>
+											) : (
+												<>
+													<ChevronDown className="h-3 w-3" />
+													{t("settings.labShowAllModels", { count: providerModels.length })}
 															</>
 														)}
 													</button>
