@@ -1542,3 +1542,6 @@ export const acpProxyGetOptionsCache = () =>
 export const acpProxySaveOptionsCache = (
 	cache: Record<string, ConfigOptionInfo[]>,
 ) => invoke<void>("acp_proxy_save_options_cache", { cache });
+
+export const acpProxyApplyConfigOption = (configId: string, value: string) =>
+	invoke<void>("acp_proxy_apply_config_option", { configId, value });

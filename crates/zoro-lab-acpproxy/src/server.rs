@@ -201,6 +201,14 @@ async fn handle_chat_completions(
     // Convert OpenAI messages into a single prompt string
     let prompt = messages_to_prompt(&req.messages);
 
+    tracing::info!(
+        model = %req.model,
+        stream = req.stream,
+        msg_count = req.messages.len(),
+        prompt_len = prompt.len(),
+        "ACP Proxy server received chat completion request"
+    );
+
     if prompt.is_empty() {
         return error_response(StatusCode::BAD_REQUEST, "No message content provided");
     }
@@ -215,6 +223,10 @@ async fn handle_chat_completions(
 
     match result {
         Ok(text) => {
+            tracing::info!(
+                response_len = text.len(),
+                "ACP Proxy server sending response"
+            );
             let model = if req.model.is_empty() {
                 "Zoro-ACP-Proxy".to_string()
             } else {

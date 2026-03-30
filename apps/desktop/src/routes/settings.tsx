@@ -4808,6 +4808,12 @@ function LabSection() {
 				modelValue: value,
 			});
 		}
+		// Apply the config change to running workers in real-time
+		if (acpStatus?.running) {
+			commands.acpProxyApplyConfigOption(configId, value).catch((err) => {
+				console.warn("[acp-proxy] Failed to apply config option to workers:", err);
+			});
+		}
 	};
 
 	const acpWorkerStatusIcon = (s: string) => {
@@ -5533,6 +5539,11 @@ function LabSection() {
 										<span className="text-[10px] text-muted-foreground font-medium">
 											{displayLabel}
 										</span>
+										{category === "model" && (
+											<p className="text-[9px] text-muted-foreground/70 italic -mt-0.5">
+												{t("settings.acpModelMayNotApply")}
+											</p>
+										)}
 										<div className="flex flex-wrap gap-1">
 											{opt.options.map((o) => (
 												<button

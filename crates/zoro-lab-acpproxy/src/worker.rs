@@ -193,8 +193,17 @@ async fn run_worker(
         worker = index,
         name = %worker_name,
         agent = %agent_config.name,
+        config_overrides_count = config_overrides.len(),
         "ACP Proxy worker starting"
     );
+    for (cid, val) in &config_overrides {
+        tracing::info!(
+            worker = index,
+            config_id = %cid,
+            value = %val,
+            "ACP Proxy worker config override"
+        );
+    }
 
     // Phase 1: Start the ACP session with a text-collecting callback
     let callback_name = worker_name.clone();
@@ -318,6 +327,17 @@ async fn run_worker(
         queue_size.fetch_sub(1, Ordering::Relaxed);
         set_status(&statuses, index, WorkerStatus::Busy);
 
+        tracing::info!(
+            worker = index,
+            prompt_len = request.prompt.len(),
+            prompt_preview = %if request.prompt.len() > 200 {
+                format!("{}...", &request.prompt[..200])
+            } else {
+                request.prompt.clone()
+            },
+            "ACP Proxy worker processing request"
+        );
+
         // Clear the text buffer before sending the prompt
         {
             let mut buf = TEXT_BUFFERS.lock().unwrap();
@@ -336,7 +356,18 @@ async fn run_worker(
             Ok(_stop_reason) => {
                 let buf = TEXT_BUFFERS.lock().unwrap();
                 let text = buf.get(&worker_name).cloned().unwrap_or_default();
-                Ok(text.trim().to_string())
+                let trimmed = text.trim().to_string();
+                tracing::info!(
+                    worker = index,
+                    response_len = trimmed.len(),
+                    response_preview = %if trimmed.len() > 200 {
+                        format!("{}...", &trimmed[..200])
+                    } else {
+                        trimmed.clone()
+                    },
+                    "ACP Proxy worker got response"
+                );
+                Ok(trimmed)
             }
             Err(e) => {
                 tracing::warn!(

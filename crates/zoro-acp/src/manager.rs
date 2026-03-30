@@ -13,8 +13,7 @@ use agent_client_protocol::{
     ProtocolVersion, RequestPermissionOutcome, RequestPermissionRequest, RequestPermissionResponse,
     SelectedPermissionOutcome, SessionConfigKind, SessionConfigOption, SessionConfigOptionCategory,
     SessionConfigSelectOptions, SessionNotification, SessionUpdate, SetSessionConfigOptionRequest,
-    SetSessionModeRequest, SetSessionModelRequest,
-    StopReason, TextContent, ToolCallContent,
+    SetSessionModeRequest, SetSessionModelRequest, StopReason, TextContent, ToolCallContent,
 };
 use tokio::sync::{mpsc, oneshot, Mutex};
 use tokio_util::compat::{TokioAsyncReadCompatExt, TokioAsyncWriteCompatExt};
@@ -455,46 +454,82 @@ async fn spawn_agent_connection(
     }
 
     // Convert modes -> ConfigOptionInfo with category "mode"
-    if let Some(ref mode_state) = session_response.modes {
-        let mode_option = ConfigOptionInfo {
-            id: "mode".to_string(),
-            name: "Mode".to_string(),
-            description: None,
-            category: Some("mode".to_string()),
-            current_value: mode_state.current_mode_id.to_string(),
-            options: mode_state
-                .available_modes
-                .iter()
-                .map(|m| ConfigOptionValue {
-                    value: m.id.to_string(),
-                    name: m.name.clone(),
-                    description: m.description.clone(),
-                })
-                .collect(),
-        };
-        all_config_options.push(mode_option);
-    }
+    // Skip if config_options already contains a "mode" category entry (avoid duplicates)
+    let has_mode = all_config_options
+        .iter()
+        .any(|o| o.category.as_deref() == Some("mode"));
+    if !has_mode {
+        if let Some(ref mode_state) = session_response.modes {
+            tracing::info!(
+                current_mode_id = %mode_state.current_mode_id,
+                available_count = mode_state.available_modes.len(),
+                "ACP session modes received"
+            );
+            for m in &mode_state.available_modes {
+                tracing::info!(
+                    mode_id = %m.id,
+                    name = %m.name,
+                    "ACP available mode"
+                );
+            }
+            let mode_option = ConfigOptionInfo {
+                id: "mode".to_string(),
+                name: "Mode".to_string(),
+                description: None,
+                category: Some("mode".to_string()),
+                current_value: mode_state.current_mode_id.to_string(),
+                options: mode_state
+                    .available_modes
+                    .iter()
+                    .map(|m| ConfigOptionValue {
+                        value: m.id.to_string(),
+                        name: m.name.clone(),
+                        description: m.description.clone(),
+                    })
+                    .collect(),
+            };
+            all_config_options.push(mode_option);
+        }
+    } // !has_mode
 
     // Convert models -> ConfigOptionInfo with category "model"
-    if let Some(ref model_state) = session_response.models {
-        let model_option = ConfigOptionInfo {
-            id: "model".to_string(),
-            name: "Model".to_string(),
-            description: None,
-            category: Some("model".to_string()),
-            current_value: model_state.current_model_id.to_string(),
-            options: model_state
-                .available_models
-                .iter()
-                .map(|m| ConfigOptionValue {
-                    value: m.model_id.to_string(),
-                    name: m.name.clone(),
-                    description: m.description.clone(),
-                })
-                .collect(),
-        };
-        all_config_options.push(model_option);
-    }
+    // Skip if config_options already contains a "model" category entry (avoid duplicates)
+    let has_model = all_config_options
+        .iter()
+        .any(|o| o.category.as_deref() == Some("model"));
+    if !has_model {
+        if let Some(ref model_state) = session_response.models {
+            tracing::info!(
+                current_model_id = %model_state.current_model_id,
+                available_count = model_state.available_models.len(),
+                "ACP session models received"
+            );
+            for m in &model_state.available_models {
+                tracing::info!(
+                    model_id = %m.model_id,
+                    name = %m.name,
+                    "ACP available model"
+                );
+            }
+            let model_option = ConfigOptionInfo {
+                id: "model".to_string(),
+                name: "Model".to_string(),
+                description: None,
+                category: Some("model".to_string()),
+                current_value: model_state.current_model_id.to_string(),
+                options: model_state
+                    .available_models
+                    .iter()
+                    .map(|m| ConfigOptionValue {
+                        value: m.model_id.to_string(),
+                        name: m.name.clone(),
+                        description: m.description.clone(),
+                    })
+                    .collect(),
+            };
+            all_config_options.push(model_option);
+        }
+    } // !has_model
 
     if !all_config_options.is_empty() {
         (on_update)(AgentUpdate::ConfigOptions {
@@ -556,23 +591,64 @@ async fn run_command_loop(
                 // - "mode" -> session/set_mode
                 // - "model" -> session/set_model (unstable)
                 // - anything else -> session/set_config_option
+                tracing::info!(
+                    session_id = %session_id,
+                    config_id = %config_id,
+                    value = %value,
+                    "ACP set_config_option dispatching"
+                );
                 let result = if config_id == "mode" {
-                    let request =
-                        SetSessionModeRequest::new(session_id.to_owned(), value);
+                    tracing::info!(
+                        session_id = %session_id,
+                        mode_id = %value,
+                        "ACP calling set_session_mode"
+                    );
+                    let request = SetSessionModeRequest::new(session_id.to_owned(), value);
                     connection
                         .set_session_mode(request)
                         .await
                         .map(|_| Vec::new())
-                        .map_err(|e| AcpError::Protocol(format!("set_session_mode failed: {}", e)))
+                        .map_err(|e| {
+                            tracing::error!(
+                                session_id = %session_id,
+                                error = %e,
+                                "ACP set_session_mode failed"
+                            );
+                            AcpError::Protocol(format!("set_session_mode failed: {}", e))
+                        })
                 } else if config_id == "model" {
-                    let request =
-                        SetSessionModelRequest::new(session_id.to_owned(), value);
-                    connection
-                        .set_session_model(request)
-                        .await
-                        .map(|_| Vec::new())
-                        .map_err(|e| AcpError::Protocol(format!("set_session_model failed: {}", e)))
+                    tracing::info!(
+                        session_id = %session_id,
+                        model_id = %value,
+                        "ACP calling set_session_model"
+                    );
+                    let request = SetSessionModelRequest::new(session_id.to_owned(), value);
+                    match connection.set_session_model(request).await {
+                        Ok(_resp) => {
+                            tracing::info!(
+                                session_id = %session_id,
+                                "ACP set_session_model succeeded"
+                            );
+                            Ok(Vec::new())
+                        }
+                        Err(e) => {
+                            // Some agents (e.g. OpenCode) don't support dynamic
+                            // model switching via ACP. Treat this as non-fatal:
+                            // the agent will use its own default model instead.
+                            tracing::warn!(
+                                session_id = %session_id,
+                                error = %e,
+                                "ACP set_session_model failed (non-fatal) — agent will use its default model"
+                            );
+                            Ok(Vec::new())
+                        }
+                    }
                 } else {
+                    tracing::info!(
+                        session_id = %session_id,
+                        config_id = %config_id,
+                        "ACP calling set_session_config_option (generic)"
+                    );
                     let request =
                         SetSessionConfigOptionRequest::new(session_id.to_owned(), config_id, value);
                     connection
@@ -790,10 +866,7 @@ impl agent_client_protocol::Client for AcpClient {
                 // When the agent notifies us of a mode change, emit a
                 // ConfigOptions update so the frontend can refresh the
                 // current mode indicator.
-                tracing::info!(
-                    "ACP mode changed to: {}",
-                    mode_update.current_mode_id
-                );
+                tracing::info!("ACP mode changed to: {}", mode_update.current_mode_id);
                 // We only know the new current_mode_id here; the full list
                 // of available modes is not re-sent. Emit a minimal update
                 // so the frontend can at least update the selected value.

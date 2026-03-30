@@ -780,6 +780,7 @@
 		"acpMode": "Mode",
 		"acpModel": "Modèle",
 		"acpLoadingOptions": "Chargement des options de l'agent...",
+		"acpModelMayNotApply": "Le changement de modèle peut ne pas prendre effet. Le modèle par défaut de l'agent sera utilisé.",
 		"labModelManagement": "Gestion des modèles",
 		"labModelManagementDesc": "Cliquez sur un modèle pour l'activer ou le désactiver. Les modèles désactivés ne sont pas utilisés dans le routage automatique.",
 		"labModelDisabled": "Modèle désactivé — cliquer pour activer",

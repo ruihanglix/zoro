@@ -789,6 +789,7 @@
 		"acpMode": "模式",
 		"acpModel": "模型",
 		"acpLoadingOptions": "正在加载 Agent 选项...",
+		"acpModelMayNotApply": "模型切换可能无法生效，将以 Agent 默认模型为准。",
 		"fetchModels": "获取模型列表",
 		"clearModels": "清空模型列表",
 		"modelsDesc": "按回车添加模型名称，或点击「获取模型列表」自动获取。",

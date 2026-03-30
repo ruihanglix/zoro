@@ -187,6 +187,30 @@ export const useAcpProxyStore = create<AcpProxyState>((set, get) => ({
 				});
 				// Persist cache to disk
 				commands.acpProxySaveOptionsCache(newCache).catch(() => {});
+
+				// Auto-select the agent's default mode/model from current_value
+				// so that config_overrides are populated when the worker starts.
+				const currentConfig = get().config;
+				if (currentConfig && currentConfig.agentName === agentName) {
+					let updated = false;
+					const patch = { ...currentConfig };
+					for (const opt of options) {
+						const cat = opt.category ?? "other";
+					if (cat === "mode" && !patch.modeValue && opt.current_value) {
+							patch.modeConfigId = opt.id;
+							patch.modeValue = opt.current_value;
+							updated = true;
+						} else if (cat === "model" && !patch.modelValue && opt.current_value) {
+							patch.modelConfigId = opt.id;
+							patch.modelValue = opt.current_value;
+							updated = true;
+						}
+					}
+					if (updated) {
+						set({ config: patch });
+						commands.acpProxyUpdateConfig(patch).catch(() => {});
+					}
+				}
 			}
 		} catch (err) {
 			console.error("[acp-proxy] Failed to fetch config options:", err);

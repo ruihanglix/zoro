@@ -179,6 +179,18 @@ pub async fn acp_proxy_start(
         config_overrides.push((config.model_config_id.clone(), config.model_value.clone()));
     }
 
+    tracing::info!(
+        agent = %agent_config.name,
+        worker_count = config.worker_count,
+        port = config.port,
+        mode_config_id = %config.mode_config_id,
+        mode_value = %config.mode_value,
+        model_config_id = %config.model_config_id,
+        model_value = %config.model_value,
+        config_overrides_count = config_overrides.len(),
+        "ACP Proxy starting with config"
+    );
+
     let listen_addr = if config.lan_access {
         "0.0.0.0"
     } else {
@@ -284,6 +296,56 @@ pub async fn acp_proxy_set_enabled(
     acp_proxy_get_status(state).await
 }
 
+/// Apply a config option change to all running workers at runtime.
+/// Called by the frontend when the user changes mode/model in the settings UI.
+#[tauri::command]
+pub async fn acp_proxy_apply_config_option(
+    state: State<'_, AcpProxyState>,
+    acp_state: State<'_, AcpState>,
+    config_id: String,
+    value: String,
+) -> Result<(), String> {
+    let pool_guard = state.pool.lock().await;
+    let pool = match &*pool_guard {
+        Some(p) => p.clone(),
+        None => return Err("ACP Proxy is not running".into()),
+    };
+    drop(pool_guard);
+
+    let manager = acp_state.manager.lock().await;
+    let mut errors = Vec::new();
+
+    for name in pool.worker_names() {
+        match manager.set_config_option(name, &config_id, &value).await {
+            Ok(_) => {
+                tracing::info!(
+                    worker = %name,
+                    config_id = %config_id,
+                    value = %value,
+                    "Config option applied to running worker"
+                );
+            }
+            Err(e) => {
+                tracing::warn!(
+                    worker = %name,
+                    config_id = %config_id,
+                    error = %e,
+                    "Failed to apply config option to running worker"
+                );
+                errors.push(format!("{}: {}", name, e));
+            }
+        }
+    }
+
+    if errors.is_empty() {
+        Ok(())
+    } else {
+        // Partial success is still OK — log but don't fail
+        tracing::warn!("Some workers failed to apply config option: {:?}", errors);
+        Ok(())
+    }
+}
+
 /// Fetch available config options (mode, model, etc.) for a given agent.
 /// Starts a temporary session, collects config_options from the session init
 /// or from an async ConfigOptionUpdate notification, then stops the session.
@@ -342,11 +404,9 @@ pub async fn acp_proxy_fetch_config_options(
                 let current = config_options.lock().await;
                 if current.is_empty() {
                     drop(current);
-                    let _ = tokio::time::timeout(
-                        std::time::Duration::from_secs(3),
-                        notify.notified(),
-                    )
-                    .await;
+                    let _ =
+                        tokio::time::timeout(std::time::Duration::from_secs(3), notify.notified())
+                            .await;
                 }
             }
             // Stop the probe session
@@ -367,7 +427,9 @@ pub async fn acp_proxy_fetch_config_options(
 pub async fn acp_proxy_get_options_cache(
     state: State<'_, AcpProxyState>,
 ) -> Result<std::collections::HashMap<String, serde_json::Value>, String> {
-    Ok(zoro_lab_acpproxy::config::load_options_cache(&state.data_dir))
+    Ok(zoro_lab_acpproxy::config::load_options_cache(
+        &state.data_dir,
+    ))
 }
 
 /// Save the config options cache to disk.

@@ -789,6 +789,7 @@
 		"acpMode": "Mode",
 		"acpModel": "Model",
 		"acpLoadingOptions": "Loading agent options...",
+		"acpModelMayNotApply": "Model switching may not take effect. The agent's default model will be used.",
 		"fetchModels": "Fetch Models",
 		"clearModels": "Clear Models",
 		"modelsDesc": "Press Enter to add a model name. Or click 'Fetch Models' to auto-detect.",

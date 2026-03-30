@@ -551,6 +551,7 @@ pub fn run() {
             commands::lab_acp::acp_proxy_start,
             commands::lab_acp::acp_proxy_stop,
             commands::lab_acp::acp_proxy_set_enabled,
+            commands::lab_acp::acp_proxy_apply_config_option,
             commands::lab_acp::acp_proxy_fetch_config_options,
             commands::lab_acp::acp_proxy_get_options_cache,
             commands::lab_acp::acp_proxy_save_options_cache,

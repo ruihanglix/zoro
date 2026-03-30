@@ -788,6 +788,7 @@
 		"acpMode": "モード",
 		"acpModel": "モデル",
 		"acpLoadingOptions": "エージェントオプションを読み込み中...",
+		"acpModelMayNotApply": "モデルの切り替えが反映されない場合があります。エージェントのデフォルトモデルが使用されます。",
 		"fetchModels": "モデルを取得",
 		"clearModels": "モデルをクリア",
 		"modelsDesc": "Enterキーでモデル名を追加、または「モデルを取得」で自動検出。",
