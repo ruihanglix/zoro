@@ -1025,6 +1025,13 @@ export function Settings() {
 	}, [labInitialize]);
 
 	useEffect(() => {
+		// Skip sync until lab store has finished initializing (proxyStatus
+		// starts as null and is set to a real object after initialize()).
+		// Without this guard the effect fires on the null→object transition
+		// and may briefly remove the __lab_proxy__ provider before the proxy
+		// has had a chance to start, causing a visible flicker in the list.
+		if (labProxyStatus === null) return;
+
 		const syncLabProxyProvider = async () => {
 			try {
 				const config = await commands.getAiConfig();
