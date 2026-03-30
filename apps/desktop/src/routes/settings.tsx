@@ -42,7 +42,6 @@ import {
 	CheckCircle,
 	ChevronDown,
 	ChevronRight,
-	ChevronUp,
 	Cloud,
 	Download,
 	ExternalLink,
@@ -4737,7 +4736,6 @@ function LabSection() {
 		start: acpStart,
 		stop: acpStop,
 		refreshStatus: acpRefreshStatus,
-		fetchConfigOptions: acpFetchConfigOptions,
 	} = useAcpProxyStore();
 
 	const [acpEditingPort, setAcpEditingPort] = useState(false);

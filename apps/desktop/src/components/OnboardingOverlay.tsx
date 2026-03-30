@@ -111,7 +111,7 @@ export function OnboardingOverlay({ onComplete }: { onComplete: () => void }) {
 
 	// Lab store for Free LLM
 	const labProviders = useLabStore((s) => s.providers);
-	const setProviderKey = useLabStore((s) => s.setProviderKey);
+const addProviderKey = useLabStore((s) => s.addProviderKey);
 	const setLabEnabled = useLabStore((s) => s.setEnabled);
 	const labInitialize = useLabStore((s) => s.initialize);
 
@@ -215,7 +215,7 @@ export function OnboardingOverlay({ onComplete }: { onComplete: () => void }) {
 				// Save free provider keys to labStore
 				for (const [providerId, key] of Object.entries(freeKeys)) {
 					if (key.trim()) {
-						setProviderKey(providerId, key.trim());
+addProviderKey(providerId, key.trim());
 					}
 				}
 				setLabEnabled(true);
