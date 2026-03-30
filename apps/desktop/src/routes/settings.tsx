@@ -5323,6 +5323,30 @@ function LabSection() {
 											: sortedModels;
 										return (
 											<>
+												{shouldCollapse && (
+													<button
+														type="button"
+														onClick={() =>
+															setExpandedModelGroups((prev) => ({
+																...prev,
+																[providerId]: !isExpanded,
+															}))
+														}
+														className="flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground transition-colors cursor-pointer select-none mb-1"
+													>
+										{isExpanded ? (
+														<>
+															<ChevronRight className="h-3 w-3 transition-transform rotate-90" />
+															{t("settings.labCollapseModels")}
+														</>
+													) : (
+														<>
+															<ChevronRight className="h-3 w-3 transition-transform" />
+															{t("settings.labShowAllModels", { count: providerModels.length })}
+															</>
+														)}
+													</button>
+												)}
 												<div className="flex flex-wrap gap-1.5">
 													{visibleModels.map((model) => (
 														<button
@@ -5351,30 +5375,6 @@ function LabSection() {
 														</button>
 													))}
 												</div>
-												{shouldCollapse && (
-													<button
-														type="button"
-														onClick={() =>
-															setExpandedModelGroups((prev) => ({
-																...prev,
-																[providerId]: !isExpanded,
-															}))
-														}
-														className="flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground transition-colors cursor-pointer select-none mt-1"
-													>
-										{isExpanded ? (
-														<>
-															<ChevronRight className="h-3 w-3 transition-transform rotate-90" />
-															{t("settings.labCollapseModels")}
-														</>
-													) : (
-														<>
-															<ChevronRight className="h-3 w-3 transition-transform" />
-															{t("settings.labShowAllModels", { count: providerModels.length })}
-															</>
-														)}
-													</button>
-												)}
 											</>
 										);
 									})()}

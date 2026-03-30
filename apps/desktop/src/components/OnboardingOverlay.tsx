@@ -408,9 +408,31 @@ export function OnboardingOverlay({ onComplete }: { onComplete: () => void }) {
 						{/* ── Free Mode: Provider Key List ── */}
 						{aiMode === "free" && (
 							<div className="space-y-2">
-								<p className="text-[11px] text-muted-foreground">
+							<p className="text-[11px] text-muted-foreground">
 									{t("onboarding.freeProviderLabel")}
 								</p>
+
+								{secondaryProviders.length > 0 && (
+									<button
+										type="button"
+										className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground transition-colors"
+										onClick={() => setShowMoreProviders(!showMoreProviders)}
+									>
+								{showMoreProviders ? (
+									<>
+										<ChevronRight className="h-3 w-3 rotate-90 transition-transform" />
+										{t("onboarding.showLessProviders")}
+											</>
+										) : (
+											<>
+												<ChevronRight className="h-3 w-3 transition-transform" />
+												{t("onboarding.showMoreProviders")} (
+												{secondaryProviders.length})
+											</>
+										)}
+									</button>
+								)}
+
 								{visibleProviders.map((provider) => {
 									const hasKey = !!freeKeys[provider.id]?.trim();
 									return (
@@ -459,27 +481,6 @@ export function OnboardingOverlay({ onComplete }: { onComplete: () => void }) {
 										</div>
 									);
 								})}
-
-								{secondaryProviders.length > 0 && (
-									<button
-										type="button"
-										className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground transition-colors"
-										onClick={() => setShowMoreProviders(!showMoreProviders)}
-									>
-								{showMoreProviders ? (
-									<>
-										<ChevronRight className="h-3 w-3 rotate-90 transition-transform" />
-										{t("onboarding.showLessProviders")}
-											</>
-										) : (
-											<>
-												<ChevronRight className="h-3 w-3 transition-transform" />
-												{t("onboarding.showMoreProviders")} (
-												{secondaryProviders.length})
-											</>
-										)}
-									</button>
-								)}
 
 								{freeConfiguredCount === 0 && (
 									<p className="text-[10px] text-amber-600 dark:text-amber-400">
