@@ -899,6 +899,7 @@
 	"log": {
 		"title": "Debug-Protokoll",
 		"clear": "Löschen",
+		"copyAll": "Alle Protokolle kopieren",
 		"noLogs": "Keine Protokolleinträge"
 	},
 	"onboarding": {

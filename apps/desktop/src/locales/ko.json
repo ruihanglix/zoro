@@ -899,6 +899,7 @@
 	"log": {
 		"title": "디버그 로그",
 		"clear": "지우기",
+		"copyAll": "모든 로그 복사",
 		"noLogs": "로그 항목 없음"
 	},
 	"onboarding": {

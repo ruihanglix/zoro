@@ -5091,14 +5091,14 @@ function LabSection() {
 								className="flex items-center gap-1 mt-2 text-xs text-muted-foreground hover:text-foreground transition-colors"
 								onClick={() => setShowMoreProviders(!showMoreProviders)}
 							>
-								{showMoreProviders ? (
+							{showMoreProviders ? (
 									<>
-										<ChevronUp className="h-3 w-3" />
+										<ChevronRight className="h-3 w-3 transition-transform rotate-90" />
 										{t("settings.labShowLess")}
 									</>
 								) : (
 									<>
-										<ChevronDown className="h-3 w-3" />
+										<ChevronRight className="h-3 w-3 transition-transform" />
 										{t("settings.labShowMore")} ({secondaryProviders.length})
 									</>
 								)}
@@ -5355,15 +5355,15 @@ function LabSection() {
 														}
 														className="flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground transition-colors cursor-pointer select-none mt-1"
 													>
-											{isExpanded ? (
-												<>
-													<ChevronUp className="h-3 w-3" />
-													{t("settings.labCollapseModels")}
-												</>
-											) : (
-												<>
-													<ChevronDown className="h-3 w-3" />
-													{t("settings.labShowAllModels", { count: providerModels.length })}
+										{isExpanded ? (
+														<>
+															<ChevronRight className="h-3 w-3 transition-transform rotate-90" />
+															{t("settings.labCollapseModels")}
+														</>
+													) : (
+														<>
+															<ChevronRight className="h-3 w-3 transition-transform" />
+															{t("settings.labShowAllModels", { count: providerModels.length })}
 															</>
 														)}
 													</button>

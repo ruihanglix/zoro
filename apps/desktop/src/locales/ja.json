@@ -899,6 +899,7 @@
 	"log": {
 		"title": "デバッグログ",
 		"clear": "クリア",
+		"copyAll": "すべてのログをコピー",
 		"noLogs": "ログエントリなし"
 	},
 	"onboarding": {

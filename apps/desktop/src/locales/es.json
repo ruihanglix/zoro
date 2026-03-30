@@ -899,6 +899,7 @@
 	"log": {
 		"title": "Registro de depuración",
 		"clear": "Limpiar",
+		"copyAll": "Copiar todos los registros",
 		"noLogs": "Sin entradas de registro"
 	},
 	"onboarding": {

@@ -899,6 +899,7 @@
 	"log": {
 		"title": "Journal de débogage",
 		"clear": "Effacer",
+		"copyAll": "Copier tous les journaux",
 		"noLogs": "Aucune entrée de journal"
 	},
 	"onboarding": {

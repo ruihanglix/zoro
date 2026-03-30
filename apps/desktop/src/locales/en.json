@@ -900,6 +900,7 @@
 	"log": {
 		"title": "Debug Log",
 		"clear": "Clear",
+		"copyAll": "Copy All Logs",
 		"noLogs": "No log entries"
 	},
 	"onboarding": {

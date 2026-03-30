@@ -15,8 +15,6 @@ import { useUiStore } from "@/stores/uiStore";
 import {
 	BookOpen,
 	Check,
-	ChevronDown,
-	ChevronUp,
 	ChevronRight,
 	Download,
 	ExternalLink,
@@ -470,12 +468,12 @@ export function OnboardingOverlay({ onComplete }: { onComplete: () => void }) {
 									>
 								{showMoreProviders ? (
 									<>
-										<ChevronUp className="h-3 w-3" />
+										<ChevronRight className="h-3 w-3 rotate-90 transition-transform" />
 										{t("onboarding.showLessProviders")}
 											</>
 										) : (
 											<>
-												<ChevronRight className="h-3 w-3" />
+												<ChevronRight className="h-3 w-3 transition-transform" />
 												{t("onboarding.showMoreProviders")} (
 												{secondaryProviders.length})
 											</>

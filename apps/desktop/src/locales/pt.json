@@ -899,6 +899,7 @@
 	"log": {
 		"title": "Log de depuração",
 		"clear": "Limpar",
+		"copyAll": "Copiar todos os logs",
 		"noLogs": "Sem entradas de log"
 	},
 	"onboarding": {

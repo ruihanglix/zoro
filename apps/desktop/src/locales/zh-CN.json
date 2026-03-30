@@ -900,6 +900,7 @@
 	"log": {
 		"title": "调试日志",
 		"clear": "清除",
+		"copyAll": "复制全部日志",
 		"noLogs": "无日志记录"
 	},
 	"onboarding": {
