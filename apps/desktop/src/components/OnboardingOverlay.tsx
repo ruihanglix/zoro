@@ -208,7 +208,6 @@ export function OnboardingOverlay({ onComplete }: { onComplete: () => void }) {
 
 	const primaryProviders = labProviders.filter((p) => p.tier === "primary");
 	const secondaryProviders = labProviders.filter((p) => p.tier === "secondary");
-	const visibleProviders = showMoreProviders ? labProviders : primaryProviders;
 
 	const handleGetStarted = async () => {
 		try {
@@ -412,28 +411,76 @@ export function OnboardingOverlay({ onComplete }: { onComplete: () => void }) {
 									{t("onboarding.freeProviderLabel")}
 								</p>
 
+								{primaryProviders.map((provider) => {
+									const hasKey = !!freeKeys[provider.id]?.trim();
+									return (
+										<div
+											key={provider.id}
+											className={cn(
+												"flex items-center gap-2 rounded-md border p-2 transition-colors",
+												hasKey
+													? "border-green-500/30 bg-green-50/50 dark:bg-green-950/20"
+													: "border-border",
+											)}
+										>
+											<div className="w-24 shrink-0">
+												<span className="text-xs font-medium">
+													{provider.display_name}
+												</span>
+											</div>
+											<input
+												type="password"
+												placeholder={
+													provider.key_prefix
+														? `${provider.key_prefix}...`
+														: t("onboarding.freeProviderApiKeyPlaceholder")
+												}
+												value={freeKeys[provider.id] || ""}
+												onChange={(e) =>
+													setFreeKeys((prev) => ({
+														...prev,
+														[provider.id]: e.target.value,
+													}))
+												}
+												className="h-7 flex-1 min-w-0 rounded-md border bg-transparent px-2 text-xs"
+											/>
+											{hasKey && (
+												<Check className="h-3.5 w-3.5 text-green-600 shrink-0" />
+											)}
+											<a
+												href={provider.sign_up_url}
+												target="_blank"
+												rel="noopener noreferrer"
+												className="flex items-center gap-0.5 text-[10px] text-primary hover:underline shrink-0"
+											>
+												{t("settings.labGetKey")}
+												<ExternalLink className="h-2.5 w-2.5" />
+											</a>
+									</div>
+								);
+								})}
+
 								{secondaryProviders.length > 0 && (
 									<button
 										type="button"
 										className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground transition-colors"
 										onClick={() => setShowMoreProviders(!showMoreProviders)}
 									>
-								{showMoreProviders ? (
-									<>
-										<ChevronRight className="h-3 w-3 rotate-90 transition-transform" />
-										{t("onboarding.showLessProviders")}
+										{showMoreProviders ? (
+											<>
+												<ChevronRight className="h-3 w-3 rotate-90 transition-transform" />
+												{t("onboarding.showLessProviders")}
 											</>
 										) : (
 											<>
 												<ChevronRight className="h-3 w-3 transition-transform" />
-												{t("onboarding.showMoreProviders")} (
-												{secondaryProviders.length})
+												{t("onboarding.showMoreProviders")} ({secondaryProviders.length})
 											</>
 										)}
 									</button>
 								)}
 
-								{visibleProviders.map((provider) => {
+								{showMoreProviders && secondaryProviders.map((provider) => {
 									const hasKey = !!freeKeys[provider.id]?.trim();
 									return (
 										<div

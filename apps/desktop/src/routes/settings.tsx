@@ -4673,7 +4673,6 @@ function LabSection() {
 
 	const primaryProviders = providers.filter((p) => p.tier === "primary");
 	const secondaryProviders = providers.filter((p) => p.tier === "secondary");
-	const visibleProviders = showMoreProviders ? providers : primaryProviders;
 
 	const routingStrategy = config?.routing_strategy || "auto";
 	const configuredCount = getConfiguredCount();
@@ -4934,7 +4933,7 @@ function LabSection() {
 						</p>
 
 						<div className="space-y-2">
-							{visibleProviders.map((provider) => {
+							{primaryProviders.map((provider) => {
 								const isConfigured = provider.has_key;
 								const isEditing = editingKeys[provider.id] !== undefined;
 								const isExpanded = expandedProviders[provider.id] ?? false;
@@ -5098,7 +5097,7 @@ function LabSection() {
 								className="flex items-center gap-1 mt-2 text-xs text-muted-foreground hover:text-foreground transition-colors"
 								onClick={() => setShowMoreProviders(!showMoreProviders)}
 							>
-							{showMoreProviders ? (
+								{showMoreProviders ? (
 									<>
 										<ChevronRight className="h-3 w-3 transition-transform rotate-90" />
 										{t("settings.labShowLess")}
@@ -5111,6 +5110,159 @@ function LabSection() {
 								)}
 							</button>
 						)}
+
+						{showMoreProviders && (
+							<div className="space-y-2 mt-2">
+								{secondaryProviders.map((provider) => {
+									const isConfigured = provider.has_key;
+									const isEditing = editingKeys[provider.id] !== undefined;
+									const isExpanded = expandedProviders[provider.id] ?? false;
+									const maskedKeys = providerMaskedKeys[provider.id] ?? [];
+									return (
+										<div
+											key={provider.id}
+											className={cn(
+												"rounded-md border p-2.5 transition-colors",
+												isConfigured
+													? "border-green-500/30 bg-green-50/50 dark:bg-green-950/20"
+													: "border-border",
+											)}
+										>
+											<div className="flex items-center gap-3">
+												<div className="min-w-0 flex-1">
+													<div className="flex items-center gap-2">
+														<span className="text-sm font-medium">
+															{provider.display_name}
+														</span>
+														{isConfigured && (
+															<span className="inline-flex items-center gap-1 rounded-full bg-green-100 dark:bg-green-900/40 px-2 py-0.5 text-[10px] font-medium text-green-700 dark:text-green-400">
+																{t("settings.labConfigured")} · {provider.model_count}
+															</span>
+														)}
+													</div>
+												</div>
+												<div className="flex items-center gap-1.5 shrink-0">
+													<button
+														type="button"
+														onClick={() =>
+															setEditingKeys((prev) => ({
+																...prev,
+																[provider.id]: prev[provider.id] ?? "",
+															}))
+														}
+														className="flex items-center gap-1 text-[11px] text-primary hover:underline"
+													>
+														<Plus className="h-3 w-3" />
+														{t("settings.labAddKey")}
+													</button>
+													{maskedKeys.length > 0 && (
+														<button
+															type="button"
+															onClick={() =>
+																setExpandedProviders((prev) => ({
+																	...prev,
+																	[provider.id]: !prev[provider.id],
+																}))
+															}
+															className="flex items-center gap-0.5 text-[11px] text-muted-foreground hover:text-foreground transition-colors"
+														>
+															<ChevronRight
+																className={cn(
+																	"h-3 w-3 transition-transform",
+																	isExpanded && "rotate-90",
+																)}
+															/>
+															{maskedKeys.length} {t("settings.labKeyCount")}
+														</button>
+													)}
+													<a
+														href={provider.sign_up_url}
+														target="_blank"
+														rel="noopener noreferrer"
+														className="flex items-center gap-0.5 text-[11px] text-primary hover:underline"
+													>
+														{t("settings.labGetKey")}
+														<ExternalLink className="h-2.5 w-2.5" />
+													</a>
+												</div>
+											</div>
+
+											{isEditing && (
+												<div className="flex items-center gap-1.5 mt-2">
+													<input
+														type="password"
+														placeholder={
+															provider.key_prefix
+																? `${provider.key_prefix}...`
+																: t("onboarding.freeProviderApiKeyPlaceholder")
+														}
+														value={editingKeys[provider.id] || ""}
+														onChange={(e) =>
+															setEditingKeys((prev) => ({
+																...prev,
+																[provider.id]: e.target.value,
+															}))
+														}
+														onKeyDown={(e) => {
+															if (e.key === "Enter") handleSaveKey(provider.id);
+														}}
+														className="h-7 flex-1 rounded-md border bg-transparent px-2 text-xs"
+														autoFocus
+													/>
+													<Button
+														variant="default"
+														size="sm"
+														className="h-7 px-2 text-xs"
+														disabled={!editingKeys[provider.id]?.trim()}
+														onClick={() => handleSaveKey(provider.id)}
+													>
+														{t("common.save")}
+													</Button>
+													<Button
+														variant="ghost"
+														size="sm"
+														className="h-7 px-2 text-xs"
+														onClick={() =>
+															setEditingKeys((prev) => {
+																const next = { ...prev };
+																delete next[provider.id];
+																return next;
+															})
+														}
+													>
+														{t("common.cancel")}
+													</Button>
+												</div>
+											)}
+
+											{isExpanded && maskedKeys.length > 0 && (
+												<div className="mt-2 space-y-1">
+													{maskedKeys.map((maskedKey, idx) => (
+														<div
+															key={`${provider.id}-key-${idx}`}
+															className="flex items-center justify-between rounded border px-2 py-1 text-xs"
+														>
+															<span className="font-mono text-muted-foreground">
+																{maskedKey}
+															</span>
+															<button
+																type="button"
+																onClick={() => handleRemoveKey(provider.id, idx)}
+																className="text-destructive hover:text-destructive/80 transition-colors ml-2"
+																title={t("common.delete")}
+															>
+																<Trash2 className="h-3 w-3" />
+															</button>
+														</div>
+													))}
+												</div>
+											)}
+										</div>
+									);
+								})}
+							</div>
+						)}
+
 					</div>
 
 					<Separator />

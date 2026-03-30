@@ -179,6 +179,7 @@ impl WorkerPool {
 
 // ── Worker loop ──────────────────────────────────────────────────────────────
 
+#[allow(clippy::too_many_arguments)]
 async fn run_worker(
     index: usize,
     worker_name: String,
