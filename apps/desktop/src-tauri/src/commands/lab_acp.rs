@@ -20,6 +20,8 @@ pub struct AcpProxyState {
     pub server: Mutex<Option<AcpProxyServer>>,
     pub pool: Mutex<Option<Arc<WorkerPool>>>,
     pub data_dir: std::path::PathBuf,
+    /// True while the auto-start task is still running at app launch.
+    pub starting: Mutex<bool>,
 }
 
 impl AcpProxyState {
@@ -30,6 +32,7 @@ impl AcpProxyState {
             server: Mutex::new(None),
             pool: Mutex::new(None),
             data_dir: data_dir.to_path_buf(),
+            starting: Mutex::new(false),
         }
     }
 }
@@ -40,6 +43,8 @@ impl AcpProxyState {
 #[serde(rename_all = "camelCase")]
 pub struct AcpProxyStatusResponse {
     pub running: bool,
+    /// True while the proxy is being auto-started at app launch.
+    pub starting: bool,
     pub port: u16,
     pub listen_addr: String,
     pub worker_count: usize,
@@ -103,10 +108,12 @@ pub async fn acp_proxy_get_status(
 ) -> Result<AcpProxyStatusResponse, String> {
     let server = state.server.lock().await;
     let config = state.config.lock().await;
+    let starting = *state.starting.lock().await;
 
     match &*server {
         Some(srv) => Ok(AcpProxyStatusResponse {
             running: true,
+            starting: false,
             port: srv.port(),
             listen_addr: if config.lan_access {
                 "0.0.0.0".into()
@@ -119,6 +126,7 @@ pub async fn acp_proxy_get_status(
         }),
         None => Ok(AcpProxyStatusResponse {
             running: false,
+            starting,
             port: 0,
             listen_addr: "127.0.0.1".into(),
             worker_count: 0,
@@ -228,6 +236,7 @@ pub async fn acp_proxy_start(
 
     Ok(AcpProxyStatusResponse {
         running: true,
+        starting: false,
         port,
         listen_addr: listen_addr.to_string(),
         worker_count,

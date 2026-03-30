@@ -1497,6 +1497,8 @@ export interface AcpProxyWorkerInfo {
 
 export interface AcpProxyStatus {
 	running: boolean;
+	/** True while the proxy is being auto-started at app launch. */
+	starting: boolean;
 	port: number;
 	listenAddr: string;
 	workerCount: number;

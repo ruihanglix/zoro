@@ -25,6 +25,8 @@ interface AcpProxyState {
 
 	// UI state
 	loading: boolean;
+	/** True until the first initialize() call completes. */
+	initializing: boolean;
 	error: string | null;
 
 	// Actions
@@ -51,11 +53,12 @@ export const useAcpProxyStore = create<AcpProxyState>((set, get) => ({
 	configOptionsLoading: false,
 	configOptionsCache: {},
 	loading: false,
+	initializing: true,
 	error: null,
 
 	initialize: async () => {
 		try {
-			set({ loading: true, error: null });
+			set({ loading: true, initializing: true, error: null });
 			const [config, status, agents, persistedCache] = await Promise.all([
 				commands.acpProxyGetConfig(),
 				commands.acpProxyGetStatus(),
@@ -78,20 +81,33 @@ export const useAcpProxyStore = create<AcpProxyState>((set, get) => ({
 				configOptions: cached,
 				configOptionsCache: mergedCache,
 				loading: false,
+				initializing: false,
 			});
 
-			// Fetch fresh config options in the background (only if no cache)
+			// If the backend is still auto-starting the proxy, poll rapidly until it's done
+			if (config.enabled && !status.running && status.starting) {
+				const pollUntilReady = async () => {
+					for (let i = 0; i < 60; i++) {
+						await new Promise((r) => setTimeout(r, 500));
+						try {
+							const s = await commands.acpProxyGetStatus();
+							set({ status: s });
+							if (s.running || !s.starting) break;
+						} catch {
+							break;
+						}
+					}
+				};
+				pollUntilReady();
+			}
+
+			// Fetch fresh config options in the background
 			if (config.agentName) {
-				if (cached.length === 0) {
-					get().fetchConfigOptions(config.agentName);
-				} else {
-					// Have cache — still refresh in background but don't show loading
-					get().fetchConfigOptions(config.agentName);
-				}
+				get().fetchConfigOptions(config.agentName);
 			}
 		} catch (err) {
 			console.error("[acp-proxy] Failed to initialize:", err);
-			set({ error: String(err), loading: false });
+			set({ error: String(err), loading: false, initializing: false });
 		}
 	},
 

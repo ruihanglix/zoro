@@ -4721,6 +4721,7 @@ function LabSection() {
 		configOptions: acpConfigOptions,
 		configOptionsLoading: acpConfigOptionsLoading,
 		loading: acpLoading,
+		initializing: acpInitializing,
 		error: acpError,
 		initialize: acpInitialize,
 		setEnabled: acpSetEnabled,
@@ -5432,10 +5433,14 @@ function LabSection() {
 					<button
 						type="button"
 						onClick={handleAcpToggle}
-						disabled={acpLoading}
+						disabled={acpLoading || acpInitializing}
 						className={cn(
 							"relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors",
-							acpConfig?.enabled ? "bg-primary" : "bg-muted-foreground/30",
+							acpInitializing
+								? "bg-muted-foreground/20 animate-pulse"
+								: acpConfig?.enabled
+									? "bg-primary"
+									: "bg-muted-foreground/30",
 						)}
 					>
 						<span
@@ -5446,7 +5451,9 @@ function LabSection() {
 						/>
 					</button>
 					<span className="text-xs font-medium">
-						{t("settings.acpProxyEnabled")}
+						{acpInitializing
+							? t("settings.acpProxyLoading")
+							: t("settings.acpProxyEnabled")}
 					</span>
 				</div>
 			</div>
@@ -5465,13 +5472,19 @@ function LabSection() {
 						<div
 							className={cn(
 								"h-2 w-2 rounded-full",
-								acpStatus?.running ? "bg-green-500" : "bg-red-500",
+								acpStatus?.running
+									? "bg-green-500"
+									: acpStatus?.starting
+										? "bg-yellow-500 animate-pulse"
+										: "bg-red-500",
 							)}
 						/>
 						<span className="font-medium">
 							{acpStatus?.running
 								? t("settings.acpProxyRunning")
-								: t("settings.acpProxyStopped")}
+								: acpStatus?.starting
+									? t("settings.acpProxyStarting")
+									: t("settings.acpProxyStopped")}
 						</span>
 						{acpStatus?.running && (
 							<span className="text-muted-foreground">

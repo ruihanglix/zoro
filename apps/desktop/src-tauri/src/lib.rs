@@ -256,6 +256,13 @@ pub fn run() {
 
             // Auto-start ACP Proxy if enabled and agent is configured
             if acp_proxy_enabled {
+                // Mark as starting so the frontend can show "starting" state
+                // instead of "disabled" while the proxy is being initialized.
+                {
+                    let proxy_state_ref = app.state::<commands::lab_acp::AcpProxyState>();
+                    *proxy_state_ref.starting.blocking_lock() = true;
+                }
+
                 let app_handle_acp = app.handle().clone();
                 tauri::async_runtime::spawn(async move {
                     use tauri::Manager;
@@ -269,6 +276,7 @@ pub fn run() {
                         Some(c) => c.clone(),
                         None => {
                             tracing::error!(agent = %config.agent_name, "ACP Proxy: agent not found, skipping auto-start");
+                            *proxy_state.starting.lock().await = false;
                             return;
                         }
                     };
@@ -292,6 +300,7 @@ pub fn run() {
                         Ok(p) => std::sync::Arc::new(p),
                         Err(e) => {
                             tracing::error!(error = %e, "Failed to auto-start ACP Proxy worker pool");
+                            *proxy_state.starting.lock().await = false;
                             return;
                         }
                     };
@@ -313,6 +322,9 @@ pub fn run() {
                             tracing::error!(error = %e, "Failed to auto-start ACP Proxy server");
                         }
                     }
+
+                    // Clear starting flag
+                    *proxy_state.starting.lock().await = false;
                 });
             }
 
