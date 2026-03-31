@@ -46,7 +46,7 @@
   },
   "plugins": {
     "updater": {
-      "pubkey": "",
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDk0OEZENUQzODI1QjQ5MTQKUldRVVNWdUMwOVdQbERZeTNvSkVhZkFHOWp0Qi93YzllbnFTRjh4ZFZGRzV1elBSRXRUNTlZMU0K",
       "endpoints": [
         "https://github.com/ruihanglix/zoro/releases/latest/download/latest.json"
       ]
