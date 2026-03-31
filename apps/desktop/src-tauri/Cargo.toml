@@ -37,6 +37,7 @@ uuid = { workspace = true }
 thiserror = { workspace = true }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
+tracing-appender = { workspace = true }
 axum = { workspace = true }
 tower-http = { workspace = true }
 slug = { workspace = true }

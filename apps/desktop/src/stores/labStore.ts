@@ -4,6 +4,7 @@
 
 import { invoke } from "@tauri-apps/api/core";
 import { create } from "zustand";
+import { logger } from "@/lib/logger";
 
 // ── Types (mirroring Rust backend) ──────────────────────────────────────────
 
@@ -134,7 +135,7 @@ export const useLabStore = create<LabState>((set, get) => ({
 				loading: false,
 			});
 		} catch (err) {
-			console.error("[lab] Failed to initialize:", err);
+			logger.error("lab", "Failed to initialize", err);
 			set({ error: String(err), loading: false });
 		}
 	},
@@ -150,7 +151,7 @@ export const useLabStore = create<LabState>((set, get) => ({
 			// Refresh full state
 			await get().initialize();
 		} catch (err) {
-			console.error("[lab] Failed to set enabled:", err);
+			logger.error("lab", "Failed to set enabled", err);
 			// Keep the enabled state (backend already persisted it),
 			// only clear loading and show the error
 			set({ error: String(err), loading: false });
@@ -178,7 +179,7 @@ export const useLabStore = create<LabState>((set, get) => ({
 				await get().reloadProxy();
 			}
 		} catch (err) {
-			console.error("[lab] Failed to add provider key:", err);
+			logger.error("lab", "Failed to add provider key", err);
 			set({ error: String(err), modelsLoading: false });
 		}
 	},
@@ -198,7 +199,7 @@ export const useLabStore = create<LabState>((set, get) => ({
 				await get().reloadProxy();
 			}
 		} catch (err) {
-			console.error("[lab] Failed to remove provider key:", err);
+			logger.error("lab", "Failed to remove provider key", err);
 			set({ error: String(err) });
 		}
 	},
@@ -207,7 +208,7 @@ export const useLabStore = create<LabState>((set, get) => ({
 		try {
 			return await invoke<string[]>("lab_get_provider_keys", { providerId });
 		} catch (err) {
-			console.error("[lab] Failed to get provider keys:", err);
+			logger.error("lab", "Failed to get provider keys", err);
 			return [];
 		}
 	},
@@ -220,7 +221,7 @@ export const useLabStore = create<LabState>((set, get) => ({
 			const providers = await invoke<FreeProvider[]>("lab_list_providers");
 			set({ models, providers, modelsLoading: false });
 		} catch (err) {
-			console.error("[lab] Failed to refresh models:", err);
+			logger.error("lab", "Failed to refresh models", err);
 			set({ error: String(err), modelsLoading: false });
 		}
 	},
@@ -248,7 +249,7 @@ export const useLabStore = create<LabState>((set, get) => ({
 		} catch (err) {
 			// Rollback on failure
 			set({ models: prevModels, error: String(err) });
-			console.error("[lab] Failed to toggle model:", err);
+			logger.error("lab", "Failed to toggle model", err);
 		}
 	},
 
@@ -273,7 +274,7 @@ export const useLabStore = create<LabState>((set, get) => ({
 		} catch (err) {
 			// Rollback on failure
 			set({ models: prevModels, error: String(err) });
-			console.error("[lab] Failed to toggle provider:", err);
+			logger.error("lab", "Failed to toggle provider", err);
 		}
 	},
 
@@ -283,7 +284,7 @@ export const useLabStore = create<LabState>((set, get) => ({
 			const config = await invoke<LabConfig>("lab_get_config");
 			set({ config });
 		} catch (err) {
-			console.error("[lab] Failed to set routing strategy:", err);
+			logger.error("lab", "Failed to set routing strategy", err);
 			set({ error: String(err) });
 		}
 	},
@@ -294,7 +295,7 @@ export const useLabStore = create<LabState>((set, get) => ({
 			const status = await invoke<LabProxyStatus>("lab_start_proxy");
 			set({ proxyStatus: status, loading: false });
 		} catch (err) {
-			console.error("[lab] Failed to start proxy:", err);
+			logger.error("lab", "Failed to start proxy", err);
 			set({ error: String(err), loading: false });
 		}
 	},
@@ -306,7 +307,7 @@ export const useLabStore = create<LabState>((set, get) => ({
 			const status = await invoke<LabProxyStatus>("lab_get_proxy_status");
 			set({ proxyStatus: status, loading: false });
 		} catch (err) {
-			console.error("[lab] Failed to stop proxy:", err);
+			logger.error("lab", "Failed to stop proxy", err);
 			set({ error: String(err), loading: false });
 		}
 	},
@@ -316,7 +317,7 @@ export const useLabStore = create<LabState>((set, get) => ({
 			const status = await invoke<LabProxyStatus>("lab_reload_proxy");
 			set({ proxyStatus: status });
 		} catch (err) {
-			console.error("[lab] Failed to reload proxy:", err);
+			logger.error("lab", "Failed to reload proxy", err);
 			set({ error: String(err) });
 		}
 	},
@@ -326,7 +327,7 @@ export const useLabStore = create<LabState>((set, get) => ({
 			const status = await invoke<LabProxyStatus>("lab_get_proxy_status");
 			set({ proxyStatus: status });
 		} catch (err) {
-			console.error("[lab] Failed to refresh proxy status:", err);
+			logger.error("lab", "Failed to refresh proxy status", err);
 		}
 	},
 
@@ -336,7 +337,7 @@ export const useLabStore = create<LabState>((set, get) => ({
 			const config = await invoke<LabConfig>("lab_get_config");
 			set({ config });
 		} catch (err) {
-			console.error("[lab] Failed to set proxy port:", err);
+			logger.error("lab", "Failed to set proxy port", err);
 			set({ error: String(err) });
 		}
 	},
@@ -347,7 +348,7 @@ export const useLabStore = create<LabState>((set, get) => ({
 			const config = await invoke<LabConfig>("lab_get_config");
 			set({ config });
 		} catch (err) {
-			console.error("[lab] Failed to set LAN access:", err);
+			logger.error("lab", "Failed to set LAN access", err);
 			set({ error: String(err) });
 		}
 	},

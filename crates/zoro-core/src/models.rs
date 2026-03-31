@@ -224,6 +224,12 @@ pub struct GeneralConfig {
     /// disable translation by setting this to empty in the settings UI.
     #[serde(default)]
     pub native_lang: String,
+    /// Whether to persist logs to disk (in data_dir/logs/).
+    #[serde(default)]
+    pub log_to_file: bool,
+    /// Number of days to retain log files. 0 = keep forever.
+    #[serde(default = "default_log_retention_days")]
+    pub log_retention_days: u32,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -242,6 +248,10 @@ fn default_zotero_compat_enabled() -> bool {
 
 fn default_zotero_compat_port() -> u16 {
     23119
+}
+
+fn default_log_retention_days() -> u32 {
+    7
 }
 
 fn default_feed_cache_retention_days() -> i32 {
@@ -631,6 +641,8 @@ impl Default for AppConfig {
                 data_dir: "~/.zoro".to_string(),
                 language: "en".to_string(),
                 native_lang: String::new(),
+                log_to_file: false,
+                log_retention_days: default_log_retention_days(),
             },
             connector: ConnectorConfig {
                 port: 23120,

@@ -4,6 +4,7 @@
 
 import * as commands from "@/lib/commands";
 import type { PluginInfoResponse } from "@/lib/commands";
+import { logger } from "@/lib/logger";
 import { convertFileSrc } from "@tauri-apps/api/core";
 import { readFile } from "@tauri-apps/plugin-fs";
 import type { LoadedPluginModule, PluginSDKInstance } from "./types";
@@ -41,7 +42,7 @@ function busEmit(event: string, ...args: unknown[]) {
 		try {
 			handler(...args);
 		} catch (e) {
-			console.error(`[PluginEventBus] Error in handler for '${event}':`, e);
+			logger.error("plugin", `EventBus error in handler for '${event}'`, e);
 		}
 	}
 }
@@ -72,7 +73,7 @@ export function emitParagraphHover(paragraph: ParagraphResult | null) {
 		try {
 			cb(paragraph);
 		} catch (e) {
-			console.error("[PluginSDK] paragraph hover handler error:", e);
+			logger.error("plugin", "Paragraph hover handler error", e);
 		}
 	}
 }
@@ -88,7 +89,7 @@ export function emitTextSelected(info: {
 		try {
 			cb(info);
 		} catch (e) {
-			console.error("[PluginSDK] text selected handler error:", e);
+			logger.error("plugin", "Text selected handler error", e);
 		}
 	}
 }
@@ -169,7 +170,7 @@ async function extractParagraphsFromReader(
 				}
 			}
 		} catch (e) {
-			console.warn("[PluginSDK] Failed to read paper HTML:", e);
+			logger.warn("plugin", "Failed to read paper HTML", e);
 		}
 	}
 
@@ -523,9 +524,7 @@ export function createPluginSDK(
 				// Dispatch a custom DOM event that the host toast system can pick up
 				const detail = { message, type: type ?? "info", pluginId };
 				window.dispatchEvent(new CustomEvent("zoro:toast", { detail }));
-				console.log(
-					`[Plugin:${pluginId}] Toast(${type ?? "info"}): ${message}`,
-				);
+			logger.info("plugin", `Toast(${type ?? "info"}): ${message}`);
 			},
 			async showConfirm(message: string, _title?: string) {
 				return window.confirm(message);

@@ -534,6 +534,9 @@
 		"showBackgroundTasksDesc": "バックグラウンドのメタデータ補完やPDFダウンロードタスクを監視するフローティングボタンを表示します。",
 		"debugMode": "デバッグモード",
 		"debugModeDesc": "ウィンドウ下部にログパネルを表示し、詳細なログ記録を有効にします。",
+		"logToFile": "ファイルにログを保存",
+		"logToFileDesc": "データディレクトリ内のファイルにログを書き込みます。再起動後に有効になります。",
+		"logRetentionDays": "保持日数",
 		"disableContextMenu": "ブラウザコンテキストメニューを無効化",
 		"disableContextMenuDesc": "開発用のみ。WebViewの「要素を検証」メニューを無効にし、アプリの右クリックメニューが正常に動作するようにします。",
 		"showBackgroundTasks": "Show background tasks button",
@@ -900,7 +903,9 @@
 		"title": "デバッグログ",
 		"clear": "クリア",
 		"copyAll": "すべてのログをコピー",
-		"noLogs": "ログエントリなし"
+		"noLogs": "ログエントリなし",
+		"allModules": "すべてのモジュール",
+		"moduleCount": "{{count}} モジュール"
 	},
 	"onboarding": {
 		"welcomeTitle": "Zoroへようこそ！",

@@ -534,6 +534,9 @@
 		"showBackgroundTasksDesc": "Muestra un botón flotante para monitorear el enriquecimiento de metadatos en segundo plano y las tareas de descarga de PDF.",
 		"debugMode": "Modo de depuración",
 		"debugModeDesc": "Muestra el panel de registro en la parte inferior de la ventana y activa el registro detallado.",
+		"logToFile": "Registrar en archivo",
+		"logToFileDesc": "Escribe los registros en archivos del directorio de datos. Surte efecto tras reiniciar.",
+		"logRetentionDays": "Retención (días)",
 		"disableContextMenu": "Desactivar menú contextual del navegador",
 		"disableContextMenuDesc": "Solo para desarrollo. Suprime el menú \"Inspeccionar elemento\" de WebView para que los menús de clic derecho de la app funcionen normalmente.",
 		"showBackgroundTasks": "Show background tasks button",
@@ -900,7 +903,9 @@
 		"title": "Registro de depuración",
 		"clear": "Limpiar",
 		"copyAll": "Copiar todos los registros",
-		"noLogs": "Sin entradas de registro"
+		"noLogs": "Sin entradas de registro",
+		"allModules": "Todos los módulos",
+		"moduleCount": "{{count}} módulos"
 	},
 	"onboarding": {
 		"welcomeTitle": "¡Bienvenido a Zoro!",

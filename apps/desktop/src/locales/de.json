@@ -534,6 +534,9 @@
 		"showBackgroundTasksDesc": "Zeigt eine schwebende Schaltfläche zur Überwachung von Hintergrund-Metadatenanreicherung und PDF-Download-Aufgaben.",
 		"debugMode": "Debug-Modus",
 		"debugModeDesc": "Zeigt das Protokollfeld am unteren Fensterrand an und aktiviert ausführliches Logging.",
+		"logToFile": "In Datei protokollieren",
+		"logToFileDesc": "Protokolle in Dateien im Datenverzeichnis schreiben. Wird nach Neustart wirksam.",
+		"logRetentionDays": "Aufbewahrung (Tage)",
 		"disableContextMenu": "Browser-Kontextmenü deaktivieren",
 		"disableContextMenuDesc": "Nur für Entwickler. Unterdrückt das WebView-Menü \"Element untersuchen\", damit App-Rechtsklickmenüs normal funktionieren.",
 		"showBackgroundTasks": "Show background tasks button",
@@ -900,7 +903,9 @@
 		"title": "Debug-Protokoll",
 		"clear": "Löschen",
 		"copyAll": "Alle Protokolle kopieren",
-		"noLogs": "Keine Protokolleinträge"
+		"noLogs": "Keine Protokolleinträge",
+		"allModules": "Alle Module",
+		"moduleCount": "{{count}} Module"
 	},
 	"onboarding": {
 		"welcomeTitle": "Willkommen bei Zoro!",

@@ -9,6 +9,7 @@ import type {
 	ConfigOptionInfo,
 } from "@/lib/commands";
 import * as commands from "@/lib/commands";
+import { logger } from "@/lib/logger";
 import { create } from "zustand";
 
 // ── Store types ─────────────────────────────────────────────────────────────
@@ -106,7 +107,7 @@ export const useAcpProxyStore = create<AcpProxyState>((set, get) => ({
 				get().fetchConfigOptions(config.agentName);
 			}
 		} catch (err) {
-			console.error("[acp-proxy] Failed to initialize:", err);
+			logger.error("acp-proxy", "Failed to initialize", err);
 			set({ error: String(err), loading: false, initializing: false });
 		}
 	},
@@ -119,7 +120,7 @@ export const useAcpProxyStore = create<AcpProxyState>((set, get) => ({
 			const config = await commands.acpProxyGetConfig();
 			set({ config, status, loading: false });
 		} catch (err) {
-			console.error("[acp-proxy] Failed to set enabled:", err);
+			logger.error("acp-proxy", "Failed to set enabled", err);
 			set({ error: String(err), loading: false });
 		}
 	},
@@ -141,7 +142,7 @@ export const useAcpProxyStore = create<AcpProxyState>((set, get) => ({
 				}
 			}
 		} catch (err) {
-			console.error("[acp-proxy] Failed to update config:", err);
+			logger.error("acp-proxy", "Failed to update config", err);
 			set({ error: String(err), loading: false });
 		}
 	},
@@ -183,7 +184,7 @@ export const useAcpProxyStore = create<AcpProxyState>((set, get) => ({
 				}
 			}
 		} catch (err) {
-			console.error("[acp-proxy] Failed to update config:", err);
+			logger.error("acp-proxy", "Failed to update config on switchAgent", err);
 			set({ error: String(err) });
 		}
 
@@ -229,7 +230,7 @@ export const useAcpProxyStore = create<AcpProxyState>((set, get) => ({
 				}
 			}
 		} catch (err) {
-			console.error("[acp-proxy] Failed to fetch config options:", err);
+			logger.error("acp-proxy", "Failed to fetch config options on switchAgent", err);
 			if (get().config?.agentName === agentName) {
 				set({ configOptionsLoading: false });
 			}
@@ -242,7 +243,7 @@ export const useAcpProxyStore = create<AcpProxyState>((set, get) => ({
 			const status = await commands.acpProxyStart();
 			set({ status, loading: false });
 		} catch (err) {
-			console.error("[acp-proxy] Failed to start:", err);
+			logger.error("acp-proxy", "Failed to start", err);
 			set({ error: String(err), loading: false });
 		}
 	},
@@ -254,7 +255,7 @@ export const useAcpProxyStore = create<AcpProxyState>((set, get) => ({
 			const status = await commands.acpProxyGetStatus();
 			set({ status, loading: false });
 		} catch (err) {
-			console.error("[acp-proxy] Failed to stop:", err);
+			logger.error("acp-proxy", "Failed to stop", err);
 			set({ error: String(err), loading: false });
 		}
 	},
@@ -264,7 +265,7 @@ export const useAcpProxyStore = create<AcpProxyState>((set, get) => ({
 			const status = await commands.acpProxyGetStatus();
 			set({ status });
 		} catch (err) {
-			console.error("[acp-proxy] Failed to refresh status:", err);
+			logger.error("acp-proxy", "Failed to refresh status", err);
 		}
 	},
 
@@ -300,7 +301,7 @@ export const useAcpProxyStore = create<AcpProxyState>((set, get) => ({
 				commands.acpProxySaveOptionsCache(newCache).catch(() => {});
 			}
 		} catch (err) {
-			console.error("[acp-proxy] Failed to fetch config options:", err);
+			logger.error("acp-proxy", "Failed to fetch config options", err);
 			if (get().config?.agentName === agentName) {
 				set({ configOptions: [], configOptionsLoading: false });
 			}

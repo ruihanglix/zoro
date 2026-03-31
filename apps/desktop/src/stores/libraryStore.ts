@@ -12,6 +12,7 @@ import type {
 	UpdatePaperInput,
 } from "@/lib/commands";
 import * as commands from "@/lib/commands";
+import { logger } from "@/lib/logger";
 import { create } from "zustand";
 
 function loadJsonSetting<T>(key: string, fallback: T): T {
@@ -403,16 +404,16 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
 
 	fetchLatestFeedDate: async () => {
 		try {
-			console.log("[Store] fetchLatestFeedDate: calling API...");
+			logger.debug("feed", "fetchLatestFeedDate: calling API...");
 			const date = await commands.getLatestFeedDate();
-			console.log("[Store] fetchLatestFeedDate: API returned:", date);
+			logger.debug("feed", "fetchLatestFeedDate: API returned", date);
 			if (date) {
 				set({ latestFeedDate: date });
 				localStorage.setItem("zoro-latest-feed-date", JSON.stringify(date));
 			}
 			return date;
 		} catch (e) {
-			console.error("[Store] Failed to fetch latest feed date:", e);
+			logger.error("feed", "Failed to fetch latest feed date", e);
 			return null;
 		}
 	},
@@ -478,7 +479,7 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
 			await get().fetchCollections();
 			return paper;
 		} catch (e) {
-			console.error("Failed to create standalone note:", e);
+			logger.error("library", "Failed to create standalone note", e);
 			return null;
 		}
 	},

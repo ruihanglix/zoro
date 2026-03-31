@@ -19,6 +19,7 @@ import type {
 } from "@/lib/commands";
 import { supportedLanguages } from "@/lib/i18n";
 import type { SupportedLanguage } from "@/lib/i18n";
+import { logger } from "@/lib/logger";
 import { cn } from "@/lib/utils";
 import { createPluginSDK } from "@/plugins/PluginManager";
 import { usePluginStore } from "@/plugins/pluginStore";
@@ -196,7 +197,7 @@ function GlossarySection({
 			const data = await commands.getGlossary();
 			setTerms(data);
 		} catch (e) {
-			console.error("Failed to load glossary:", e);
+			logger.error("settings", "Failed to load glossary", e);
 		} finally {
 			setLoading(false);
 		}
@@ -239,7 +240,7 @@ function GlossarySection({
 			setAddTranslated("");
 			await loadTerms();
 		} catch (e) {
-			console.error("Failed to add term:", e);
+			logger.error("settings", "Failed to add term", e);
 		}
 	};
 
@@ -248,7 +249,7 @@ function GlossarySection({
 			await commands.deleteGlossaryTerm(id);
 			await loadTerms();
 		} catch (e) {
-			console.error("Failed to delete term:", e);
+			logger.error("settings", "Failed to delete term", e);
 		}
 	};
 
@@ -257,7 +258,7 @@ function GlossarySection({
 			await commands.promoteGlossaryTerm(id);
 			await loadTerms();
 		} catch (e) {
-			console.error("Failed to promote term:", e);
+			logger.error("settings", "Failed to promote term", e);
 		}
 	};
 
@@ -271,7 +272,7 @@ function GlossarySection({
 			setEditingId(null);
 			await loadTerms();
 		} catch (e) {
-			console.error("Failed to update term:", e);
+			logger.error("settings", "Failed to update term", e);
 		}
 	};
 
@@ -281,7 +282,7 @@ function GlossarySection({
 			await commands.clearGlossary();
 			await loadTerms();
 		} catch (e) {
-			console.error("Failed to clear glossary:", e);
+			logger.error("settings", "Failed to clear glossary", e);
 		}
 	};
 
@@ -626,6 +627,12 @@ export function Settings() {
 	);
 	const showBackgroundTasks = useUiStore((s) => s.showBackgroundTasks);
 	const setShowBackgroundTasks = useUiStore((s) => s.setShowBackgroundTasks);
+
+	// Log persistence config
+	const [logToFile, setLogToFile] = useState(false);
+	const [logRetentionDays, setLogRetentionDays] = useState(7);
+	const [logConfigLoaded, setLogConfigLoaded] = useState(false);
+
 	const theme = useUiStore((s) => s.theme);
 	const setTheme = useUiStore((s) => s.setTheme);
 	const confirmBeforeDelete = useUiStore((s) => s.confirmBeforeDelete);
@@ -813,7 +820,7 @@ export function Settings() {
 			setStorageInfo(info);
 			setRetentionDays(info.feed_cache_retention_days);
 		} catch (err) {
-			console.error("Failed to fetch storage info:", err);
+			logger.error("settings", "Failed to fetch storage info", err);
 		}
 	}, []);
 
@@ -843,7 +850,7 @@ export function Settings() {
 			setPdfDownloadMode(config.pdf_download_mode || "on_demand");
 			setConflictStrategy(config.conflict_strategy || "auto_merge");
 		} catch (err) {
-			console.error("Failed to fetch sync status:", err);
+			logger.error("settings", "Failed to fetch sync status", err);
 		}
 	}, []);
 
@@ -951,7 +958,7 @@ export function Settings() {
 				setCustomNativeLang("");
 			}
 		} catch (err) {
-			console.error("Failed to load AI config:", err);
+			logger.error("settings", "Failed to load AI config", err);
 		}
 	}, []);
 
@@ -962,7 +969,7 @@ export function Settings() {
 			setChatActivePreset(config.activePreset);
 			setChatConfirmToolCalls(config.confirmToolCalls);
 		} catch (err) {
-			console.error("Failed to load chat config:", err);
+			logger.error("settings", "Failed to load chat config", err);
 		}
 	}, []);
 
@@ -973,12 +980,17 @@ export function Settings() {
 			setMcpPort(status.port);
 			setMcpTransport(status.transport);
 		} catch (err) {
-			console.error("Failed to load MCP status:", err);
+			logger.error("settings", "Failed to load MCP status", err);
 		}
 	}, []);
 
 	useEffect(() => {
-		commands.getConnectorStatus().then(setConnectorStatus).catch(console.error);
+		commands.getConnectorStatus().then(setConnectorStatus).catch((e: unknown) => logger.error("settings", "Failed to get connector status", e));
+		commands.getLogConfig().then((cfg) => {
+			setLogToFile(cfg.logToFile);
+			setLogRetentionDays(cfg.logRetentionDays);
+			setLogConfigLoaded(true);
+		}).catch((e: unknown) => logger.error("settings", "Failed to load log config", e));
 		fetchSubscriptions();
 		fetchStorageInfo();
 		fetchSyncStatus();
@@ -992,7 +1004,7 @@ export function Settings() {
 			commands
 				.getConnectorStatus()
 				.then(setConnectorStatus)
-				.catch(console.error);
+				.catch((e: unknown) => logger.error("settings", "Failed to get connector status on zotero error", e));
 		});
 		return () => {
 			unlistenZoteroError.then((fn) => fn());
@@ -1017,7 +1029,7 @@ export function Settings() {
 				// Initialize lab store on mount
 				await labInitialize();
 			} catch (err) {
-				console.error("[lab] Failed to initialize lab store:", err);
+			logger.error("settings", "Failed to initialize lab store", err);
 			}
 		};
 		syncLabProxy();
@@ -1066,10 +1078,7 @@ export function Settings() {
 							}
 						}
 					} catch (fetchErr) {
-						console.warn(
-							"[lab] Failed to fetch models from proxy /v1/models:",
-							fetchErr,
-						);
+					logger.warn("settings", "Failed to fetch models from proxy /v1/models", fetchErr);
 					}
 					if (modelIds.length > 0) {
 						labProxy = {
@@ -1118,10 +1127,7 @@ export function Settings() {
 				// Reload AI config to pick up the new models in UI
 				await loadAiConfig();
 			} catch (err) {
-				console.error(
-					"[lab] Failed to sync lab proxy provider to AI config:",
-					err,
-				);
+				logger.error("settings", "Failed to sync lab proxy provider to AI config", err);
 			}
 		};
 		syncLabProxyProvider();
@@ -1132,7 +1138,7 @@ export function Settings() {
 			const bibtex = await exportBibtex();
 			setExportResult(bibtex);
 		} catch (err) {
-			console.error("Export failed:", err);
+			logger.error("settings", "Export failed", err);
 		}
 	};
 
@@ -1141,7 +1147,25 @@ export function Settings() {
 			await commands.setDebugMode(enabled);
 			setDebugMode(enabled);
 		} catch (err) {
-			console.error("Failed to toggle debug mode:", err);
+			logger.error("settings", "Failed to toggle debug mode", err);
+		}
+	};
+
+	const handleLogToFileToggle = async (enabled: boolean) => {
+		try {
+			await commands.updateLogConfig(enabled, undefined);
+			setLogToFile(enabled);
+		} catch (err) {
+			logger.error("settings", "Failed to update log config", err);
+		}
+	};
+
+	const handleLogRetentionSave = async (days: number) => {
+		try {
+			await commands.updateLogConfig(undefined, days);
+			setLogRetentionDays(days);
+		} catch (err) {
+			logger.error("settings", "Failed to update log retention", err);
 		}
 	};
 
@@ -1154,7 +1178,7 @@ export function Settings() {
 			const status = await commands.getConnectorStatus();
 			setConnectorStatus(status);
 		} catch (err) {
-			console.error("Failed to update Zotero compat setting:", err);
+			logger.error("settings", "Failed to update Zotero compat setting", err);
 		} finally {
 			setZoteroCompatSaving(false);
 		}
@@ -1166,7 +1190,7 @@ export function Settings() {
 			await commands.updateSubscriptionsConfig(retentionDays);
 			await fetchStorageInfo();
 		} catch (err) {
-			console.error("Failed to update retention:", err);
+			logger.error("settings", "Failed to update retention", err);
 		} finally {
 			setRetentionSaving(false);
 		}
@@ -1183,10 +1207,10 @@ export function Settings() {
 		setClearingCache(true);
 		try {
 			const deleted = await commands.clearFeedCache();
-			console.log(`Cleared ${deleted} cached items`);
+			logger.info("settings", `Cleared ${deleted} cached items`);
 			await fetchStorageInfo();
 		} catch (err) {
-			console.error("Failed to clear cache:", err);
+			logger.error("settings", "Failed to clear cache", err);
 		} finally {
 			setClearingCache(false);
 		}
@@ -1210,7 +1234,7 @@ export function Settings() {
 			alert(t("settings.dataDirectoryChangedRestart"));
 			await fetchStorageInfo();
 		} catch (err) {
-			console.error("Failed to change data directory:", err);
+			logger.error("settings", "Failed to change data directory", err);
 			alert(`${t("settings.dataDirectoryChangeFailed")}: ${err}`);
 		} finally {
 			setChangingDataDir(false);
@@ -1270,7 +1294,7 @@ export function Settings() {
 			setSyncEnabled(true);
 			await fetchSyncStatus();
 		} catch (err) {
-			console.error("Failed to save sync config:", err);
+			logger.error("settings", "Failed to save sync config", err);
 		} finally {
 			setSyncSaving(false);
 		}
@@ -1302,7 +1326,7 @@ export function Settings() {
 			setSyncEnabled(false);
 			await fetchSyncStatus();
 		} catch (err) {
-			console.error("Failed to disable sync:", err);
+			logger.error("settings", "Failed to disable sync", err);
 		} finally {
 			setSyncSaving(false);
 		}
@@ -1314,7 +1338,7 @@ export function Settings() {
 			await commands.triggerSync();
 			await fetchSyncStatus();
 		} catch (err) {
-			console.error("Sync failed:", err);
+			logger.error("settings", "Sync failed", err);
 		} finally {
 			setSyncTriggering(false);
 		}
@@ -1351,10 +1375,7 @@ export function Settings() {
 						}
 					}
 				} catch (fetchErr) {
-					console.warn(
-						"[lab] Failed to fetch proxy models during save:",
-						fetchErr,
-					);
+				logger.warn("settings", "Failed to fetch proxy models during save", fetchErr);
 				}
 			}
 
@@ -1419,7 +1440,7 @@ export function Settings() {
 			await loadAiConfig();
 			await fetchAiConfig(); // Refresh the global store
 		} catch (err) {
-			console.error("Failed to save AI config:", err);
+			logger.error("settings", "Failed to save AI config", err);
 		} finally {
 			setAiSaving(false);
 		}
@@ -1433,7 +1454,7 @@ export function Settings() {
 			});
 			await loadAiConfig();
 		} catch (err) {
-			console.error("Failed to save glossary config:", err);
+			logger.error("settings", "Failed to save glossary config", err);
 		}
 	};
 
@@ -1458,7 +1479,7 @@ export function Settings() {
 			await commands.resetTranslationPrompts();
 			await loadAiConfig();
 		} catch (err) {
-			console.error("Failed to reset prompts:", err);
+			logger.error("settings", "Failed to reset prompts", err);
 		}
 	};
 
@@ -1500,7 +1521,7 @@ export function Settings() {
 			await loadAiConfig();
 			await fetchAiConfig();
 		} catch (err) {
-			console.error("Failed to save PDF translation config:", err);
+			logger.error("settings", "Failed to save PDF translation config", err);
 		} finally {
 			setPdfSaving(false);
 		}
@@ -1515,7 +1536,7 @@ export function Settings() {
 			});
 			setMcpStatus(status);
 		} catch (err) {
-			console.error("Failed to save MCP config:", err);
+			logger.error("settings", "Failed to save MCP config", err);
 		} finally {
 			setMcpSaving(false);
 		}
@@ -1537,7 +1558,7 @@ export function Settings() {
 				setMcpStatus(status);
 			}
 		} catch (err) {
-			console.error("Failed to toggle MCP server:", err);
+			logger.error("settings", "Failed to toggle MCP server", err);
 		} finally {
 			setMcpStarting(false);
 		}
@@ -1549,7 +1570,7 @@ export function Settings() {
 			const status = await commands.startMcpServer();
 			setMcpStatus(status);
 		} catch (err) {
-			console.error("Failed to start MCP server:", err);
+			logger.error("settings", "Failed to start MCP server", err);
 		} finally {
 			setMcpStarting(false);
 		}
@@ -1561,7 +1582,7 @@ export function Settings() {
 			const status = await commands.stopMcpServer();
 			setMcpStatus(status);
 		} catch (err) {
-			console.error("Failed to stop MCP server:", err);
+			logger.error("settings", "Failed to stop MCP server", err);
 		} finally {
 			setMcpStarting(false);
 		}
@@ -1573,7 +1594,7 @@ export function Settings() {
 			const status = await commands.restartMcpServer();
 			setMcpStatus(status);
 		} catch (err) {
-			console.error("Failed to restart MCP server:", err);
+			logger.error("settings", "Failed to restart MCP server", err);
 		} finally {
 			setMcpStarting(false);
 		}
@@ -1585,7 +1606,7 @@ export function Settings() {
 			await commands.toggleSubscription(id, enabled);
 			await fetchSubscriptions();
 		} catch (err) {
-			console.error("Failed to toggle subscription:", err);
+			logger.error("settings", "Failed to toggle subscription", err);
 		} finally {
 			setTogglingSubId(null);
 		}
@@ -1599,7 +1620,7 @@ export function Settings() {
 			setRefreshResult({ subId: id, count });
 			await fetchSubscriptions();
 		} catch (err) {
-			console.error("Failed to refresh subscription:", err);
+			logger.error("settings", "Failed to refresh subscription", err);
 		} finally {
 			setRefreshingSubId(null);
 		}
@@ -1610,7 +1631,7 @@ export function Settings() {
 			const ris = await commands.exportRis();
 			setExportRisResult(ris);
 		} catch (err) {
-			console.error("RIS export failed:", err);
+			logger.error("settings", "RIS export failed", err);
 		}
 	};
 
@@ -1631,9 +1652,9 @@ export function Settings() {
 				const count = await commands.deleteTranslations("paper", p.id);
 				cleared += count;
 			}
-			console.log(`Cleared ${cleared} translations`);
+			logger.info("settings", `Cleared ${cleared} translations`);
 		} catch (err) {
-			console.error("Failed to clear translations:", err);
+			logger.error("settings", "Failed to clear translations", err);
 		} finally {
 			setClearingTranslations(false);
 		}
@@ -2215,6 +2236,42 @@ export function Settings() {
 											</p>
 										</>
 									)}
+
+									{/* Log to file */}
+									<label className="flex items-center gap-2 text-sm cursor-pointer">
+										<input
+											type="checkbox"
+											checked={logToFile}
+											onChange={(e) => handleLogToFileToggle(e.target.checked)}
+											disabled={!logConfigLoaded}
+											className="rounded"
+										/>
+										{t("settings.logToFile")}
+									</label>
+									<p className="text-[11px] text-muted-foreground ml-5">
+										{t("settings.logToFileDesc")}
+									</p>
+									{logToFile && (
+										<div className="ml-5 flex items-center gap-2">
+											<label className="text-xs text-muted-foreground">
+												{t("settings.logRetentionDays")}
+											</label>
+											<input
+												type="number"
+												min={1}
+												max={90}
+												value={logRetentionDays}
+												onChange={(e) => {
+													const v = Number.parseInt(e.target.value, 10);
+													if (v >= 1 && v <= 90) {
+														setLogRetentionDays(v);
+														handleLogRetentionSave(v);
+													}
+												}}
+												className="w-16 rounded border bg-background px-2 py-0.5 text-xs"
+											/>
+										</div>
+									)}
 								</div>
 
 								<Separator />
@@ -2577,10 +2634,7 @@ export function Settings() {
 																			editingProvider.id,
 																		);
 																	} catch (e) {
-																		console.warn(
-																			"[fetchModels] Failed to retrieve saved API key:",
-																			e,
-																		);
+																logger.warn("settings", "Failed to retrieve saved API key for fetchModels", e);
 																	}
 																}
 																const headers: Record<string, string> = {
@@ -2590,27 +2644,18 @@ export function Settings() {
 																	headers.Authorization = `Bearer ${apiKey}`;
 																}
 																const fetchUrl = `${baseUrl}/models`;
-																console.info(
-																	`[fetchModels] Requesting: ${fetchUrl} (apiKey: ${apiKey ? "yes" : "none"})`,
-																);
+															logger.info("settings", `fetchModels requesting: ${fetchUrl} (apiKey: ${apiKey ? "yes" : "none"})`);
 																const resp = await commands.httpProxyGet(
 																	fetchUrl,
 																	headers,
 																);
-																console.info(
-																	`[fetchModels] Response status: ${resp.status}, body length: ${resp.body?.length ?? 0}`,
-																);
+															logger.info("settings", `fetchModels response status: ${resp.status}, body length: ${resp.body?.length ?? 0}`);
 																if (resp.status >= 200 && resp.status < 300) {
 																	let json: Record<string, unknown>;
 																	try {
 																		json = JSON.parse(resp.body);
 																	} catch (parseErr) {
-																		console.error(
-																			"[fetchModels] JSON parse error:",
-																			parseErr,
-																			"raw body:",
-																			resp.body?.slice(0, 500),
-																		);
+																	logger.error("settings", "fetchModels JSON parse error", parseErr, resp.body?.slice(0, 500));
 																		alert(
 																			`Failed to parse response as JSON.\n\n${resp.body?.slice(0, 300)}`,
 																		);
@@ -2631,10 +2676,7 @@ export function Settings() {
 																			)
 																			.filter(Boolean);
 																	}
-																	console.info(
-																		`[fetchModels] Parsed ${modelIds.length} model(s):`,
-																		modelIds.slice(0, 10),
-																	);
+																logger.info("settings", `fetchModels parsed ${modelIds.length} model(s)`, modelIds.slice(0, 10));
 																	if (modelIds.length > 0) {
 																		const existing = editingProvider.models
 																			.split(",")
@@ -2648,25 +2690,19 @@ export function Settings() {
 																			models: merged.join(", "),
 																		});
 																	} else {
-																		console.warn(
-																			"[fetchModels] No models found in response. Keys:",
-																			Object.keys(json),
-																		);
+																	logger.warn("settings", "fetchModels no models found in response", Object.keys(json));
 																		alert(
 																			`No models found in response.\nResponse keys: ${Object.keys(json).join(", ")}\n\nBody preview:\n${resp.body?.slice(0, 300)}`,
 																		);
 																	}
 																} else {
-																	console.error(
-																		`[fetchModels] HTTP ${resp.status} from ${fetchUrl}:`,
-																		resp.body?.slice(0, 500),
-																	);
+																logger.error("settings", `fetchModels HTTP ${resp.status} from ${fetchUrl}`, resp.body?.slice(0, 500));
 																	alert(
 																		`Failed to fetch models: HTTP ${resp.status}\n\n${resp.body?.slice(0, 300)}`,
 																	);
 																}
 															} catch (err) {
-																console.error("[fetchModels] Exception:", err);
+															logger.error("settings", "fetchModels exception", err);
 																alert(
 																	`Failed to fetch models:\n${err instanceof Error ? err.message : String(err)}`,
 																);
@@ -3574,7 +3610,7 @@ export function Settings() {
 													presets: chatPresets,
 												});
 											} catch (err) {
-												console.error("Failed to save chat config:", err);
+											logger.error("settings", "Failed to save chat config", err);
 											} finally {
 												setChatSaving(false);
 											}
@@ -4817,7 +4853,7 @@ function LabSection() {
 		// Apply the config change to running workers in real-time
 		if (acpStatus?.running) {
 			commands.acpProxyApplyConfigOption(configId, value).catch((err) => {
-				console.warn("[acp-proxy] Failed to apply config option to workers:", err);
+logger.warn("settings", "Failed to apply config option to workers", err);
 			});
 		}
 	};

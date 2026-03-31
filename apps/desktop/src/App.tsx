@@ -79,13 +79,6 @@ export default function App() {
 	useEffect(() => {
 		if (!disableNativeContextMenu) return;
 		const handler = (e: MouseEvent) => {
-			console.log(
-				"[contextmenu] target:",
-				(e.target as HTMLElement)?.tagName,
-				(e.target as HTMLElement)?.className?.slice(0, 60),
-				"| defaultPrevented:",
-				e.defaultPrevented,
-			);
 			e.preventDefault();
 		};
 		document.addEventListener("contextmenu", handler);

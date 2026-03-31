@@ -4,6 +4,7 @@
 
 import * as commands from "@/lib/commands";
 import type { AnnotationResponse, ReaderStateResponse } from "@/lib/commands";
+import { logger } from "@/lib/logger";
 import type { PDFDocumentProxy } from "pdfjs-dist";
 import type {
 	Content,
@@ -327,7 +328,7 @@ export const useAnnotationStore = create<AnnotationState>()((set, get) => ({
 			set((s) => ({ annotations: [...s.annotations, highlight] }));
 			return highlight;
 		} catch (e) {
-			console.error("Failed to add annotation:", e);
+			logger.error("annotation", "Failed to add annotation", e);
 			return null;
 		}
 	},
@@ -364,7 +365,7 @@ export const useAnnotationStore = create<AnnotationState>()((set, get) => ({
 			set((s) => ({ annotations: [...s.annotations, highlight] }));
 			return highlight;
 		} catch (e) {
-			console.error("Failed to add ink annotation:", e);
+			logger.error("annotation", "Failed to add ink annotation", e);
 			return null;
 		}
 	},
@@ -377,7 +378,7 @@ export const useAnnotationStore = create<AnnotationState>()((set, get) => ({
 				annotations: s.annotations.map((a) => (a.id === id ? updated : a)),
 			}));
 		} catch (e) {
-			console.error("Failed to update annotation:", e);
+			logger.error("annotation", "Failed to update annotation", e);
 		}
 	},
 
@@ -388,7 +389,7 @@ export const useAnnotationStore = create<AnnotationState>()((set, get) => ({
 				annotations: s.annotations.filter((a) => a.id !== id),
 			}));
 		} catch (e) {
-			console.error("Failed to delete annotation:", e);
+			logger.error("annotation", "Failed to delete annotation", e);
 		}
 	},
 
@@ -400,7 +401,7 @@ export const useAnnotationStore = create<AnnotationState>()((set, get) => ({
 				annotations: s.annotations.map((a) => (a.id === id ? updated : a)),
 			}));
 		} catch (e) {
-			console.error("Failed to update annotation type:", e);
+			logger.error("annotation", "Failed to update annotation type", e);
 		}
 	},
 
@@ -586,7 +587,7 @@ export const useAnnotationStore = create<AnnotationState>()((set, get) => ({
 			const state = await commands.getReaderState(paperId);
 			set({ readerState: state });
 		} catch (e) {
-			console.error("Failed to fetch reader state:", e);
+			logger.error("annotation", "Failed to fetch reader state", e);
 		}
 	},
 
@@ -599,7 +600,7 @@ export const useAnnotationStore = create<AnnotationState>()((set, get) => ({
 			);
 			set({ readerState: state });
 		} catch (e) {
-			console.error("Failed to save reader state:", e);
+			logger.error("annotation", "Failed to save reader state", e);
 		}
 	},
 
@@ -628,7 +629,7 @@ export const useAnnotationStore = create<AnnotationState>()((set, get) => ({
 			set((s) => ({ annotations: [...s.annotations, highlight] }));
 			return highlight;
 		} catch (e) {
-			console.error("Failed to add HTML annotation:", e);
+			logger.error("annotation", "Failed to add HTML annotation", e);
 			return null;
 		}
 	},
@@ -666,7 +667,7 @@ export const useAnnotationStore = create<AnnotationState>()((set, get) => ({
 			set((s) => ({ annotations: [...s.annotations, highlight] }));
 			return highlight;
 		} catch (e) {
-			console.error("Failed to add HTML ink annotation:", e);
+			logger.error("annotation", "Failed to add HTML ink annotation", e);
 			return null;
 		}
 	},
