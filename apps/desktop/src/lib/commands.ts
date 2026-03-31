@@ -1564,3 +1564,34 @@ export const acpProxySaveOptionsCache = (
 
 export const acpProxyApplyConfigOption = (configId: string, value: string) =>
 	invoke<void>("acp_proxy_apply_config_option", { configId, value });
+
+// ── Updater ──────────────────────────────────────────────────────────────────
+
+export interface UpdateCheckResponse {
+	available: boolean;
+	version: string;
+	body: string;
+	currentVersion: string;
+}
+
+export interface UpdaterConfigResponse {
+	autoCheck: boolean;
+	skippedVersion: string;
+}
+
+export const checkForUpdate = () =>
+	invoke<UpdateCheckResponse>("check_for_update");
+
+export const installUpdate = () => invoke<void>("install_update");
+
+export const getUpdaterConfig = () =>
+	invoke<UpdaterConfigResponse>("get_updater_config");
+
+export const updateUpdaterConfig = (
+	autoCheck?: boolean | null,
+	skippedVersion?: string | null,
+) =>
+	invoke<void>("update_updater_config", {
+		autoCheck: autoCheck ?? null,
+		skippedVersion: skippedVersion ?? null,
+	});

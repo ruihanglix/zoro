@@ -26,12 +26,14 @@ import { useTabStore } from "@/stores/tabStore";
 import { useTranslationStore } from "@/stores/translationStore";
 import { useUiStore } from "@/stores/uiStore";
 import { listen } from "@tauri-apps/api/event";
-import { useEffect } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 
 // Inject shared dependencies for plugins before any plugin loads
 injectPluginSharedDeps();
 
 export default function App() {
+	const { t } = useTranslation();
 	const showOnboarding = useUiStore((s) => s.showOnboarding);
 	const setShowOnboarding = useUiStore((s) => s.setShowOnboarding);
 	const view = useUiStore((s) => s.view);
@@ -46,6 +48,59 @@ export default function App() {
 	const tabs = useTabStore((s) => s.tabs);
 	const activeTabId = useTabStore((s) => s.activeTabId);
 	const metadataSearchPaperId = useUiStore((s) => s.metadataSearchPaperId);
+
+	// Update notification state
+	const [updateAvailable, setUpdateAvailable] = useState<{
+		version: string;
+		body: string;
+	} | null>(null);
+	const [updateInstalling, setUpdateInstalling] = useState(false);
+
+	// Check for updates on startup (if auto-check is enabled)
+	useEffect(() => {
+		const checkUpdate = async () => {
+			try {
+				const config = await commands.getUpdaterConfig();
+				if (!config.autoCheck) return;
+
+				const result = await commands.checkForUpdate();
+				if (!result.available) return;
+
+				// Skip if user previously chose to skip this version
+				if (config.skippedVersion === result.version) return;
+
+				setUpdateAvailable({
+					version: result.version,
+					body: result.body,
+				});
+			} catch {
+				// Silently ignore update check failures on startup
+			}
+		};
+		// Delay the check slightly so the app loads first
+		const timer = setTimeout(checkUpdate, 3000);
+		return () => clearTimeout(timer);
+	}, []);
+
+	const handleDismissUpdate = useCallback(() => {
+		setUpdateAvailable(null);
+	}, []);
+
+	const handleSkipUpdate = useCallback(async () => {
+		if (updateAvailable) {
+			await commands.updateUpdaterConfig(null, updateAvailable.version);
+			setUpdateAvailable(null);
+		}
+	}, [updateAvailable]);
+
+	const handleInstallUpdate = useCallback(async () => {
+		setUpdateInstalling(true);
+		try {
+			await commands.installUpdate();
+		} catch {
+			setUpdateInstalling(false);
+		}
+	}, []);
 
 	useEffect(() => {
 		fetchPapers();
@@ -208,6 +263,62 @@ export default function App() {
 			{debugMode && <LogPanel />}
 			{showOnboarding && (
 				<OnboardingOverlay onComplete={() => setShowOnboarding(false)} />
+			)}
+
+			{/* Update notification banner */}
+			{updateAvailable && (
+				<div className="fixed bottom-4 right-4 z-50 max-w-sm rounded-lg border bg-background shadow-lg p-4 space-y-2 animate-in slide-in-from-bottom-4">
+					<div className="flex items-start justify-between gap-2">
+						<div className="space-y-1">
+							<p className="text-sm font-medium">
+								{t("settings.updateAvailable")}
+							</p>
+							<p className="text-xs text-muted-foreground">
+								{t("settings.newVersion", { version: updateAvailable.version })}
+							</p>
+						</div>
+						<button
+							type="button"
+							onClick={handleDismissUpdate}
+							className="text-muted-foreground hover:text-foreground shrink-0"
+						>
+							<svg
+								xmlns="http://www.w3.org/2000/svg"
+								width="14"
+								height="14"
+								viewBox="0 0 24 24"
+								fill="none"
+								stroke="currentColor"
+								strokeWidth="2"
+								strokeLinecap="round"
+								strokeLinejoin="round"
+							>
+								<path d="M18 6 6 18" />
+								<path d="m6 6 12 12" />
+							</svg>
+						</button>
+					</div>
+					<div className="flex items-center gap-2">
+						<button
+							type="button"
+							onClick={handleInstallUpdate}
+							disabled={updateInstalling}
+							className="rounded-md bg-primary px-3 py-1 text-xs font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+						>
+							{updateInstalling
+								? t("settings.installing")
+								: t("settings.downloadAndInstall")}
+						</button>
+						<button
+							type="button"
+							onClick={handleSkipUpdate}
+							disabled={updateInstalling}
+							className="rounded-md px-3 py-1 text-xs text-muted-foreground hover:text-foreground"
+						>
+							{t("settings.skipThisVersion")}
+						</button>
+					</div>
+				</div>
 			)}
 		</div>
 	);

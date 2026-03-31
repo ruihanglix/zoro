@@ -28,6 +28,7 @@ tauri-plugin-dialog = { workspace = true }
 tauri-plugin-fs = { workspace = true }
 tauri-plugin-clipboard-manager = { workspace = true }
 tauri-plugin-decorum = { workspace = true }
+tauri-plugin-updater = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 tokio = { workspace = true }

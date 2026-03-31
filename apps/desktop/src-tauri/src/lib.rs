@@ -110,6 +110,7 @@ pub fn run() {
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_decorum::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .setup(move |app| {
             #[cfg(target_os = "macos")]
             {
@@ -599,6 +600,11 @@ commands::debug::push_frontend_log,
             commands::lab_acp::acp_proxy_fetch_config_options,
             commands::lab_acp::acp_proxy_get_options_cache,
             commands::lab_acp::acp_proxy_save_options_cache,
+            // Updater
+            commands::updater::check_for_update,
+            commands::updater::install_update,
+            commands::updater::get_updater_config,
+            commands::updater::update_updater_config,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -4595,48 +4595,7 @@ export function Settings() {
 						)}
 
 						{section === "about" && (
-							<div className="space-y-5">
-								<div className="space-y-1">
-									<h3 className="text-lg font-bold">Zoro</h3>
-									<p className="text-sm text-muted-foreground">
-										{t("settings.version", { version: "0.1.0" })}
-									</p>
-								</div>
-
-								<p className="text-sm leading-relaxed">
-									{t("settings.aboutDesc")}
-								</p>
-
-								<Separator />
-
-								<div className="space-y-1.5 text-sm">
-									<p className="text-xs font-medium">{t("settings.links")}</p>
-									<div className="flex flex-col gap-1">
-										<a
-											href="https://github.com/ruihanglix/zoro"
-											target="_blank"
-											rel="noopener noreferrer"
-											className="text-primary hover:underline text-xs"
-										>
-											{t("settings.githubRepo")}
-										</a>
-										<a
-											href="https://github.com/ruihanglix/zoro/issues"
-											target="_blank"
-											rel="noopener noreferrer"
-											className="text-primary hover:underline text-xs"
-										>
-											{t("settings.reportIssue")}
-										</a>
-									</div>
-								</div>
-
-								<Separator />
-
-								<p className="text-xs text-muted-foreground">
-									{t("settings.madeBy")}
-								</p>
-							</div>
+							<AboutSection />
 						)}
 
 						{section === "ai-lab" && <LabSection />}
@@ -6260,6 +6219,216 @@ function PluginsGeneralSection() {
 
 			<p className="text-xs text-muted-foreground">
 				{t("plugins.securityNote")}
+			</p>
+		</div>
+	);
+}
+
+/** About section with version info, update checker, and links. */
+function AboutSection() {
+	const { t } = useTranslation();
+	const [checking, setChecking] = useState(false);
+	const [installing, setInstalling] = useState(false);
+	const [updateInfo, setUpdateInfo] = useState<{
+		available: boolean;
+		version: string;
+		body: string;
+		currentVersion: string;
+	} | null>(null);
+	const [updateError, setUpdateError] = useState<string | null>(null);
+	const [autoCheck, setAutoCheck] = useState(true);
+
+	// Load updater config on mount
+	useEffect(() => {
+		commands.getUpdaterConfig().then((cfg) => {
+			setAutoCheck(cfg.autoCheck);
+		}).catch(() => {});
+	}, []);
+
+	const handleCheckUpdate = async () => {
+		setChecking(true);
+		setUpdateError(null);
+		setUpdateInfo(null);
+		try {
+			const result = await commands.checkForUpdate();
+			setUpdateInfo(result);
+		} catch (e) {
+			setUpdateError(String(e));
+		} finally {
+			setChecking(false);
+		}
+	};
+
+	const handleInstallUpdate = async () => {
+		setInstalling(true);
+		try {
+			await commands.installUpdate();
+			// App will restart automatically after install
+		} catch (e) {
+			setUpdateError(String(e));
+			setInstalling(false);
+		}
+	};
+
+	const handleSkipVersion = async () => {
+		if (updateInfo?.version) {
+			await commands.updateUpdaterConfig(null, updateInfo.version);
+			setUpdateInfo(null);
+		}
+	};
+
+	const handleAutoCheckToggle = async (enabled: boolean) => {
+		setAutoCheck(enabled);
+		await commands.updateUpdaterConfig(enabled, null);
+	};
+
+	return (
+		<div className="space-y-5">
+			<div className="space-y-1">
+				<h3 className="text-lg font-bold">Zoro</h3>
+				<p className="text-sm text-muted-foreground">
+					{t("settings.version", { version: updateInfo?.currentVersion ?? "0.1.0" })}
+				</p>
+			</div>
+
+			<p className="text-sm leading-relaxed">
+				{t("settings.aboutDesc")}
+			</p>
+
+			<Separator />
+
+			{/* Update checker */}
+			<div className="space-y-3">
+				<div className="flex items-center gap-2">
+					<Button
+						variant="outline"
+						size="sm"
+						onClick={handleCheckUpdate}
+						disabled={checking || installing}
+					>
+						{checking ? (
+							<Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+						) : (
+							<ArrowUp className="mr-1.5 h-3.5 w-3.5" />
+						)}
+						{checking
+							? t("settings.checkingForUpdates")
+							: t("settings.checkForUpdates")}
+					</Button>
+				</div>
+
+				{/* Update available */}
+				{updateInfo?.available && (
+					<div className="rounded-md border border-primary/30 bg-primary/5 p-3 space-y-2">
+						<div className="flex items-center gap-2">
+							<CheckCircle className="h-4 w-4 text-primary" />
+							<p className="text-sm font-medium">{t("settings.updateAvailable")}</p>
+						</div>
+						<p className="text-xs text-muted-foreground">
+							{t("settings.updateAvailableDesc")}
+						</p>
+						<p className="text-xs">
+							{t("settings.newVersion", { version: updateInfo.version })}
+						</p>
+						<p className="text-xs text-muted-foreground">
+							{t("settings.currentVersion", { version: updateInfo.currentVersion })}
+						</p>
+						{updateInfo.body && (
+							<p className="text-xs text-muted-foreground whitespace-pre-wrap max-h-32 overflow-y-auto border rounded p-2 mt-1">
+								{updateInfo.body}
+							</p>
+						)}
+						<div className="flex items-center gap-2 pt-1">
+							<Button
+								size="sm"
+								onClick={handleInstallUpdate}
+								disabled={installing}
+							>
+								{installing ? (
+									<Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+								) : (
+									<Download className="mr-1.5 h-3.5 w-3.5" />
+								)}
+								{installing
+									? t("settings.installing")
+									: t("settings.downloadAndInstall")}
+							</Button>
+							<Button
+								variant="ghost"
+								size="sm"
+								onClick={handleSkipVersion}
+								disabled={installing}
+							>
+								{t("settings.skipThisVersion")}
+							</Button>
+						</div>
+					</div>
+				)}
+
+				{/* Up to date */}
+				{updateInfo && !updateInfo.available && (
+					<div className="rounded-md border border-green-500/30 bg-green-500/5 p-3 space-y-1">
+						<div className="flex items-center gap-2">
+							<CheckCircle className="h-4 w-4 text-green-500" />
+							<p className="text-sm font-medium">{t("settings.upToDate")}</p>
+						</div>
+						<p className="text-xs text-muted-foreground">
+							{t("settings.upToDateDesc", { version: updateInfo.currentVersion })}
+						</p>
+					</div>
+				)}
+
+				{/* Error */}
+				{updateError && (
+					<div className="rounded-md border border-destructive/30 bg-destructive/5 p-3 space-y-1">
+						<div className="flex items-center gap-2">
+							<AlertCircle className="h-4 w-4 text-destructive" />
+							<p className="text-sm font-medium">{t("settings.updateFailed")}</p>
+						</div>
+						<p className="text-xs text-muted-foreground">{updateError}</p>
+					</div>
+				)}
+
+				{/* Auto-check toggle */}
+				<label className="flex items-center gap-2 text-sm cursor-pointer">
+					<input
+						type="checkbox"
+						checked={autoCheck}
+						onChange={(e) => handleAutoCheckToggle(e.target.checked)}
+						className="rounded"
+					/>
+					{t("settings.autoCheckUpdates")}
+				</label>
+			</div>
+
+			<Separator />
+
+			<div className="space-y-1.5 text-sm">
+				<p className="text-xs font-medium">{t("settings.links")}</p>
+				<div className="flex flex-col gap-1">
+					<a
+						href="https://github.com/ruihanglix/zoro"
+						target="_blank"
+						rel="noopener noreferrer"
+						className="text-primary hover:underline text-xs"
+					>
+						{t("settings.githubRepo")}
+					</a>
+					<a
+						href="https://github.com/ruihanglix/zoro/issues"
+						target="_blank"
+						rel="noopener noreferrer"
+						className="text-primary hover:underline text-xs"
+					>
+						{t("settings.reportIssue")}
+					</a>
+				</div>
+			</div>
+
+			<Separator />
+
+			<p className="text-xs text-muted-foreground">
+				{t("settings.madeBy")}
 			</p>
 		</div>
 	);
