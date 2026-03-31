@@ -11,6 +11,7 @@ import type {
 	ProviderInfo,
 	SystemPromptPreset,
 } from "@/lib/commands";
+import { logger } from "@/lib/logger";
 import { listen } from "@tauri-apps/api/event";
 import { create } from "zustand";
 
@@ -704,7 +705,7 @@ export const useAgentStore = create<AgentState>((set, get) => ({
 			const agents = await commands.acpListAgents();
 			set({ agents });
 		} catch (e) {
-			console.error("Failed to fetch agents", e);
+			logger.error("agent", "Failed to fetch agents", e);
 		}
 	},
 
@@ -722,7 +723,7 @@ export const useAgentStore = create<AgentState>((set, get) => ({
 				chatConfigLoaded: true,
 			});
 		} catch (e) {
-			console.error("Failed to fetch chat config", e);
+			logger.error("agent", "Failed to fetch chat config", e);
 		}
 	},
 
@@ -1034,7 +1035,7 @@ export const useAgentStore = create<AgentState>((set, get) => ({
 				await commands.acpCancelPrompt(activeAgentName);
 			}
 		} catch (e) {
-			console.error("Cancel failed", e);
+			logger.error("agent", "Cancel failed", e);
 		}
 		set({ streaming: false });
 	},
@@ -1043,7 +1044,7 @@ export const useAgentStore = create<AgentState>((set, get) => ({
 		try {
 			await commands.chatConfirmTool(approved);
 		} catch (e) {
-			console.error("Confirm tool failed", e);
+			logger.error("agent", "Confirm tool failed", e);
 		}
 	},
 
@@ -1063,7 +1064,7 @@ export const useAgentStore = create<AgentState>((set, get) => ({
 			try {
 				await commands.acpStopSession(activeAgentName);
 			} catch (e) {
-				console.error("Stop session failed", e);
+				logger.error("agent", "Stop session failed", e);
 			}
 		}
 
@@ -1129,7 +1130,7 @@ export const useAgentStore = create<AgentState>((set, get) => ({
 			const chatSessions = await commands.acpListChatSessions();
 			set({ chatSessions });
 		} catch (e) {
-			console.error("Failed to fetch chat sessions", e);
+			logger.error("agent", "Failed to fetch chat sessions", e);
 		}
 	},
 
@@ -1207,7 +1208,7 @@ export const useAgentStore = create<AgentState>((set, get) => ({
 					session.agentName === CHAT_AGENT_NAME ? CHAT_AGENT_NAME : null,
 			});
 		} catch (e) {
-			console.error("Failed to load chat session", e);
+			logger.error("agent", "Failed to load chat session", e);
 		}
 	},
 
@@ -1225,7 +1226,7 @@ export const useAgentStore = create<AgentState>((set, get) => ({
 			}
 			await get().fetchChatSessions();
 		} catch (e) {
-			console.error("Failed to delete chat session", e);
+			logger.error("agent", "Failed to delete chat session", e);
 		}
 	},
 
@@ -1270,7 +1271,7 @@ export const useAgentStore = create<AgentState>((set, get) => ({
 			});
 			await get().fetchChatSessions();
 		} catch (e) {
-			console.error("Failed to save chat session", e);
+			logger.error("agent", "Failed to save chat session", e);
 		}
 	},
 }));
@@ -1286,7 +1287,7 @@ function handleAgentUpdate(
 	get: () => AgentState,
 ) {
 	// DEBUG: log raw ACP events to inspect tool_call fields
-	console.log("[AgentUpdate]", update.kind, JSON.stringify(update));
+	logger.debug("agent", `AgentUpdate: ${update.kind}`, update);
 
 	switch (update.kind) {
 		case "text_chunk": {

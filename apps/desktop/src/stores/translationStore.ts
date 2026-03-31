@@ -9,6 +9,7 @@ import type {
 	TranslationResponse,
 } from "@/lib/commands";
 import * as commands from "@/lib/commands";
+import { logger } from "@/lib/logger";
 import { listen } from "@tauri-apps/api/event";
 import { create } from "zustand";
 
@@ -319,7 +320,7 @@ export const useTranslationStore = create<TranslationState>((set, get) => ({
 				return { cache: newCache };
 			});
 		} catch (e) {
-			console.error("Failed to batch fetch translations:", e);
+			logger.error("translation", "Failed to batch fetch translations", e);
 		}
 	},
 
@@ -333,7 +334,7 @@ export const useTranslationStore = create<TranslationState>((set, get) => ({
 				return { cache: newCache };
 			});
 		} catch (e) {
-			console.error("Failed to delete translations:", e);
+			logger.error("translation", "Failed to delete translations", e);
 		}
 	},
 
@@ -348,7 +349,7 @@ export const useTranslationStore = create<TranslationState>((set, get) => ({
 			const config = await commands.getAiConfig();
 			set({ aiConfig: config, aiConfigLoading: false });
 		} catch (e) {
-			console.error("Failed to fetch AI config:", e);
+			logger.error("translation", "Failed to fetch AI config", e);
 			set({ aiConfigLoading: false });
 		}
 	},
@@ -379,7 +380,7 @@ export const useTranslationStore = create<TranslationState>((set, get) => ({
 		try {
 			await commands.translatePaperHtml(paperId);
 		} catch (e) {
-			console.error("Failed to start HTML translation:", e);
+			logger.error("translation", "Failed to start HTML translation", e);
 			set((s) => {
 				const next = { ...s.htmlTranslations };
 				delete next[paperId];
@@ -425,7 +426,7 @@ export const useTranslationStore = create<TranslationState>((set, get) => ({
 			}
 			set({ htmlTranslations: updated });
 		} catch (e) {
-			console.error("Failed to sync active HTML translations:", e);
+			logger.error("translation", "Failed to sync active HTML translations", e);
 		}
 	},
 

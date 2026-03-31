@@ -535,6 +535,9 @@
 		"showBackgroundTasksDesc": "显示浮动按钮，用于监控后台元数据补充和 PDF 下载任务。",
 		"debugMode": "调试模式",
 		"debugModeDesc": "在窗口底部显示日志面板并启用详细日志记录。",
+		"logToFile": "日志写入文件",
+		"logToFileDesc": "将日志写入数据目录中的文件，重启后生效。",
+		"logRetentionDays": "保留天数",
 		"disableContextMenu": "禁用浏览器右键菜单",
 		"disableContextMenuDesc": "仅限开发。禁用 WebView 的「检查元素」菜单，使应用右键菜单正常工作。",
 		"showBackgroundTasks": "显示后台任务按钮",
@@ -901,7 +904,9 @@
 		"title": "调试日志",
 		"clear": "清除",
 		"copyAll": "复制全部日志",
-		"noLogs": "无日志记录"
+		"noLogs": "无日志记录",
+		"allModules": "全部模块",
+		"moduleCount": "{{count}} 个模块"
 	},
 	"onboarding": {
 		"welcomeTitle": "欢迎使用 Zoro！",

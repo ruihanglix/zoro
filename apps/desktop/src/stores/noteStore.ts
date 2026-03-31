@@ -4,6 +4,7 @@
 
 import * as commands from "@/lib/commands";
 import type { NoteResponse } from "@/lib/commands";
+import { logger } from "@/lib/logger";
 import { create } from "zustand";
 
 export interface CitationClipboard {
@@ -41,7 +42,7 @@ export const useNoteStore = create<NoteState>()((set, get) => ({
 			const notes = await commands.listNotes(paperId);
 			set({ notes, loading: false });
 		} catch (e) {
-			console.error("Failed to fetch notes:", e);
+			logger.error("note", "Failed to fetch notes", e);
 			set({ loading: false });
 		}
 	},
@@ -52,7 +53,7 @@ export const useNoteStore = create<NoteState>()((set, get) => ({
 			set((s) => ({ notes: [note, ...s.notes], activeNoteId: note.id }));
 			return note;
 		} catch (e) {
-			console.error("Failed to create note:", e);
+			logger.error("note", "Failed to create note", e);
 			return null;
 		}
 	},
@@ -66,7 +67,7 @@ export const useNoteStore = create<NoteState>()((set, get) => ({
 				saving: false,
 			}));
 		} catch (e) {
-			console.error("Failed to update note:", e);
+			logger.error("note", "Failed to update note", e);
 			set({ saving: false });
 		}
 	},
@@ -80,7 +81,7 @@ export const useNoteStore = create<NoteState>()((set, get) => ({
 				activeNoteId: activeNoteId === id ? null : activeNoteId,
 			}));
 		} catch (e) {
-			console.error("Failed to delete note:", e);
+			logger.error("note", "Failed to delete note", e);
 		}
 	},
 

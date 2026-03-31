@@ -534,6 +534,9 @@
 		"showBackgroundTasksDesc": "Affiche un bouton flottant pour surveiller l'enrichissement des métadonnées en arrière-plan et les tâches de téléchargement PDF.",
 		"debugMode": "Mode débogage",
 		"debugModeDesc": "Affiche le panneau de journal en bas de la fenêtre et active la journalisation détaillée.",
+		"logToFile": "Journaliser dans un fichier",
+		"logToFileDesc": "Écrit les journaux dans des fichiers du répertoire de données. Prend effet après redémarrage.",
+		"logRetentionDays": "Rétention (jours)",
 		"disableContextMenu": "Désactiver le menu contextuel du navigateur",
 		"disableContextMenuDesc": "Dev uniquement. Supprime le menu \"Inspecter l'élément\" de WebView pour que les menus clic droit de l'app fonctionnent normalement.",
 		"showBackgroundTasks": "Show background tasks button",
@@ -900,7 +903,9 @@
 		"title": "Journal de débogage",
 		"clear": "Effacer",
 		"copyAll": "Copier tous les journaux",
-		"noLogs": "Aucune entrée de journal"
+		"noLogs": "Aucune entrée de journal",
+		"allModules": "Tous les modules",
+		"moduleCount": "{{count}} modules"
 	},
 	"onboarding": {
 		"welcomeTitle": "Bienvenue sur Zoro !",

@@ -69,11 +69,40 @@ pub fn run() {
     // Build layered subscriber: registry + reload(env-filter) + fmt + buffer
     let fmt_layer = tracing_subscriber::fmt::layer().with_target(true);
 
-    tracing_subscriber::registry()
-        .with(filter_layer)
-        .with(fmt_layer)
-        .with(buffer_layer.clone())
-        .init();
+    // Optionally add a file appender layer.
+    // We peek at the config early to decide; the full config is loaded later in setup().
+    let data_dir_early = dirs_data_dir();
+    let early_config = storage::config::load_config(&data_dir_early);
+    let _file_guard = if early_config.general.log_to_file {
+        let log_dir = data_dir_early.join("logs");
+        let _ = std::fs::create_dir_all(&log_dir);
+        let file_appender = tracing_appender::rolling::daily(&log_dir, "zoro");
+        let (non_blocking, guard) = tracing_appender::non_blocking(file_appender);
+        let file_layer = tracing_subscriber::fmt::layer()
+            .with_target(true)
+            .with_ansi(false)
+            .with_writer(non_blocking);
+
+        tracing_subscriber::registry()
+            .with(filter_layer)
+            .with(fmt_layer)
+            .with(buffer_layer.clone())
+            .with(file_layer)
+            .init();
+
+        // Clean up old log files based on retention policy
+        cleanup_old_logs(&log_dir, early_config.general.log_retention_days);
+
+        Some(guard)
+    } else {
+        tracing_subscriber::registry()
+            .with(filter_layer)
+            .with(fmt_layer)
+            .with(buffer_layer.clone())
+            .init();
+
+        None
+    };
 
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
@@ -456,6 +485,9 @@ pub fn run() {
             commands::debug::get_logs,
             commands::debug::set_debug_mode,
             commands::debug::clear_logs,
+commands::debug::push_frontend_log,
+                commands::debug::get_log_config,
+                commands::debug::update_log_config,
             // Sync
             commands::sync::test_webdav_connection,
             commands::sync::save_sync_config,
@@ -612,5 +644,33 @@ fn ensure_default_subscriptions(db: &zoro_db::Database) {
     if !subs.iter().any(|s| s.source_type == "papers-cool") {
         let _ = subscriptions::create_subscription(&db.conn, "papers-cool", "Papers.cool", None, 0);
         tracing::info!("Created default Papers.cool subscription");
+    }
+}
+
+/// Remove log files older than `retention_days` from the logs directory.
+fn cleanup_old_logs(log_dir: &std::path::Path, retention_days: u32) {
+    if retention_days == 0 {
+        return; // 0 = keep forever
+    }
+    let cutoff = chrono::Utc::now() - chrono::Duration::days(retention_days as i64);
+    let cutoff_ts = cutoff.timestamp();
+
+    if let Ok(entries) = std::fs::read_dir(log_dir) {
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.is_file() {
+                if let Ok(meta) = std::fs::metadata(&path) {
+                    if let Ok(modified) = meta.modified() {
+                        let mod_ts = modified
+                            .duration_since(std::time::UNIX_EPOCH)
+                            .unwrap_or_default()
+                            .as_secs() as i64;
+                        if mod_ts < cutoff_ts {
+                            let _ = std::fs::remove_file(&path);
+                        }
+                    }
+                }
+            }
+        }
     }
 }

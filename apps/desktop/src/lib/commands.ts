@@ -496,6 +496,23 @@ export const setDebugMode = (enabled: boolean) =>
 
 export const clearLogs = () => invoke<void>("clear_logs");
 
+export const pushFrontendLog = (level: string, source: string, message: string) =>
+	invoke<void>("push_frontend_log", { level, source, message });
+
+export interface LogConfigResponse {
+	logToFile: boolean;
+	logRetentionDays: number;
+}
+
+export const getLogConfig = () =>
+	invoke<LogConfigResponse>("get_log_config");
+
+export const updateLogConfig = (logToFile?: boolean, logRetentionDays?: number) =>
+	invoke<void>("update_log_config", {
+		logToFile: logToFile ?? null,
+		logRetentionDays: logRetentionDays ?? null,
+	});
+
 // Citation
 export const enrichPaperMetadata = (paperId: string) =>
 	invoke<PaperResponse>("enrich_paper_metadata", { paperId });

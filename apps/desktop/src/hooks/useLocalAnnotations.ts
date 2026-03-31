@@ -4,6 +4,7 @@
 
 import * as commands from "@/lib/commands";
 import type { AnnotationResponse } from "@/lib/commands";
+import { logger } from "@/lib/logger";
 import type {
 	AnnotationType,
 	InkAnnotationData,
@@ -54,13 +55,10 @@ export function useLocalAnnotations(
 		try {
 			const resp = await commands.listAnnotations(paperId, sourceFile);
 			const highlights = resp.map(responseToHighlight);
-			console.log(
-				`[LocalAnnotations:${sourceFile}] fetched ${highlights.length} annotations ` +
-					`(types: ${highlights.map((h) => h.type).join(", ") || "none"})`,
-			);
+			logger.debug("annotation", `[${sourceFile}] fetched ${highlights.length} annotations (types: ${highlights.map((h) => h.type).join(", ") || "none"})`);
 			setAnnotations(highlights);
 		} catch (e) {
-			console.error("[LocalAnnotations] fetch failed:", e);
+			logger.error("annotation", "Local fetch failed", e);
 		} finally {
 			setLoading(false);
 		}
@@ -90,7 +88,7 @@ export function useLocalAnnotations(
 				setAnnotations((prev) => [...prev, highlight]);
 				return highlight;
 			} catch (e) {
-				console.error("[LocalAnnotations] add failed:", e);
+				logger.error("annotation", "Local add failed", e);
 				return null;
 			}
 		},
@@ -135,7 +133,7 @@ export function useLocalAnnotations(
 				setAnnotations((prev) => [...prev, highlight]);
 				return highlight;
 			} catch (e) {
-				console.error("[LocalAnnotations] add ink failed:", e);
+				logger.error("annotation", "Local add ink failed", e);
 				return null;
 			}
 		},
@@ -149,7 +147,7 @@ export function useLocalAnnotations(
 				const updated = responseToHighlight(resp);
 				setAnnotations((prev) => prev.map((a) => (a.id === id ? updated : a)));
 			} catch (e) {
-				console.error("[LocalAnnotations] update failed:", e);
+			logger.error("annotation", "Local update failed", e);
 			}
 		},
 		[],
@@ -160,7 +158,7 @@ export function useLocalAnnotations(
 			await commands.deleteAnnotation(id);
 			setAnnotations((prev) => prev.filter((a) => a.id !== id));
 		} catch (e) {
-			console.error("[LocalAnnotations] delete failed:", e);
+			logger.error("annotation", "Local delete failed", e);
 		}
 	}, []);
 
@@ -171,7 +169,7 @@ export function useLocalAnnotations(
 				const updated = responseToHighlight(resp);
 				setAnnotations((prev) => prev.map((a) => (a.id === id ? updated : a)));
 			} catch (e) {
-				console.error("[LocalAnnotations] update type failed:", e);
+			logger.error("annotation", "Local update type failed", e);
 			}
 		},
 		[],

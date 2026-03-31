@@ -534,6 +534,9 @@
 		"showBackgroundTasksDesc": "백그라운드 메타데이터 보완 및 PDF 다운로드 작업을 모니터링하는 플로팅 버튼을 표시합니다.",
 		"debugMode": "디버그 모드",
 		"debugModeDesc": "창 하단에 로그 패널을 표시하고 상세 로깅을 활성화합니다.",
+		"logToFile": "파일에 로그 저장",
+		"logToFileDesc": "데이터 디렉토리의 파일에 로그를 기록합니다. 재시작 후 적용됩니다.",
+		"logRetentionDays": "보존 일수",
 		"disableContextMenu": "브라우저 컨텍스트 메뉴 비활성화",
 		"disableContextMenuDesc": "개발용 전용. WebView의 '요소 검사' 메뉴를 비활성화하여 앱의 우클릭 메뉴가 정상적으로 작동하도록 합니다.",
 		"showBackgroundTasks": "Show background tasks button",
@@ -900,7 +903,9 @@
 		"title": "디버그 로그",
 		"clear": "지우기",
 		"copyAll": "모든 로그 복사",
-		"noLogs": "로그 항목 없음"
+		"noLogs": "로그 항목 없음",
+		"allModules": "모든 모듈",
+		"moduleCount": "{{count}}개 모듈"
 	},
 	"onboarding": {
 		"welcomeTitle": "Zoro에 오신 것을 환영합니다!",

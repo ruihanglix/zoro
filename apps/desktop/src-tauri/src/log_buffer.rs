@@ -15,6 +15,11 @@ const MAX_LOG_ENTRIES: usize = 2000;
 
 static NEXT_ID: AtomicU64 = AtomicU64::new(1);
 
+/// Generate the next unique log entry ID.
+pub fn next_id() -> u64 {
+    NEXT_ID.fetch_add(1, Ordering::Relaxed)
+}
+
 #[derive(Debug, Clone, Serialize)]
 pub struct LogEntry {
     pub id: u64,
@@ -97,7 +102,7 @@ impl<S: Subscriber> Layer<S> for BufferLayer {
         event.record(&mut visitor);
 
         let entry = LogEntry {
-            id: NEXT_ID.fetch_add(1, Ordering::Relaxed),
+            id: next_id(),
             timestamp: chrono::Utc::now().to_rfc3339(),
             level: metadata.level().to_string(),
             target: metadata.target().to_string(),

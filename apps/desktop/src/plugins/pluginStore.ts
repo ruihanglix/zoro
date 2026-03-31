@@ -8,6 +8,7 @@ import type {
 	OverlayContributionResponse,
 	PluginInfoResponse,
 } from "@/lib/commands";
+import { logger } from "@/lib/logger";
 import { create } from "zustand";
 import { createPluginSDK, loadPluginModule } from "./PluginManager";
 import type {
@@ -70,7 +71,7 @@ export const usePluginStore = create<PluginStoreState>((set, get) => ({
 				loadedModules: { ...get().loadedModules, [pluginId]: module },
 			});
 		} catch (e) {
-			console.error(`[PluginStore] Failed to load plugin ${pluginId}:`, e);
+			logger.error("plugin", `Failed to load plugin ${pluginId}`, e);
 		}
 	},
 
@@ -81,7 +82,7 @@ export const usePluginStore = create<PluginStoreState>((set, get) => ({
 			try {
 				module.deactivate();
 			} catch (e) {
-				console.error(`[PluginStore] Error deactivating ${pluginId}:`, e);
+				logger.error("plugin", `Error deactivating ${pluginId}`, e);
 			}
 			const updated = { ...loadedModules };
 			delete updated[pluginId];

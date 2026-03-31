@@ -535,6 +535,9 @@
 		"showBackgroundTasksDesc": "Displays a floating button to monitor background metadata enrichment and PDF download tasks.",
 		"debugMode": "Debug mode",
 		"debugModeDesc": "Shows the log panel at the bottom of the window and enables verbose logging.",
+		"logToFile": "Log to file",
+		"logToFileDesc": "Write logs to files in the data directory. Takes effect after restart.",
+		"logRetentionDays": "Retention (days)",
 		"disableContextMenu": "Disable browser context menu",
 		"disableContextMenuDesc": "Dev only. Suppresses the WebView \"Inspect Element\" menu so app right-click menus work normally.",
 		"showBackgroundTasks": "Show background tasks button",
@@ -901,7 +904,9 @@
 		"title": "Debug Log",
 		"clear": "Clear",
 		"copyAll": "Copy All Logs",
-		"noLogs": "No log entries"
+		"noLogs": "No log entries",
+		"allModules": "All Modules",
+		"moduleCount": "{{count}} modules"
 	},
 	"onboarding": {
 		"welcomeTitle": "Welcome to Zoro!",

@@ -18,6 +18,7 @@ import {
 	TooltipTrigger,
 } from "@/components/ui/tooltip";
 import type { FeedItemResponse } from "@/lib/commands";
+import { logger } from "@/lib/logger";
 import { useLibraryStore } from "@/stores/libraryStore";
 import { useTabStore } from "@/stores/tabStore";
 import {
@@ -224,7 +225,7 @@ export function Feed() {
 	const handleRefresh = async () => {
 		if (!activeSub) return;
 		setRefreshing(true);
-		console.log("[Feed] handleRefresh start", {
+		logger.debug("feed", "handleRefresh start", {
 			isLatest,
 			feedDate,
 			currentDate,
@@ -237,22 +238,22 @@ export function Feed() {
 				// latest date, so it stores exactly the same data that
 				// fetch_feed_items_by_date would return.
 				const count = await refreshSubscription(activeSub.id);
-				console.log(`[Feed] refreshSubscription returned ${count} new items`);
+				logger.debug("feed", `refreshSubscription returned ${count} new items`);
 				// Re-fetch the latest date and reload the view
 				const freshDate = await fetchLatestFeedDate();
-				console.log("[Feed] fetchLatestFeedDate returned:", freshDate);
+				logger.debug("feed", "fetchLatestFeedDate returned", freshDate);
 				const dateToFetch = freshDate ?? effectiveLatest ?? todayStr();
-				console.log("[Feed] will fetchFeedByDate with date:", dateToFetch);
+				logger.debug("feed", "will fetchFeedByDate with date", dateToFetch);
 				await fetchFeedByDate(activeSub.id, dateToFetch);
 			} else if (currentDate) {
 				// For historical dates, just re-fetch from the API
-				console.log("[Feed] re-fetching historical date:", currentDate);
+				logger.debug("feed", "re-fetching historical date", currentDate);
 				await fetchFeedByDate(activeSub.id, currentDate, true);
 			}
 		} catch (err) {
-			console.error("[Feed] Failed to refresh:", err);
+			logger.error("feed", "Failed to refresh", err);
 		}
-		console.log("[Feed] handleRefresh done");
+		logger.debug("feed", "handleRefresh done");
 		setRefreshing(false);
 	};
 
@@ -263,7 +264,7 @@ export function Feed() {
 				await fetchFeedByDate(activeSub.id, currentDate);
 			}
 		} catch (err) {
-			console.error("Failed to add to library:", err);
+			logger.error("feed", "Failed to add to library", err);
 		}
 	};
 

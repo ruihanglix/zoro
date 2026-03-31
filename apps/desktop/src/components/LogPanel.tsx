@@ -4,13 +4,28 @@
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+	DropdownMenu,
+	DropdownMenuCheckboxItem,
+	DropdownMenuContent,
+	DropdownMenuSeparator,
+	DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import type { LogEntry } from "@/lib/commands";
 import * as commands from "@/lib/commands";
+import { logger } from "@/lib/logger";
 import { cn } from "@/lib/utils";
 import { listen } from "@tauri-apps/api/event";
-import { Check, ChevronDown, ChevronUp, ClipboardCopy, Trash2 } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import {
+	Check,
+	ChevronDown,
+	ChevronUp,
+	ClipboardCopy,
+	Filter,
+	Trash2,
+} from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 const LEVEL_COLORS: Record<string, string> = {
@@ -27,6 +42,21 @@ const LEVELS: LevelFilter[] = ["ERROR", "WARN", "INFO", "DEBUG"];
 
 const MAX_DISPLAY_ENTRIES = 500;
 
+/** Normalize a raw tracing target into a short, human-friendly module name.
+ *  e.g. "zoro_sync::engine" → "sync", "frontend::feed" → "feed" */
+function normalizeModule(target: string): string {
+	// Frontend logs pushed via push_frontend_log use "frontend::<source>"
+	if (target.startsWith("frontend::")) {
+		return target.slice("frontend::".length);
+	}
+	// Strip common Rust crate prefixes
+	let mod = target
+		.replace(/^zoro[-_]?/, "")
+		.replace(/::.*$/, ""); // keep only the top-level module
+	if (mod === "desktop" || mod === "app") mod = "app";
+	return mod || target;
+}
+
 export function LogPanel() {
 	const { t } = useTranslation();
 	const [logs, setLogs] = useState<LogEntry[]>([]);
@@ -34,6 +64,7 @@ export function LogPanel() {
 	const [activeFilters, setActiveFilters] = useState<Set<LevelFilter>>(
 		new Set(LEVELS),
 	);
+	const [moduleFilter, setModuleFilter] = useState<Set<string>>(new Set()); // empty = show all
 	const scrollRef = useRef<HTMLDivElement>(null);
 	const autoScrollRef = useRef(true);
 
@@ -44,7 +75,7 @@ export function LogPanel() {
 			.then((entries) => {
 				setLogs(entries.slice(-MAX_DISPLAY_ENTRIES));
 			})
-			.catch(console.error);
+			.catch((e) => logger.error("log-panel", "Failed to load logs", e));
 	}, []);
 
 	// Listen for new log entries via Tauri events
@@ -85,7 +116,7 @@ export function LogPanel() {
 			await commands.clearLogs();
 			setLogs([]);
 		} catch (err) {
-			console.error("Failed to clear logs:", err);
+			logger.error("log-panel", "Failed to clear logs", err);
 		}
 	};
 
@@ -101,7 +132,7 @@ export function LogPanel() {
 			setCopied(true);
 			setTimeout(() => setCopied(false), 2000);
 		} catch (err) {
-			console.error("Failed to copy logs:", err);
+			logger.error("log-panel", "Failed to copy logs", err);
 		}
 	};
 
@@ -117,9 +148,39 @@ export function LogPanel() {
 		});
 	};
 
-	const filteredLogs = logs.filter((log) =>
-		activeFilters.has(log.level as LevelFilter),
-	);
+	// Extract unique module names from all logs
+	const availableModules = useMemo(() => {
+		const modules = new Set<string>();
+		for (const log of logs) {
+			modules.add(normalizeModule(log.target));
+		}
+		return Array.from(modules).sort();
+	}, [logs]);
+
+	const toggleModuleFilter = (mod: string) => {
+		setModuleFilter((prev) => {
+			const next = new Set(prev);
+			if (next.has(mod)) {
+				next.delete(mod);
+			} else {
+				next.add(mod);
+			}
+			return next;
+		});
+	};
+
+	const selectAllModules = () => {
+		setModuleFilter(new Set());
+	};
+
+	const filteredLogs = logs.filter((log) => {
+		if (!activeFilters.has(log.level as LevelFilter)) return false;
+		if (moduleFilter.size > 0 && !moduleFilter.has(normalizeModule(log.target)))
+			return false;
+		return true;
+	});
+
+	const moduleFilterActive = moduleFilter.size > 0;
 
 	return (
 		<div className="flex flex-col border-t bg-background">
@@ -150,6 +211,52 @@ export function LogPanel() {
 							{level}
 						</button>
 					))}
+
+					{/* Module filter */}
+					<DropdownMenu>
+						<DropdownMenuTrigger asChild>
+							<button
+								type="button"
+								className={cn(
+									"ml-1 px-1.5 py-0.5 rounded text-[10px] font-medium border transition-colors inline-flex items-center gap-1",
+									moduleFilterActive
+										? "bg-purple-500/15 text-purple-500 border-purple-500/30"
+										: "text-muted-foreground/60 border-muted-foreground/20 hover:border-muted-foreground/40",
+								)}
+							>
+								<Filter className="h-2.5 w-2.5" />
+								{moduleFilterActive
+									? t("log.moduleCount", { count: moduleFilter.size })
+									: t("log.allModules")}
+							</button>
+						</DropdownMenuTrigger>
+						<DropdownMenuContent
+							className="w-48"
+							align="start"
+							side="top"
+							sideOffset={4}
+						>
+							<DropdownMenuCheckboxItem
+								checked={!moduleFilterActive}
+								onCheckedChange={selectAllModules}
+								className="text-xs"
+							>
+								{t("log.allModules")}
+							</DropdownMenuCheckboxItem>
+							<DropdownMenuSeparator />
+							{availableModules.map((mod) => (
+								<DropdownMenuCheckboxItem
+									key={mod}
+									checked={moduleFilter.has(mod)}
+									onCheckedChange={() => toggleModuleFilter(mod)}
+									className="text-xs"
+								>
+									<span className="font-mono">{mod}</span>
+								</DropdownMenuCheckboxItem>
+							))}
+						</DropdownMenuContent>
+					</DropdownMenu>
+
 					<Badge variant="secondary" className="text-[10px] ml-1">
 						{filteredLogs.length}
 					</Badge>
@@ -219,8 +326,8 @@ export function LogPanel() {
 									>
 										{entry.level}
 									</span>
-									<span className="text-muted-foreground/70 shrink-0 max-w-[200px] truncate select-none">
-										{entry.target.replace(/^zoro_?/, "")}
+									<span className="text-purple-400/70 shrink-0 max-w-[200px] truncate select-none">
+										{normalizeModule(entry.target)}
 									</span>
 									<span className="text-foreground break-all">
 										{entry.message}
