@@ -68,6 +68,7 @@ Rust dependencies are automatically fetched on first build.
 ### Run the Desktop App (Dev Mode)
 
 ```bash
+cd apps/desktop
 pnpm tauri dev
 ```
 
