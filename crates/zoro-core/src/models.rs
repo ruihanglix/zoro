@@ -213,6 +213,8 @@ pub struct AppConfig {
     pub mcp: McpConfig,
     #[serde(default)]
     pub chat: ChatConfig,
+    #[serde(default)]
+    pub updater: UpdaterConfig,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -671,6 +673,7 @@ impl Default for AppConfig {
             sync: SyncConfig::default(),
             mcp: McpConfig::default(),
             chat: ChatConfig::default(),
+            updater: UpdaterConfig::default(),
         }
     }
 }
@@ -766,6 +769,27 @@ impl Default for ChatConfig {
             active_preset: default_chat_active_preset(),
             confirm_tool_calls: true,
             presets: default_chat_presets(),
+        }
+    }
+}
+
+/// Configuration for the auto-updater.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UpdaterConfig {
+    /// Whether to automatically check for updates on app launch.
+    #[serde(default = "default_true")]
+    pub auto_check: bool,
+    /// A version string the user chose to skip (e.g. "0.2.0").
+    /// The app will not prompt for this version again.
+    #[serde(default)]
+    pub skipped_version: String,
+}
+
+impl Default for UpdaterConfig {
+    fn default() -> Self {
+        Self {
+            auto_check: true,
+            skipped_version: String::new(),
         }
     }
 }
