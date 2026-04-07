@@ -28,6 +28,21 @@ pub fn install_cli() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
+/// Uninstall the `zoro` CLI command from system PATH.
+pub fn uninstall_cli() -> Result<(), Box<dyn std::error::Error>> {
+    #[cfg(any(target_os = "macos", target_os = "linux"))]
+    {
+        uninstall_unix()?;
+    }
+
+    #[cfg(target_os = "windows")]
+    {
+        uninstall_windows()?;
+    }
+
+    Ok(())
+}
+
 #[cfg(any(target_os = "macos", target_os = "linux"))]
 fn install_unix(current_exe: &PathBuf) -> Result<(), Box<dyn std::error::Error>> {
     let link = PathBuf::from("/usr/local/bin/zoro");
@@ -163,5 +178,66 @@ fn set_user_path_windows(new_path: &str) -> Result<(), Box<dyn std::error::Error
         ])
         .status();
 
+    Ok(())
+}
+
+#[cfg(any(target_os = "macos", target_os = "linux"))]
+fn uninstall_unix() -> Result<(), Box<dyn std::error::Error>> {
+    let link = PathBuf::from("/usr/local/bin/zoro");
+
+    if link.symlink_metadata().is_ok() {
+        std::fs::remove_file(&link).map_err(|e| {
+            format!(
+                "Failed to remove {}: {}. Try running with sudo.",
+                link.display(),
+                e
+            )
+        })?;
+        println!("✓ Removed {}", link.display());
+    } else {
+        println!("Nothing to uninstall: {} does not exist.", link.display());
+    }
+
+    Ok(())
+}
+
+#[cfg(target_os = "windows")]
+fn uninstall_windows() -> Result<(), Box<dyn std::error::Error>> {
+    let local_app_data = std::env::var("LOCALAPPDATA")
+        .map_err(|_| "Could not find LOCALAPPDATA environment variable")?;
+    let bin_dir = PathBuf::from(&local_app_data).join("Zoro").join("bin");
+    let dest = bin_dir.join("zoro.exe");
+
+    // Remove binary
+    if dest.exists() {
+        std::fs::remove_file(&dest)?;
+        println!("✓ Removed {}", dest.display());
+    }
+
+    // Remove bin_dir from user PATH
+    let bin_dir_str = bin_dir.to_string_lossy().to_string();
+    let current_user_path = get_user_path_windows()?;
+
+    let new_entries: Vec<&str> = current_user_path
+        .split(';')
+        .filter(|p| !p.eq_ignore_ascii_case(&bin_dir_str))
+        .collect();
+    let new_path = new_entries.join(";");
+
+    if new_path != current_user_path {
+        set_user_path_windows(&new_path)?;
+        println!("✓ Removed {} from user PATH", bin_dir_str);
+    }
+
+    // Clean up empty Zoro/bin directory
+    if bin_dir.exists() && bin_dir.read_dir().map_or(true, |mut d| d.next().is_none()) {
+        let _ = std::fs::remove_dir(&bin_dir);
+        let zoro_dir = bin_dir.parent().unwrap();
+        if zoro_dir.exists() && zoro_dir.read_dir().map_or(true, |mut d| d.next().is_none()) {
+            let _ = std::fs::remove_dir(zoro_dir);
+        }
+    }
+
+    println!("  Restart your terminal for the change to take effect.");
     Ok(())
 }

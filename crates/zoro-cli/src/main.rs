@@ -118,6 +118,9 @@ enum Commands {
 
     /// Install the zoro CLI command to system PATH
     InstallCli,
+
+    /// Uninstall the zoro CLI command from system PATH
+    UninstallCli,
 }
 
 #[derive(Subcommand)]
@@ -291,6 +294,9 @@ async fn run(
         }
         Commands::InstallCli => {
             commands::install_cli::install_cli()?;
+        }
+        Commands::UninstallCli => {
+            commands::install_cli::uninstall_cli()?;
         }
     }
 

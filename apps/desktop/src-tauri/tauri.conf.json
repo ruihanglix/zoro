@@ -42,7 +42,21 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ],
-    "createUpdaterArtifacts": "v1Compatible"
+    "createUpdaterArtifacts": "v1Compatible",
+    "windows": {
+      "nsis": {
+        "installMode": "currentUser",
+        "installerIcon": "icons/icon.ico",
+        "displayLanguageSelector": false,
+        "installerHooks": "nsis-hooks.nsi"
+      }
+    },
+    "linux": {
+      "deb": {
+        "postInstallScript": "deb-scripts/postinst",
+        "preRemoveScript": "deb-scripts/prerm"
+      }
+    }
   },
   "plugins": {
     "updater": {
