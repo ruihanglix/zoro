@@ -52,27 +52,33 @@ impl LocalBackend {
         let db = self.db.lock().map_err(|e| BackendError(format!("DB lock: {}", e)))?;
         let all = collections::list_collections(&db.conn)?;
 
-        // Try by ID first
-        if let Some(c) = all.iter().find(|c| c.id == name_or_id) {
-            return Ok(c.clone());
-        }
-        // Try by name (case-insensitive)
-        if let Some(c) = all
-            .iter()
-            .find(|c| c.name.eq_ignore_ascii_case(name_or_id))
-        {
-            return Ok(c.clone());
-        }
-        // Try by slug
-        if let Some(c) = all.iter().find(|c| c.slug == name_or_id) {
-            return Ok(c.clone());
+        // Single pass: prefer ID match, then name, then slug
+        let mut by_name = None;
+        let mut by_slug = None;
+        for c in &all {
+            if c.id == name_or_id {
+                return Ok(c.clone());
+            }
+            if by_name.is_none() && c.name.eq_ignore_ascii_case(name_or_id) {
+                by_name = Some(c);
+            }
+            if by_slug.is_none() && c.slug == name_or_id {
+                by_slug = Some(c);
+            }
         }
 
-        Err(BackendError(format!("Collection not found: {}", name_or_id)))
+        by_name
+            .or(by_slug)
+            .cloned()
+            .ok_or_else(|| BackendError(format!("Collection not found: {}", name_or_id)))
     }
 
     fn paper_row_to_info(&self, row: &papers::PaperRow) -> PaperInfo {
-        let db = self.db.lock().unwrap();
+        let db = self
+            .db
+            .lock()
+            .map_err(|e| BackendError(format!("DB lock: {}", e)))
+            .expect("DB lock poisoned");
         let authors = papers::get_paper_authors(&db.conn, &row.id).unwrap_or_default();
         let authors_display = format_authors(&authors);
 
@@ -169,7 +175,7 @@ impl Backend for LocalBackend {
     fn search_papers(&self, query: &str, limit: i64) -> Result<Vec<PaperInfo>, BackendError> {
         let db = self.db.lock().map_err(|e| BackendError(format!("DB lock: {}", e)))?;
         let rows = search::search_papers(&db.conn, query, limit)?;
-        drop(db);
+        drop(db); // Release before paper_row_to_info re-acquires
 
         Ok(rows.iter().map(|r| self.paper_row_to_info(r)).collect())
     }
@@ -202,7 +208,7 @@ impl Backend for LocalBackend {
 
         let db = self.db.lock().map_err(|e| BackendError(format!("DB lock: {}", e)))?;
         let rows = papers::list_papers(&db.conn, &filter)?;
-        drop(db);
+        drop(db); // Release before paper_row_to_info re-acquires
 
         Ok(rows.iter().map(|r| self.paper_row_to_info(r)).collect())
     }
@@ -253,7 +259,7 @@ impl Backend for LocalBackend {
         let row = self.resolve_paper(id_or_slug)?;
         let db = self.db.lock().map_err(|e| BackendError(format!("DB lock: {}", e)))?;
         papers::delete_paper(&db.conn, &row.id)?;
-        drop(db);
+        drop(db); // Release before filesystem operations
 
         // Clean up paper directory
         let papers_dir = self.data_dir.join("library/papers");
@@ -525,14 +531,22 @@ fn is_arxiv_id(s: &str) -> bool {
         return false;
     }
     let yymm = parts[0];
-    if yymm.len() != 4 {
+    if yymm.len() != 4 || !yymm.bytes().all(|b| b.is_ascii_digit()) {
         return false;
     }
-    yymm.chars().all(|c| c.is_ascii_digit())
-        && parts[1]
-            .trim_end_matches(|c: char| c == 'v' || c.is_ascii_digit())
-            .chars()
-            .all(|c| c.is_ascii_digit())
+    // Strip optional version suffix (e.g. "v2") then check remaining is all digits
+    let num = parts[1];
+    let num_part = if let Some(vi) = num.find('v') {
+        let (digits, ver) = num.split_at(vi);
+        // version part must be "v" followed by digits
+        if !ver[1..].bytes().all(|b| b.is_ascii_digit()) {
+            return false;
+        }
+        digits
+    } else {
+        num
+    };
+    !num_part.is_empty() && num_part.bytes().all(|b| b.is_ascii_digit())
 }
 
 fn extract_arxiv_id(s: &str) -> String {

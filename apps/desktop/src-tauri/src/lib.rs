@@ -5,6 +5,7 @@
 mod commands;
 mod connector;
 pub mod log_buffer;
+pub mod sidecar;
 mod storage;
 mod subscriptions;
 

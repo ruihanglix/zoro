@@ -4,6 +4,8 @@
 
 use std::path::PathBuf;
 
+use crate::sidecar::find_sidecar_binary;
+
 #[derive(Debug, serde::Serialize)]
 pub struct CliStatus {
     pub installed: bool,
@@ -11,37 +13,9 @@ pub struct CliStatus {
     pub sidecar_found: bool,
 }
 
-/// Find the bundled `zoro` CLI sidecar binary (same logic as find_mcp_binary).
+/// Find the bundled `zoro` CLI sidecar binary.
 fn find_cli_sidecar() -> Option<PathBuf> {
-    let name = if cfg!(windows) { "zoro.exe" } else { "zoro" };
-
-    // 1. Next to the current executable (production bundles)
-    if let Ok(exe) = std::env::current_exe() {
-        if let Some(dir) = exe.parent() {
-            let candidate = dir.join(name);
-            if candidate.exists() {
-                return Some(candidate);
-            }
-        }
-    }
-
-    // 2. Cargo workspace target directories (dev mode)
-    if let Ok(exe) = std::env::current_exe() {
-        let mut dir = exe.parent();
-        while let Some(d) = dir {
-            if d.file_name().is_some_and(|n| n == "target") {
-                for profile in &["debug", "release"] {
-                    let candidate = d.join(profile).join(name);
-                    if candidate.exists() {
-                        return Some(candidate);
-                    }
-                }
-            }
-            dir = d.parent();
-        }
-    }
-
-    None
+    find_sidecar_binary("zoro", false)
 }
 
 /// Check if `zoro` is available on the system PATH.
