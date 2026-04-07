@@ -322,6 +322,13 @@ zoro/
 │           ├── openalex.rs           #   OpenAlex API 客户端
 │           ├── doi_content_negotiation.rs  # DOI 内容协商（引用格式）
 │           └── error.rs              #   MetadataError
+│   └── zoro-cli/
+│       └── src/
+│           ├── main.rs               #   CLI 入口，clap 命令定义
+│           ├── config.rs             #   数据目录解析
+│           ├── output.rs             #   输出格式化（表格/JSON）
+│           ├── backend/              #   Backend trait + 本地/HTTP 实现
+│           └── commands/             #   命令处理器（papers、collections、tags 等）
 ├── Cargo.toml                        # Cargo workspace 配置
 ├── rustfmt.toml                      # Rust 格式化配置
 └── README.md

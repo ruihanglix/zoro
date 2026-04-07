@@ -69,6 +69,20 @@ pnpm tauri dev
 # 前端开发服务器运行在 http://localhost:1420
 ```
 
+### 构建和运行 CLI
+
+```bash
+# 构建 CLI 二进制
+cargo build -p zoro-cli
+
+# 运行
+./target/debug/zoro status
+./target/debug/zoro search "attention"
+./target/debug/zoro --json list
+```
+
+详见 [Zoro CLI](cli.md) 完整文档。
+
 ### Rust 相关
 
 ```bash
@@ -139,6 +153,7 @@ pnpm --filter @zoro/browser-extension build
 | `zoro-core` | `crates/zoro-core/` | 领域模型（`Paper`、`Author` 等）、slug 生成算法、BibTeX/RIS 解析器、`CoreError` |
 | `zoro-db` | `crates/zoro-db/` | SQLite DDL schema、CRUD 查询、FTS5 全文搜索、`DbError` |
 | `zoro-subscriptions` | `crates/zoro-subscriptions/` | `SubscriptionSource` trait、HuggingFace Daily Papers 实现、`SubscriptionError` |
+| `zoro-cli` | `crates/zoro-cli/` | CLI 二进制 (`zoro`)，混合模式后端（HTTP 连接器或直连 SQLite），表格/JSON 输出 |
 | `zoro-desktop` | `apps/desktop/src-tauri/` | Tauri 应用入口、命令处理器、Connector HTTP 服务器、文件存储管理 |
 
 ### 前端结构

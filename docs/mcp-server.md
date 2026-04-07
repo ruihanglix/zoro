@@ -196,6 +196,7 @@ The server uses `rmcp` (the official Rust MCP SDK) with the `#[tool_router]` and
 
 ## See Also
 
+- [Zoro CLI](cli.md) -- Command-line interface for agents that don't support MCP
 - [Agent Integration Guide](agent-integration.md) -- Filesystem-based access patterns
 - [Data Model & API Reference](data-model.md) -- Full database schema
 - [Architecture Overview](architecture.md) -- System design

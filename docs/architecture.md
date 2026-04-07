@@ -48,6 +48,7 @@ zoro/
 | `zoro-db` | SQLite database layer with schema creation, FTS5 full-text search, and query modules | `zoro-core`, `rusqlite` (bundled), `thiserror` |
 | `zoro-metadata` | Metadata enrichment from external APIs (CrossRef, Semantic Scholar, OpenAlex), DOI content negotiation for citations, and local PDF metadata extraction (title, authors, DOI via `lopdf`) | `reqwest`, `thiserror`, `lopdf`, `regex` |
 | `zoro-subscriptions` | Plugin-based subscription system with the `SubscriptionSource` trait and HuggingFace Daily Papers implementation | `zoro-core`, `reqwest`, `async-trait`, `tokio` |
+| `zoro-cli` | CLI binary (`zoro`) for shell-based library management; hybrid backend (HTTP connector or direct SQLite) | `zoro-core`, `zoro-db`, `zoro-storage`, `zoro-metadata`, `clap`, `comfy-table`, `colored` |
 | `zoro-desktop` | Tauri v2 application integrating all crates, providing IPC commands, HTTP connector server, and file storage | All crates above, `tauri`, `axum`, `tower-http`, `tracing` |
 
 ## Tauri v2 Architecture
@@ -353,6 +354,13 @@ zoro/
         openalex.rs             # OpenAlex API client
         doi_content_negotiation.rs  # DOI content negotiation for citations
         error.rs                # MetadataError enum
+    zoro-cli/
+      src/
+        main.rs                 # CLI entry point, clap command definitions
+        config.rs               # Data directory resolution
+        output.rs               # Output formatting (table / JSON)
+        backend/                # Backend trait + local/http implementations
+        commands/               # Command handlers (papers, collections, tags, etc.)
   Cargo.toml                    # Workspace root
   rustfmt.toml                  # Rust formatting config
 ```
