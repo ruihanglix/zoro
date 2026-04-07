@@ -68,13 +68,100 @@ fn install_windows(current_exe: &PathBuf) -> Result<(), Box<dyn std::error::Erro
     std::fs::copy(current_exe, &dest)?;
 
     println!("✓ Copied zoro.exe to: {}", dest.display());
-    println!(
-        "  Add {} to your PATH if not already present:",
-        bin_dir.display()
-    );
-    println!(
-        "  [Environment]::SetEnvironmentVariable('PATH', $env:PATH + ';{}', 'User')",
-        bin_dir.display()
-    );
+
+    // Add bin_dir to user PATH if not already present
+    let bin_dir_str = bin_dir.to_string_lossy().to_string();
+    let current_user_path = get_user_path_windows()?;
+
+    if current_user_path
+        .split(';')
+        .any(|p| p.eq_ignore_ascii_case(&bin_dir_str))
+    {
+        println!("  PATH already contains {}", bin_dir_str);
+    } else {
+        let new_path = if current_user_path.is_empty() {
+            bin_dir_str.clone()
+        } else {
+            format!("{};{}", current_user_path, bin_dir_str)
+        };
+        set_user_path_windows(&new_path)?;
+        println!("✓ Added {} to user PATH", bin_dir_str);
+        println!("  Restart your terminal for the change to take effect.");
+    }
+
+    println!("  You can now use 'zoro' from anywhere in your terminal.");
+    Ok(())
+}
+
+/// Read the user-level PATH from the Windows registry.
+#[cfg(target_os = "windows")]
+fn get_user_path_windows() -> Result<String, Box<dyn std::error::Error>> {
+    let output = std::process::Command::new("reg")
+        .args([
+            "query",
+            "HKCU\\Environment",
+            "/v",
+            "Path",
+        ])
+        .output()?;
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    // Parse the REG_SZ or REG_EXPAND_SZ value from reg query output.
+    // Format: "    Path    REG_EXPAND_SZ    C:\some\path;C:\other\path"
+    for line in stdout.lines() {
+        let trimmed = line.trim();
+        if trimmed.starts_with("Path") || trimmed.starts_with("PATH") {
+            // Split by whitespace: ["Path", "REG_EXPAND_SZ", "value..."]
+            let parts: Vec<&str> = trimmed.splitn(3, char::is_whitespace).collect();
+            if parts.len() >= 3 {
+                // The value part may have leading whitespace from the split
+                let value_part = parts[2..].join(" ");
+                // Strip the type prefix (REG_EXPAND_SZ / REG_SZ) if still present
+                let value = value_part
+                    .trim()
+                    .trim_start_matches("REG_EXPAND_SZ")
+                    .trim_start_matches("REG_SZ")
+                    .trim();
+                return Ok(value.to_string());
+            }
+        }
+    }
+
+    // No user PATH set yet — that's fine
+    Ok(String::new())
+}
+
+/// Write the user-level PATH via the Windows registry.
+#[cfg(target_os = "windows")]
+fn set_user_path_windows(new_path: &str) -> Result<(), Box<dyn std::error::Error>> {
+    let status = std::process::Command::new("reg")
+        .args([
+            "add",
+            "HKCU\\Environment",
+            "/v",
+            "Path",
+            "/t",
+            "REG_EXPAND_SZ",
+            "/d",
+            new_path,
+            "/f",
+        ])
+        .status()?;
+
+    if !status.success() {
+        return Err("Failed to update user PATH in registry".into());
+    }
+
+    // Broadcast WM_SETTINGCHANGE so running Explorer picks up the change
+    // without requiring a full reboot. This uses a small PowerShell snippet.
+    let _ = std::process::Command::new("powershell")
+        .args([
+            "-NoProfile",
+            "-Command",
+            "Add-Type -Namespace Win32 -Name NativeMethods -MemberDefinition '[DllImport(\"user32.dll\", SetLastError = true, CharSet = CharSet.Auto)] public static extern IntPtr SendMessageTimeout(IntPtr hWnd, uint Msg, UIntPtr wParam, string lParam, uint fuFlags, uint uTimeout, out UIntPtr lpdwResult);'; $HWND_BROADCAST = [IntPtr]0xffff; $WM_SETTINGCHANGE = 0x1a; $result = [UIntPtr]::Zero; [Win32.NativeMethods]::SendMessageTimeout($HWND_BROADCAST, $WM_SETTINGCHANGE, [UIntPtr]::Zero, 'Environment', 2, 5000, [ref]$result) | Out-Null",
+        ])
+        .status();
+
     Ok(())
 }

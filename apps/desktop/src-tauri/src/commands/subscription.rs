@@ -948,11 +948,25 @@ pub async fn change_data_dir(
     storage::config::save_config(&new_dir, &config)
         .map_err(|e| format!("Failed to save config: {}", e))?;
 
-    // Also update the OLD config.toml to point to the new location,
-    // so that the next launch can detect the redirect.
-    let mut redirect_config = storage::config::load_config(&old_dir);
-    redirect_config.general.data_dir = new_path;
-    let _ = storage::config::save_config(&old_dir, &redirect_config);
+    // If we moved data, remove the old directory and leave only a
+    // redirect config.toml so the next launch can find the new location.
+    if move_data {
+        // Remove the old directory entirely
+        std::fs::remove_dir_all(&old_dir)
+            .map_err(|e| format!("Data copied successfully but failed to remove old directory: {}", e))?;
+
+        // Recreate the old directory with just a redirect config.toml
+        std::fs::create_dir_all(&old_dir)
+            .map_err(|e| format!("Failed to recreate redirect directory: {}", e))?;
+        let mut redirect_config = zoro_core::models::AppConfig::default();
+        redirect_config.general.data_dir = new_path;
+        let _ = storage::config::save_config(&old_dir, &redirect_config);
+    } else {
+        // No data moved — just update the old config.toml to point to the new location
+        let mut redirect_config = storage::config::load_config(&old_dir);
+        redirect_config.general.data_dir = new_path;
+        let _ = storage::config::save_config(&old_dir, &redirect_config);
+    }
 
     Ok(())
 }
