@@ -952,8 +952,12 @@ pub async fn change_data_dir(
     // redirect config.toml so the next launch can find the new location.
     if move_data {
         // Remove the old directory entirely
-        std::fs::remove_dir_all(&old_dir)
-            .map_err(|e| format!("Data copied successfully but failed to remove old directory: {}", e))?;
+        std::fs::remove_dir_all(&old_dir).map_err(|e| {
+            format!(
+                "Data copied successfully but failed to remove old directory: {}",
+                e
+            )
+        })?;
 
         // Recreate the old directory with just a redirect config.toml
         std::fs::create_dir_all(&old_dir)

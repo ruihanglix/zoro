@@ -66,7 +66,11 @@ fn install_unix(current_exe: &PathBuf) -> Result<(), Box<dyn std::error::Error>>
         )
     })?;
 
-    println!("✓ Installed: {} -> {}", link.display(), current_exe.display());
+    println!(
+        "✓ Installed: {} -> {}",
+        link.display(),
+        current_exe.display()
+    );
     println!("  You can now use 'zoro' from anywhere in your terminal.");
     Ok(())
 }
@@ -112,12 +116,7 @@ fn install_windows(current_exe: &PathBuf) -> Result<(), Box<dyn std::error::Erro
 #[cfg(target_os = "windows")]
 fn get_user_path_windows() -> Result<String, Box<dyn std::error::Error>> {
     let output = std::process::Command::new("reg")
-        .args([
-            "query",
-            "HKCU\\Environment",
-            "/v",
-            "Path",
-        ])
+        .args(["query", "HKCU\\Environment", "/v", "Path"])
         .output()?;
 
     let stdout = String::from_utf8_lossy(&output.stdout);

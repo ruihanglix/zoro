@@ -195,9 +195,7 @@ enum NoteCommands {
 #[tokio::main]
 async fn main() {
     tracing_subscriber::fmt()
-        .with_env_filter(
-            EnvFilter::from_default_env().add_directive("zoro=warn".parse().unwrap()),
-        )
+        .with_env_filter(EnvFilter::from_default_env().add_directive("zoro=warn".parse().unwrap()))
         .with_writer(std::io::stderr)
         .init();
 
@@ -211,10 +209,7 @@ async fn main() {
     }
 }
 
-async fn run(
-    cli: Cli,
-    data_dir: std::path::PathBuf,
-) -> Result<(), Box<dyn std::error::Error>> {
+async fn run(cli: Cli, data_dir: std::path::PathBuf) -> Result<(), Box<dyn std::error::Error>> {
     let json = cli.json;
 
     let backend = backend::connect(&data_dir, cli.local).await?;

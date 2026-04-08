@@ -120,11 +120,7 @@ pub trait Backend {
 
     // Tags
     fn list_tags(&self) -> Result<Vec<TagInfo>, BackendError>;
-    fn add_tag_to_paper(
-        &self,
-        paper_id_or_slug: &str,
-        tag_name: &str,
-    ) -> Result<(), BackendError>;
+    fn add_tag_to_paper(&self, paper_id_or_slug: &str, tag_name: &str) -> Result<(), BackendError>;
     fn remove_tag_from_paper(
         &self,
         paper_id_or_slug: &str,
@@ -133,16 +129,15 @@ pub trait Backend {
 
     // Notes
     fn list_notes(&self, paper_id_or_slug: &str) -> Result<Vec<NoteInfo>, BackendError>;
-    fn add_note(
-        &self,
-        paper_id_or_slug: &str,
-        content: &str,
-    ) -> Result<NoteInfo, BackendError>;
+    fn add_note(&self, paper_id_or_slug: &str, content: &str) -> Result<NoteInfo, BackendError>;
     fn delete_note(&self, note_id: &str) -> Result<(), BackendError>;
 
     // Export
-    fn export_paper(&self, paper_id_or_slug: &str, format: &str)
-        -> Result<ExportResult, BackendError>;
+    fn export_paper(
+        &self,
+        paper_id_or_slug: &str,
+        format: &str,
+    ) -> Result<ExportResult, BackendError>;
 
     // Status
     fn status(&self) -> Result<StatusInfo, BackendError>;
@@ -176,7 +171,10 @@ pub async fn connect(
         if let Ok(resp) = reqwest::get("http://127.0.0.1:23120/connector/ping").await {
             if resp.status().is_success() {
                 tracing::info!("Connected to Zoro app via HTTP connector");
-                return Ok(Box::new(http::HttpBackend::new(23120, data_dir.to_path_buf())));
+                return Ok(Box::new(http::HttpBackend::new(
+                    23120,
+                    data_dir.to_path_buf(),
+                )));
             }
         }
     }
@@ -191,5 +189,8 @@ pub async fn connect(
     let db = zoro_db::Database::open(&db_path)
         .map_err(|e| format!("Failed to open database at {:?}: {}", db_path, e))?;
 
-    Ok(Box::new(local::LocalBackend::new(db, data_dir.to_path_buf())))
+    Ok(Box::new(local::LocalBackend::new(
+        db,
+        data_dir.to_path_buf(),
+    )))
 }

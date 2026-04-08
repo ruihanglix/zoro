@@ -18,11 +18,7 @@ pub fn create(
     json: bool,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let info = backend.create_collection(name, description)?;
-    output::print_success(
-        &format!("Created collection: {}", info.name),
-        &info,
-        json,
-    );
+    output::print_success(&format!("Created collection: {}", info.name), &info, json);
     Ok(())
 }
 

@@ -6,9 +6,7 @@ use colored::Colorize;
 use comfy_table::{presets, Table};
 use serde::Serialize;
 
-use crate::backend::{
-    CollectionInfo, NoteInfo, PaperInfo, StatusInfo, TagInfo,
-};
+use crate::backend::{CollectionInfo, NoteInfo, PaperInfo, StatusInfo, TagInfo};
 
 /// Print a list of papers as a table or JSON.
 pub fn print_papers(papers: &[PaperInfo], json: bool) {
@@ -39,10 +37,7 @@ pub fn print_papers(papers: &[PaperInfo], json: bool) {
     }
 
     println!("{table}");
-    println!(
-        "\n{}",
-        format!("Found {} paper(s)", papers.len()).dimmed()
-    );
+    println!("\n{}", format!("Found {} paper(s)", papers.len()).dimmed());
 }
 
 /// Print a single paper detail.
@@ -59,9 +54,17 @@ pub fn print_paper_detail(paper: &PaperInfo, json: bool) {
         println!("  {} {}", "Authors:".dimmed(), paper.authors_display);
     }
     if let Some(ref date) = paper.published_date {
-        println!("  {}    {}", "Year:".dimmed(), date.get(..4).unwrap_or(date));
+        println!(
+            "  {}    {}",
+            "Year:".dimmed(),
+            date.get(..4).unwrap_or(date)
+        );
     }
-    println!("  {}  {}", "Status:".dimmed(), format_status(&paper.read_status));
+    println!(
+        "  {}  {}",
+        "Status:".dimmed(),
+        format_status(&paper.read_status)
+    );
     println!("  {}    {}", "Slug:".dimmed(), paper.slug);
     println!("  {}      {}", "ID:".dimmed(), paper.id);
 
@@ -141,12 +144,7 @@ pub fn print_tags(tags: &[TagInfo], json: bool) {
 
     for t in tags {
         let color = t.color.as_deref().unwrap_or("-");
-        table.add_row(vec![
-            &t.name,
-            &t.id,
-            &t.paper_count.to_string(),
-            color,
-        ]);
+        table.add_row(vec![&t.name, &t.id, &t.paper_count.to_string(), color]);
     }
 
     println!("{table}");

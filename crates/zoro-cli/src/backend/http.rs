@@ -97,11 +97,7 @@ impl Backend for HttpBackend {
         Err(self._not_implemented("Create collection"))
     }
 
-    fn add_paper_to_collection(
-        &self,
-        _paper: &str,
-        _collection: &str,
-    ) -> Result<(), BackendError> {
+    fn add_paper_to_collection(&self, _paper: &str, _collection: &str) -> Result<(), BackendError> {
         Err(self._not_implemented("Add paper to collection"))
     }
 

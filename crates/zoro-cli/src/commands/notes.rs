@@ -22,7 +22,11 @@ pub fn add(
     json: bool,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let note = backend.add_note(paper, content)?;
-    output::print_success(&format!("Added note {} to paper {}", note.id, paper), &note, json);
+    output::print_success(
+        &format!("Added note {} to paper {}", note.id, paper),
+        &note,
+        json,
+    );
     Ok(())
 }
 

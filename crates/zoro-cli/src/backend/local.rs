@@ -27,11 +27,11 @@ impl LocalBackend {
     }
 
     /// Resolve a paper ID or slug to the actual paper row.
-    fn resolve_paper(
-        &self,
-        id_or_slug: &str,
-    ) -> Result<papers::PaperRow, BackendError> {
-        let db = self.db.lock().map_err(|e| BackendError(format!("DB lock: {}", e)))?;
+    fn resolve_paper(&self, id_or_slug: &str) -> Result<papers::PaperRow, BackendError> {
+        let db = self
+            .db
+            .lock()
+            .map_err(|e| BackendError(format!("DB lock: {}", e)))?;
 
         // Try by ID first
         match papers::get_paper(&db.conn, id_or_slug) {
@@ -49,7 +49,10 @@ impl LocalBackend {
         &self,
         name_or_id: &str,
     ) -> Result<collections::CollectionRow, BackendError> {
-        let db = self.db.lock().map_err(|e| BackendError(format!("DB lock: {}", e)))?;
+        let db = self
+            .db
+            .lock()
+            .map_err(|e| BackendError(format!("DB lock: {}", e)))?;
         let all = collections::list_collections(&db.conn)?;
 
         // Single pass: prefer ID match, then name, then slug
@@ -173,7 +176,10 @@ impl Backend for LocalBackend {
     }
 
     fn search_papers(&self, query: &str, limit: i64) -> Result<Vec<PaperInfo>, BackendError> {
-        let db = self.db.lock().map_err(|e| BackendError(format!("DB lock: {}", e)))?;
+        let db = self
+            .db
+            .lock()
+            .map_err(|e| BackendError(format!("DB lock: {}", e)))?;
         let rows = search::search_papers(&db.conn, query, limit)?;
         drop(db); // Release before paper_row_to_info re-acquires
 
@@ -206,7 +212,10 @@ impl Backend for LocalBackend {
             offset: Some(0),
         };
 
-        let db = self.db.lock().map_err(|e| BackendError(format!("DB lock: {}", e)))?;
+        let db = self
+            .db
+            .lock()
+            .map_err(|e| BackendError(format!("DB lock: {}", e)))?;
         let rows = papers::list_papers(&db.conn, &filter)?;
         drop(db); // Release before paper_row_to_info re-acquires
 
@@ -230,7 +239,12 @@ impl Backend for LocalBackend {
         let mut url = None;
 
         if source.starts_with("10.") || source.contains("doi.org/") {
-            doi = Some(source.trim_start_matches("https://doi.org/").trim_start_matches("http://doi.org/").to_string());
+            doi = Some(
+                source
+                    .trim_start_matches("https://doi.org/")
+                    .trim_start_matches("http://doi.org/")
+                    .to_string(),
+            );
         } else if source.contains("arxiv.org/") || is_arxiv_id(source) {
             arxiv_id = Some(extract_arxiv_id(source));
         } else if source.starts_with("http://") || source.starts_with("https://") {
@@ -257,7 +271,10 @@ impl Backend for LocalBackend {
 
     fn delete_paper(&self, id_or_slug: &str) -> Result<(), BackendError> {
         let row = self.resolve_paper(id_or_slug)?;
-        let db = self.db.lock().map_err(|e| BackendError(format!("DB lock: {}", e)))?;
+        let db = self
+            .db
+            .lock()
+            .map_err(|e| BackendError(format!("DB lock: {}", e)))?;
         papers::delete_paper(&db.conn, &row.id)?;
         drop(db); // Release before filesystem operations
 
@@ -280,7 +297,10 @@ impl Backend for LocalBackend {
     }
 
     fn list_collections(&self) -> Result<Vec<CollectionInfo>, BackendError> {
-        let db = self.db.lock().map_err(|e| BackendError(format!("DB lock: {}", e)))?;
+        let db = self
+            .db
+            .lock()
+            .map_err(|e| BackendError(format!("DB lock: {}", e)))?;
         let rows = collections::list_collections(&db.conn)?;
 
         let mut result = Vec::new();
@@ -302,7 +322,10 @@ impl Backend for LocalBackend {
         name: &str,
         description: Option<&str>,
     ) -> Result<CollectionInfo, BackendError> {
-        let db = self.db.lock().map_err(|e| BackendError(format!("DB lock: {}", e)))?;
+        let db = self
+            .db
+            .lock()
+            .map_err(|e| BackendError(format!("DB lock: {}", e)))?;
         let row = collections::create_collection(&db.conn, name, None, description)?;
         Ok(CollectionInfo {
             id: row.id,
@@ -320,7 +343,10 @@ impl Backend for LocalBackend {
     ) -> Result<(), BackendError> {
         let paper = self.resolve_paper(paper_id_or_slug)?;
         let coll = self.resolve_collection(collection_name_or_id)?;
-        let db = self.db.lock().map_err(|e| BackendError(format!("DB lock: {}", e)))?;
+        let db = self
+            .db
+            .lock()
+            .map_err(|e| BackendError(format!("DB lock: {}", e)))?;
         collections::add_paper_to_collection(&db.conn, &paper.id, &coll.id)?;
         Ok(())
     }
@@ -332,13 +358,19 @@ impl Backend for LocalBackend {
     ) -> Result<(), BackendError> {
         let paper = self.resolve_paper(paper_id_or_slug)?;
         let coll = self.resolve_collection(collection_name_or_id)?;
-        let db = self.db.lock().map_err(|e| BackendError(format!("DB lock: {}", e)))?;
+        let db = self
+            .db
+            .lock()
+            .map_err(|e| BackendError(format!("DB lock: {}", e)))?;
         collections::remove_paper_from_collection(&db.conn, &paper.id, &coll.id)?;
         Ok(())
     }
 
     fn list_tags(&self) -> Result<Vec<TagInfo>, BackendError> {
-        let db = self.db.lock().map_err(|e| BackendError(format!("DB lock: {}", e)))?;
+        let db = self
+            .db
+            .lock()
+            .map_err(|e| BackendError(format!("DB lock: {}", e)))?;
         let rows = tags::list_tags(&db.conn)?;
 
         let mut result = Vec::new();
@@ -354,13 +386,12 @@ impl Backend for LocalBackend {
         Ok(result)
     }
 
-    fn add_tag_to_paper(
-        &self,
-        paper_id_or_slug: &str,
-        tag_name: &str,
-    ) -> Result<(), BackendError> {
+    fn add_tag_to_paper(&self, paper_id_or_slug: &str, tag_name: &str) -> Result<(), BackendError> {
         let paper = self.resolve_paper(paper_id_or_slug)?;
-        let db = self.db.lock().map_err(|e| BackendError(format!("DB lock: {}", e)))?;
+        let db = self
+            .db
+            .lock()
+            .map_err(|e| BackendError(format!("DB lock: {}", e)))?;
         tags::add_tag_to_paper(&db.conn, &paper.id, tag_name, "cli")?;
         Ok(())
     }
@@ -371,14 +402,20 @@ impl Backend for LocalBackend {
         tag_name: &str,
     ) -> Result<(), BackendError> {
         let paper = self.resolve_paper(paper_id_or_slug)?;
-        let db = self.db.lock().map_err(|e| BackendError(format!("DB lock: {}", e)))?;
+        let db = self
+            .db
+            .lock()
+            .map_err(|e| BackendError(format!("DB lock: {}", e)))?;
         tags::remove_tag_from_paper(&db.conn, &paper.id, tag_name)?;
         Ok(())
     }
 
     fn list_notes(&self, paper_id_or_slug: &str) -> Result<Vec<NoteInfo>, BackendError> {
         let paper = self.resolve_paper(paper_id_or_slug)?;
-        let db = self.db.lock().map_err(|e| BackendError(format!("DB lock: {}", e)))?;
+        let db = self
+            .db
+            .lock()
+            .map_err(|e| BackendError(format!("DB lock: {}", e)))?;
         let rows = notes::list_notes(&db.conn, &paper.id)?;
         Ok(rows
             .iter()
@@ -392,13 +429,12 @@ impl Backend for LocalBackend {
             .collect())
     }
 
-    fn add_note(
-        &self,
-        paper_id_or_slug: &str,
-        content: &str,
-    ) -> Result<NoteInfo, BackendError> {
+    fn add_note(&self, paper_id_or_slug: &str, content: &str) -> Result<NoteInfo, BackendError> {
         let paper = self.resolve_paper(paper_id_or_slug)?;
-        let db = self.db.lock().map_err(|e| BackendError(format!("DB lock: {}", e)))?;
+        let db = self
+            .db
+            .lock()
+            .map_err(|e| BackendError(format!("DB lock: {}", e)))?;
         let row = notes::insert_note(&db.conn, &paper.id, content)?;
         Ok(NoteInfo {
             id: row.id,
@@ -410,7 +446,10 @@ impl Backend for LocalBackend {
     }
 
     fn delete_note(&self, note_id: &str) -> Result<(), BackendError> {
-        let db = self.db.lock().map_err(|e| BackendError(format!("DB lock: {}", e)))?;
+        let db = self
+            .db
+            .lock()
+            .map_err(|e| BackendError(format!("DB lock: {}", e)))?;
         notes::delete_note(&db.conn, note_id)?;
         Ok(())
     }
@@ -421,7 +460,10 @@ impl Backend for LocalBackend {
         format: &str,
     ) -> Result<ExportResult, BackendError> {
         let row = self.resolve_paper(paper_id_or_slug)?;
-        let db = self.db.lock().map_err(|e| BackendError(format!("DB lock: {}", e)))?;
+        let db = self
+            .db
+            .lock()
+            .map_err(|e| BackendError(format!("DB lock: {}", e)))?;
         let authors = papers::get_paper_authors(&db.conn, &row.id).unwrap_or_default();
         drop(db);
 
@@ -430,8 +472,9 @@ impl Backend for LocalBackend {
         let content = match format {
             "bibtex" | "bib" => bibtex::generate_bibtex(&[core_paper]),
             "ris" => ris::generate_ris(&[core_paper]),
-            "json" => serde_json::to_string_pretty(&self.paper_row_to_info(&row))
-                .unwrap_or_default(),
+            "json" => {
+                serde_json::to_string_pretty(&self.paper_row_to_info(&row)).unwrap_or_default()
+            }
             _ => {
                 return Err(BackendError(format!(
                     "Unknown export format: {}. Supported: bibtex, ris, json",
@@ -447,7 +490,10 @@ impl Backend for LocalBackend {
     }
 
     fn status(&self) -> Result<StatusInfo, BackendError> {
-        let db = self.db.lock().map_err(|e| BackendError(format!("DB lock: {}", e)))?;
+        let db = self
+            .db
+            .lock()
+            .map_err(|e| BackendError(format!("DB lock: {}", e)))?;
         let paper_count = papers::count_papers(&db.conn)?;
         let collection_count = collections::list_collections(&db.conn)?.len() as i64;
         let tag_count = tags::list_tags(&db.conn)?.len() as i64;
@@ -499,7 +545,10 @@ impl LocalBackend {
             added_date: None,
         };
 
-        let db = self.db.lock().map_err(|e| BackendError(format!("DB lock: {}", e)))?;
+        let db = self
+            .db
+            .lock()
+            .map_err(|e| BackendError(format!("DB lock: {}", e)))?;
         let row = papers::insert_paper(&db.conn, &input)?;
 
         // Create paper directory

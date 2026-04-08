@@ -53,10 +53,7 @@ pub fn add(
     Ok(())
 }
 
-pub fn open(
-    backend: &dyn Backend,
-    paper: &str,
-) -> Result<(), Box<dyn std::error::Error>> {
+pub fn open(backend: &dyn Backend, paper: &str) -> Result<(), Box<dyn std::error::Error>> {
     backend.open_paper(paper)?;
     Ok(())
 }

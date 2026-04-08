@@ -29,9 +29,6 @@ pub fn remove(
     json: bool,
 ) -> Result<(), Box<dyn std::error::Error>> {
     backend.remove_tag_from_paper(paper, tag)?;
-    output::print_success_msg(
-        &format!("Removed tag '{}' from paper {}", tag, paper),
-        json,
-    );
+    output::print_success_msg(&format!("Removed tag '{}' from paper {}", tag, paper), json);
     Ok(())
 }
