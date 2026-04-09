@@ -8,6 +8,7 @@ pub mod arxiv;
 pub mod browser;
 pub mod chat;
 pub mod citation;
+pub mod cli;
 pub mod connector;
 pub mod debug;
 pub mod http_proxy;

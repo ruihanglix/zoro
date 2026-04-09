@@ -1,0 +1,15 @@
+#!/bin/sh
+# Post-installation script for Zoro .deb package
+# Creates a symlink so the `zoro` CLI is available system-wide.
+
+set -e
+
+# The sidecar binary is installed alongside the main app.
+# Tauri deb installs binaries to /usr/lib/<productName>/
+SIDECAR="/usr/lib/zoro/zoro"
+
+if [ -x "$SIDECAR" ]; then
+    ln -sf "$SIDECAR" /usr/local/bin/zoro
+fi
+
+exit 0

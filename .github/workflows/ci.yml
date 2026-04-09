@@ -36,6 +36,9 @@ jobs:
       - name: Build MCP sidecar binary
         run: bash scripts/build-mcp-sidecar.sh
 
+      - name: Build CLI sidecar binary
+        run: bash scripts/build-cli-sidecar.sh
+
       - name: Rust format check
         run: cargo fmt --all -- --check
 

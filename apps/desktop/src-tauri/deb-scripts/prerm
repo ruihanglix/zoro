@@ -1,0 +1,9 @@
+#!/bin/sh
+# Pre-removal script for Zoro .deb package
+# Removes the `zoro` CLI symlink.
+
+set -e
+
+rm -f /usr/local/bin/zoro
+
+exit 0

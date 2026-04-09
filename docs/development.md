@@ -74,6 +74,20 @@ pnpm tauri dev
 
 This starts the Tauri development server with hot-reload for the frontend (port 1420) and recompiles the Rust backend on changes. The connector server starts automatically on port 23120.
 
+### Build and Run the CLI
+
+```bash
+# Build the CLI binary
+cargo build -p zoro-cli
+
+# Run it
+./target/debug/zoro status
+./target/debug/zoro search "attention"
+./target/debug/zoro --json list
+```
+
+See [Zoro CLI](cli.md) for full documentation.
+
 ### Rust Commands
 
 ```bash
@@ -264,6 +278,7 @@ INSERT INTO papers_fts(papers_fts) VALUES('rebuild');
 
 ## Next Steps
 
+- [Zoro CLI](cli.md) -- Command-line interface usage
 - [Architecture Overview](architecture.md) -- Understand the system design
 - [Data Model & API Reference](data-model.md) -- Database schema and command API
 - [Browser Extension](browser-extension.md) -- Extension development

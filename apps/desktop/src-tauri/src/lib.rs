@@ -5,6 +5,7 @@
 mod commands;
 mod connector;
 pub mod log_buffer;
+pub mod sidecar;
 mod storage;
 mod subscriptions;
 
@@ -503,6 +504,10 @@ commands::debug::push_frontend_log,
             commands::mcp::start_mcp_server,
             commands::mcp::stop_mcp_server,
             commands::mcp::restart_mcp_server,
+            // CLI
+            commands::cli::check_cli_installed,
+            commands::cli::install_cli,
+            commands::cli::uninstall_cli,
             // Translation / AI
             commands::translation::get_translations,
             commands::translation::get_translations_batch,
