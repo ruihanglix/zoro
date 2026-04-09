@@ -496,18 +496,23 @@ export const setDebugMode = (enabled: boolean) =>
 
 export const clearLogs = () => invoke<void>("clear_logs");
 
-export const pushFrontendLog = (level: string, source: string, message: string) =>
-	invoke<void>("push_frontend_log", { level, source, message });
+export const pushFrontendLog = (
+	level: string,
+	source: string,
+	message: string,
+) => invoke<void>("push_frontend_log", { level, source, message });
 
 export interface LogConfigResponse {
 	logToFile: boolean;
 	logRetentionDays: number;
 }
 
-export const getLogConfig = () =>
-	invoke<LogConfigResponse>("get_log_config");
+export const getLogConfig = () => invoke<LogConfigResponse>("get_log_config");
 
-export const updateLogConfig = (logToFile?: boolean, logRetentionDays?: number) =>
+export const updateLogConfig = (
+	logToFile?: boolean,
+	logRetentionDays?: number,
+) =>
 	invoke<void>("update_log_config", {
 		logToFile: logToFile ?? null,
 		logRetentionDays: logRetentionDays ?? null,
@@ -1608,4 +1613,137 @@ export const updateUpdaterConfig = (
 	invoke<void>("update_updater_config", {
 		autoCheck: autoCheck ?? null,
 		skippedVersion: skippedVersion ?? null,
+	});
+
+// ── Watch Lists ─────────────────────────────────────────────────────────────
+
+export interface WatchListResponse {
+	id: string;
+	name: string;
+	description: string | null;
+	poll_interval_minutes: number;
+	last_polled: string | null;
+	created_date: string;
+	item_count: number;
+	new_result_count: number;
+}
+
+export interface WatchListItemResponse {
+	id: string;
+	list_id: string;
+	item_type: string;
+	external_id: string;
+	source: string;
+	display_name: string;
+	config: Record<string, unknown> | null;
+	last_checked: string | null;
+	created_date: string;
+}
+
+export interface WatchListResultResponse {
+	id: string;
+	list_id: string;
+	item_id: string;
+	item_type: string;
+	external_id: string;
+	title: string;
+	authors: { name: string }[];
+	abstract_text: string | null;
+	url: string | null;
+	pdf_url: string | null;
+	published_date: string | null;
+	fetched_date: string;
+	added_to_library: boolean;
+	paper_id: string | null;
+	source_display_name: string | null;
+}
+
+export interface AuthorSearchResultResponse {
+	name: string;
+	external_id: string;
+	source: string;
+	notes: string | null;
+	paper_count: number | null;
+	citation_count: number | null;
+}
+
+export interface WatchListApiKeysResponse {
+	semantic_scholar_set: boolean;
+	openalex_email: string;
+}
+
+export interface CreateWatchListInput {
+	name: string;
+	description?: string | null;
+	pollIntervalMinutes?: number | null;
+}
+
+export interface UpdateWatchListInput {
+	name?: string | null;
+	description?: string | null;
+	pollIntervalMinutes?: number | null;
+}
+
+export interface AddWatchListItemInput {
+	listId: string;
+	itemType: string;
+	externalId: string;
+	source: string;
+	displayName: string;
+	config?: Record<string, unknown> | null;
+}
+
+export const listWatchLists = () =>
+	invoke<WatchListResponse[]>("list_watch_lists");
+
+export const createWatchList = (input: CreateWatchListInput) =>
+	invoke<WatchListResponse>("create_watch_list", { input });
+
+export const updateWatchList = (id: string, input: UpdateWatchListInput) =>
+	invoke<void>("update_watch_list", { id, input });
+
+export const deleteWatchList = (id: string) =>
+	invoke<void>("delete_watch_list", { id });
+
+export const listWatchListItems = (listId: string) =>
+	invoke<WatchListItemResponse[]>("list_watch_list_items", { listId });
+
+export const addWatchListItem = (input: AddWatchListItemInput) =>
+	invoke<WatchListItemResponse>("add_watch_list_item", { input });
+
+export const deleteWatchListItem = (itemId: string) =>
+	invoke<void>("delete_watch_list_item", { itemId });
+
+export const listWatchListResults = (
+	listId?: string | null,
+	limit?: number | null,
+	offset?: number | null,
+) =>
+	invoke<WatchListResultResponse[]>("list_watch_list_results", {
+		listId: listId ?? null,
+		limit: limit ?? null,
+		offset: offset ?? null,
+	});
+
+export const addWatchListResultToLibrary = (resultId: string) =>
+	invoke<string>("add_watch_list_result_to_library", { resultId });
+
+export const searchAuthorsForWatchList = (query: string) =>
+	invoke<AuthorSearchResultResponse[]>("search_authors_for_watch_list", {
+		query,
+	});
+
+export const refreshWatchList = (listId: string) =>
+	invoke<number>("refresh_watch_list", { listId });
+
+export const getWatchListApiKeys = () =>
+	invoke<WatchListApiKeysResponse>("get_watch_list_api_keys");
+
+export const updateWatchListApiKeys = (
+	semanticScholar?: string | null,
+	openalexEmail?: string | null,
+) =>
+	invoke<void>("update_watch_list_api_keys", {
+		semanticScholar: semanticScholar ?? null,
+		openalexEmail: openalexEmail ?? null,
 	});

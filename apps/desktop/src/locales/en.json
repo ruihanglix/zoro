@@ -80,7 +80,9 @@
 		"addBookmark": "Add bookmark",
 		"plugins": "Plugins",
 		"noPlugins": "No plugins enabled",
-		"knowledgeAssets": "Knowledge Assets"
+		"knowledgeAssets": "Knowledge Assets",
+		"watchLists": "WATCH LISTS",
+		"noWatchLists": "No watch lists yet"
 	},
 	"tabBar": {
 		"edit": "Edit",
@@ -822,7 +824,13 @@
 		"fetchModels": "Fetch Models",
 		"clearModels": "Clear Models",
 		"modelsDesc": "Press Enter to add a model name. Or click 'Fetch Models' to auto-detect.",
-		"modelNamePlaceholder": "Type model name + Enter"
+		"modelNamePlaceholder": "Type model name + Enter",
+		"watchListApiKeys": "Watch List API Keys",
+		"watchListApiKeysDesc": "Configure API keys for watch list data sources. Without keys, free APIs (DBLP, OpenCitations, OpenAlex) are used. Adding a Semantic Scholar key enables higher rate limits and unified data.",
+		"semanticScholarApiKey": "Semantic Scholar API Key",
+		"getApiKey": "Get API key",
+		"openAlexEmail": "OpenAlex Email (Polite Pool)",
+		"openAlexEmailDesc": "Providing your email gives faster access to OpenAlex API (polite pool). Optional."
 	},
 	"backgroundTasks": {
 		"title": "Background Tasks",
@@ -1032,5 +1040,32 @@
 		"cloudWarningTitle_other": "{{count}} PDFs still in cloud (not downloaded locally)",
 		"cloudWarningDesc": "Some PDFs in your Zotero library have not been downloaded to your computer yet. We recommend opening Zotero, selecting to download all PDF files in sync settings, and performing a full sync for the best import experience.",
 		"cloudWarningAck": "I understand, import anyway"
+	},
+	"watchList": {
+		"title": "Watch Lists",
+		"newResults": "new",
+		"manage": "Manage",
+		"refresh": "Refresh",
+		"newList": "New List",
+		"listNamePlaceholder": "Watch list name...",
+		"emptyTitle": "No Watch Lists",
+		"emptyDescription": "Create a watch list to track authors and citation alerts",
+		"createFirst": "Create Watch List",
+		"allResultsDescription": "Showing results from all watch lists",
+		"manageItems": "Manage Items",
+		"currentItems": "Tracked Items",
+		"noItems": "No items tracked yet",
+		"addItem": "Add Item",
+		"author": "Author",
+		"seedPaper": "Seed Paper",
+		"searchAuthorPlaceholder": "Search author name...",
+		"doiPlaceholder": "DOI (e.g. 10.1234/...)",
+		"titlePlaceholder": "Paper title (optional)",
+		"addSeedPaper": "Add Seed Paper",
+		"deleteList": "Delete Watch List",
+		"confirmDeleteList": "Are you sure you want to delete this watch list? All tracked items and results will be removed.",
+		"noResults": "No results yet",
+		"noResultsHint": "Add authors or seed papers, then refresh to fetch results",
+		"addToLibrary": "Add"
 	}
 }

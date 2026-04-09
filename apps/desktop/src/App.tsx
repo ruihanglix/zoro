@@ -20,11 +20,13 @@ import { PapersCool } from "@/routes/papersCool";
 import { PluginView } from "@/routes/pluginView";
 import { Reader } from "@/routes/reader";
 import { Settings } from "@/routes/settings";
+import { WatchList } from "@/routes/watchList";
 import { Webview } from "@/routes/webview";
 import { useLibraryStore } from "@/stores/libraryStore";
 import { useTabStore } from "@/stores/tabStore";
 import { useTranslationStore } from "@/stores/translationStore";
 import { useUiStore } from "@/stores/uiStore";
+import { useWatchListStore } from "@/stores/watchListStore";
 import { listen } from "@tauri-apps/api/event";
 import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -45,6 +47,7 @@ export default function App() {
 	const fetchAiConfig = useTranslationStore((s) => s.fetchAiConfig);
 	const fetchPlugins = usePluginStore((s) => s.fetchPlugins);
 	const loadAllEnabled = usePluginStore((s) => s.loadAllEnabled);
+	const fetchWatchLists = useWatchListStore((s) => s.fetchWatchLists);
 	const tabs = useTabStore((s) => s.tabs);
 	const activeTabId = useTabStore((s) => s.activeTabId);
 	const metadataSearchPaperId = useUiStore((s) => s.metadataSearchPaperId);
@@ -108,6 +111,7 @@ export default function App() {
 		fetchTags();
 		fetchSubscriptions();
 		fetchAiConfig();
+		fetchWatchLists();
 		// Initialize plugin system
 		fetchPlugins().then(() => loadAllEnabled());
 		if (debugMode) {
@@ -120,6 +124,7 @@ export default function App() {
 		fetchTags,
 		fetchSubscriptions,
 		fetchAiConfig,
+		fetchWatchLists,
 		fetchPlugins,
 		loadAllEnabled,
 	]);
@@ -160,13 +165,18 @@ export default function App() {
 		const unlistenLibChanged = listen("library-changed", () => {
 			fetchPapers();
 		});
+		// When watch list poller finds new results, refresh watch list data.
+		const unlistenWatchList = listen("watch-list-updated", () => {
+			fetchWatchLists();
+		});
 		return () => {
 			unlistenSaved.then((fn) => fn());
 			unlistenUpdated.then((fn) => fn());
 			unlistenPdfComplete.then((fn) => fn());
 			unlistenLibChanged.then((fn) => fn());
+			unlistenWatchList.then((fn) => fn());
 		};
-	}, [fetchPapers, fetchCollections, fetchTags]);
+	}, [fetchPapers, fetchCollections, fetchTags, fetchWatchLists]);
 
 	const readerTabs = tabs.filter((t) => t.type === "reader");
 	const noteTabs = tabs.filter((t) => t.type === "note");
@@ -190,6 +200,7 @@ export default function App() {
 						{view === "feed" && <Feed />}
 						{view === "papers-cool" && <PapersCool />}
 						{view === "plugins" && <PluginView />}
+						{view === "watch-list" && <WatchList />}
 					</MainLayout>
 				</div>
 

@@ -19,14 +19,17 @@ import { usePluginStore } from "@/plugins/pluginStore";
 import { useLibraryStore } from "@/stores/libraryStore";
 import { useTabStore } from "@/stores/tabStore";
 import { useUiStore } from "@/stores/uiStore";
+import { useWatchListStore } from "@/stores/watchListStore";
 import {
 	BookOpen,
 	ChevronDown,
 	ChevronRight,
+	Eye,
 	Folder,
 	FolderPlus,
 	Hash,
 	Inbox,
+	List,
 	Puzzle,
 	Rss,
 	Trash2,
@@ -54,10 +57,14 @@ export function Sidebar() {
 	const view = useUiStore((s) => s.view);
 	const setView = useUiStore((s) => s.setView);
 	const showUncategorized = useUiStore((s) => s.showUncategorized);
+	const activeWatchListId = useUiStore((s) => s.activeWatchListId);
+	const setActiveWatchListId = useUiStore((s) => s.setActiveWatchListId);
 	const setActiveTab = useTabStore((s) => s.setActiveTab);
+	const watchLists = useWatchListStore((s) => s.watchLists);
 
 	const [libraryExpanded, setLibraryExpanded] = useState(true);
 	const [subsExpanded, setSubsExpanded] = useState(true);
+	const [watchListsExpanded, setWatchListsExpanded] = useState(true);
 	const [tagsExpanded, setTagsExpanded] = useState(true);
 	const [pluginsExpanded, setPluginsExpanded] = useState(true);
 	const [creatingCollection, setCreatingCollection] = useState(false);
@@ -99,7 +106,7 @@ export function Sidebar() {
 
 	/** Navigate to the Home tab and set the appropriate view. */
 	const navigateHome = (
-		viewName: "library" | "feed" | "papers-cool" | "plugins",
+		viewName: "library" | "feed" | "papers-cool" | "plugins" | "watch-list",
 	) => {
 		setActiveTab("home");
 		setView(viewName);
@@ -250,6 +257,57 @@ export function Sidebar() {
 							{subscriptions.length === 0 && (
 								<p className="px-4 py-1.5 text-[11px] text-muted-foreground">
 									{t("sidebar.noSubscriptions")}
+								</p>
+							)}
+						</div>
+					)}
+
+					{/* ===== Watch Lists ===== */}
+					<SectionHeader
+						label={t("sidebar.watchLists")}
+						expanded={watchListsExpanded}
+						onToggle={() => setWatchListsExpanded(!watchListsExpanded)}
+						onLabelClick={() => {
+							navigateHome("watch-list");
+							setActiveWatchListId(null);
+						}}
+						active={view === "watch-list"}
+						icon={<Eye className="h-3 w-3 text-muted-foreground" />}
+					/>
+
+					{watchListsExpanded && (
+						<div className="ml-0.5">
+							{watchLists.map((wl) => {
+								const isActive =
+									view === "watch-list" && activeWatchListId === wl.id;
+								return (
+									<button
+										key={wl.id}
+										type="button"
+										className={cn(
+											"flex w-full items-center gap-1 rounded-sm px-1.5 py-1 text-sm hover:bg-accent/50 transition-colors text-left",
+											isActive && "bg-accent text-accent-foreground",
+										)}
+										style={{ paddingLeft: "18px" }}
+										onClick={() => {
+											navigateHome("watch-list");
+											setActiveWatchListId(wl.id);
+										}}
+									>
+										<span className="w-[18px] shrink-0" />
+										<List className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+										<span className="truncate flex-1 min-w-0">{wl.name}</span>
+										{wl.new_result_count > 0 && (
+											<span className="text-[10px] text-primary shrink-0 tabular-nums font-medium">
+												{wl.new_result_count}
+											</span>
+										)}
+									</button>
+								);
+							})}
+							{watchLists.length === 0 && (
+								<p className="px-4 py-1.5 text-[11px] text-muted-foreground">
+									{t("sidebar.noWatchLists")}
 								</p>
 							)}
 						</div>

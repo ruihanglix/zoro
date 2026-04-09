@@ -80,7 +80,9 @@
 		"addBookmark": "Добавить закладку",
 		"plugins": "Плагины",
 		"noPlugins": "Нет активных плагинов",
-		"knowledgeAssets": "База знаний"
+		"knowledgeAssets": "База знаний",
+		"watchLists": "СПИСКИ НАБЛЮДЕНИЯ",
+		"noWatchLists": "Списков наблюдения пока нет"
 	},
 	"tabBar": {
 		"edit": "Правка",
@@ -821,7 +823,13 @@
 		"fetchModels": "Получить модели",
 		"clearModels": "Очистить модели",
 		"modelsDesc": "Нажмите Enter для добавления имени модели или нажмите 'Получить модели'.",
-		"modelNamePlaceholder": "Имя модели + Enter"
+		"modelNamePlaceholder": "Имя модели + Enter",
+		"watchListApiKeys": "API-ключи списков наблюдения",
+		"watchListApiKeysDesc": "Настройте API-ключи для источников данных списков наблюдения. Без ключей используются бесплатные API (DBLP, OpenCitations, OpenAlex). Добавление ключа Semantic Scholar обеспечивает более высокие лимиты запросов и унифицированные данные.",
+		"semanticScholarApiKey": "API-ключ Semantic Scholar",
+		"getApiKey": "Получить API-ключ",
+		"openAlexEmail": "Email OpenAlex (Вежливый пул)",
+		"openAlexEmailDesc": "Указание email обеспечивает более быстрый доступ к API OpenAlex (вежливый пул). Необязательно."
 	},
 	"backgroundTasks": {
 		"title": "Фоновые задачи",
@@ -1031,5 +1039,32 @@
 		"cloudWarningTitle_other": "{{count}} PDF ещё в облаке (не загружены локально)",
 		"cloudWarningDesc": "Некоторые PDF в вашей библиотеке Zotero ещё не загружены на ваш компьютер. Рекомендуем выбрать загрузку всех PDF-файлов в настройках синхронизации Zotero, а затем выполнить полную синхронизацию для лучшего качества импорта.",
 		"cloudWarningAck": "Понятно, всё равно импортировать"
+	},
+	"watchList": {
+		"title": "Списки наблюдения",
+		"newResults": "новое",
+		"manage": "Управление",
+		"refresh": "Обновить",
+		"newList": "Новый список",
+		"listNamePlaceholder": "Название списка наблюдения...",
+		"emptyTitle": "Нет списков наблюдения",
+		"emptyDescription": "Создайте список наблюдения для отслеживания авторов и уведомлений о цитировании",
+		"createFirst": "Создать список наблюдения",
+		"allResultsDescription": "Показаны результаты из всех списков наблюдения",
+		"manageItems": "Управление элементами",
+		"currentItems": "Отслеживаемые элементы",
+		"noItems": "Отслеживаемых элементов пока нет",
+		"addItem": "Добавить элемент",
+		"author": "Автор",
+		"seedPaper": "Исходная статья",
+		"searchAuthorPlaceholder": "Поиск по имени автора...",
+		"doiPlaceholder": "DOI (напр. 10.1234/...)",
+		"titlePlaceholder": "Название статьи (необязательно)",
+		"addSeedPaper": "Добавить исходную статью",
+		"deleteList": "Удалить список наблюдения",
+		"confirmDeleteList": "Вы уверены, что хотите удалить этот список наблюдения? Все отслеживаемые элементы и результаты будут удалены.",
+		"noResults": "Результатов пока нет",
+		"noResultsHint": "Добавьте авторов или исходные статьи, затем обновите для получения результатов",
+		"addToLibrary": "Добавить"
 	}
 }

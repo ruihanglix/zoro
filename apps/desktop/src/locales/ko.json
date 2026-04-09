@@ -80,7 +80,9 @@
 		"addBookmark": "북마크 추가",
 		"plugins": "플러그인",
 		"noPlugins": "활성화된 플러그인 없음",
-		"knowledgeAssets": "지식 자산"
+		"knowledgeAssets": "지식 자산",
+		"watchLists": "관심 목록",
+		"noWatchLists": "관심 목록이 없습니다"
 	},
 	"tabBar": {
 		"edit": "편집",
@@ -821,7 +823,13 @@
 		"fetchModels": "모델 가져오기",
 		"clearModels": "모델 목록 지우기",
 		"modelsDesc": "Enter를 눌러 모델 이름을 추가하거나 '모델 가져오기'를 클릭하세요.",
-		"modelNamePlaceholder": "모델 이름 입력 + Enter"
+		"modelNamePlaceholder": "모델 이름 입력 + Enter",
+		"watchListApiKeys": "워치 리스트 API 키",
+		"watchListApiKeysDesc": "워치 리스트 데이터 소스의 API 키를 설정합니다. 키 없이는 무료 API(DBLP, OpenCitations, OpenAlex)가 사용됩니다. Semantic Scholar 키를 추가하면 더 높은 속도 제한과 통합 데이터를 사용할 수 있습니다.",
+		"semanticScholarApiKey": "Semantic Scholar API 키",
+		"getApiKey": "API 키 받기",
+		"openAlexEmail": "OpenAlex 이메일 (Polite Pool)",
+		"openAlexEmailDesc": "이메일을 제공하면 OpenAlex API에 더 빠르게 접근할 수 있습니다 (polite pool). 선택 사항."
 	},
 	"backgroundTasks": {
 		"title": "백그라운드 작업",
@@ -1031,5 +1039,32 @@
 		"cloudWarningTitle_other": "{{count}}개의 PDF가 아직 클라우드에 있습니다 (로컬에 다운로드되지 않음)",
 		"cloudWarningDesc": "Zotero 라이브러리의 일부 PDF가 아직 컴퓨터에 다운로드되지 않았습니다. 최상의 가져오기 경험을 위해 먼저 Zotero를 열고, 동기화 설정에서 모든 PDF 파일 다운로드를 선택한 후 전체 동기화를 실행하는 것을 권장합니다.",
 		"cloudWarningAck": "알겠습니다, 그래도 가져오기"
+	},
+	"watchList": {
+		"title": "관심 목록",
+		"newResults": "새로운",
+		"manage": "관리",
+		"refresh": "새로고침",
+		"newList": "새 목록",
+		"listNamePlaceholder": "관심 목록 이름...",
+		"emptyTitle": "관심 목록 없음",
+		"emptyDescription": "관심 목록을 만들어 저자 및 인용 알림을 추적하세요",
+		"createFirst": "관심 목록 만들기",
+		"allResultsDescription": "모든 관심 목록의 결과 표시",
+		"manageItems": "항목 관리",
+		"currentItems": "추적 중인 항목",
+		"noItems": "추적 중인 항목이 없습니다",
+		"addItem": "항목 추가",
+		"author": "저자",
+		"seedPaper": "시드 논문",
+		"searchAuthorPlaceholder": "저자 이름 검색...",
+		"doiPlaceholder": "DOI (예: 10.1234/...)",
+		"titlePlaceholder": "논문 제목 (선택사항)",
+		"addSeedPaper": "시드 논문 추가",
+		"deleteList": "관심 목록 삭제",
+		"confirmDeleteList": "이 관심 목록을 삭제하시겠습니까? 모든 추적 항목과 결과가 제거됩니다.",
+		"noResults": "아직 결과가 없습니다",
+		"noResultsHint": "저자 또는 시드 논문을 추가한 후 새로고침하여 결과를 가져오세요",
+		"addToLibrary": "추가"
 	}
 }

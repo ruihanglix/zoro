@@ -50,9 +50,7 @@ function normalizeModule(target: string): string {
 		return target.slice("frontend::".length);
 	}
 	// Strip common Rust crate prefixes
-	let mod = target
-		.replace(/^zoro[-_]?/, "")
-		.replace(/::.*$/, ""); // keep only the top-level module
+	let mod = target.replace(/^zoro[-_]?/, "").replace(/::.*$/, ""); // keep only the top-level module
 	if (mod === "desktop" || mod === "app") mod = "app";
 	return mod || target;
 }

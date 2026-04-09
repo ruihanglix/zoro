@@ -80,7 +80,9 @@
 		"addBookmark": "Adicionar favorito",
 		"plugins": "Extensões",
 		"noPlugins": "Nenhuma extensão ativada",
-		"knowledgeAssets": "Base de conhecimento"
+		"knowledgeAssets": "Base de conhecimento",
+		"watchLists": "LISTAS DE ACOMPANHAMENTO",
+		"noWatchLists": "Nenhuma lista de acompanhamento"
 	},
 	"tabBar": {
 		"edit": "Editar",
@@ -821,7 +823,13 @@
 		"fetchModels": "Buscar modelos",
 		"clearModels": "Limpar modelos",
 		"modelsDesc": "Pressione Enter para adicionar um nome de modelo, ou clique em 'Buscar modelos'.",
-		"modelNamePlaceholder": "Nome do modelo + Enter"
+		"modelNamePlaceholder": "Nome do modelo + Enter",
+		"watchListApiKeys": "Chaves API das listas de observação",
+		"watchListApiKeysDesc": "Configure as chaves API para as fontes de dados das listas de observação. Sem chaves, APIs gratuitas (DBLP, OpenCitations, OpenAlex) são usadas. Adicionar uma chave do Semantic Scholar permite limites de taxa mais altos e dados unificados.",
+		"semanticScholarApiKey": "Chave API do Semantic Scholar",
+		"getApiKey": "Obter chave API",
+		"openAlexEmail": "Email OpenAlex (Pool educado)",
+		"openAlexEmailDesc": "Fornecer seu email dá acesso mais rápido à API OpenAlex (pool educado). Opcional."
 	},
 	"backgroundTasks": {
 		"title": "Tarefas em segundo plano",
@@ -1031,5 +1039,32 @@
 		"cloudWarningTitle_other": "{{count}} PDFs ainda na nuvem (não baixados localmente)",
 		"cloudWarningDesc": "Alguns PDFs da sua biblioteca Zotero ainda não foram baixados para o seu computador. Recomendamos selecionar a opção de baixar todos os arquivos PDF nas configurações de sincronização do Zotero e, em seguida, realizar uma sincronização completa para a melhor experiência de importação.",
 		"cloudWarningAck": "Entendi, importar mesmo assim"
+	},
+	"watchList": {
+		"title": "Listas de acompanhamento",
+		"newResults": "novo",
+		"manage": "Gerenciar",
+		"refresh": "Atualizar",
+		"newList": "Nova lista",
+		"listNamePlaceholder": "Nome da lista de acompanhamento...",
+		"emptyTitle": "Sem listas de acompanhamento",
+		"emptyDescription": "Crie uma lista de acompanhamento para rastrear autores e alertas de citações",
+		"createFirst": "Criar lista de acompanhamento",
+		"allResultsDescription": "Mostrando resultados de todas as listas de acompanhamento",
+		"manageItems": "Gerenciar itens",
+		"currentItems": "Itens rastreados",
+		"noItems": "Nenhum item rastreado ainda",
+		"addItem": "Adicionar item",
+		"author": "Autor",
+		"seedPaper": "Artigo semente",
+		"searchAuthorPlaceholder": "Pesquisar nome do autor...",
+		"doiPlaceholder": "DOI (ex. 10.1234/...)",
+		"titlePlaceholder": "Título do artigo (opcional)",
+		"addSeedPaper": "Adicionar artigo semente",
+		"deleteList": "Excluir lista de acompanhamento",
+		"confirmDeleteList": "Tem certeza de que deseja excluir esta lista de acompanhamento? Todos os itens rastreados e resultados serão removidos.",
+		"noResults": "Nenhum resultado ainda",
+		"noResultsHint": "Adicione autores ou artigos semente e atualize para obter resultados",
+		"addToLibrary": "Adicionar"
 	}
 }

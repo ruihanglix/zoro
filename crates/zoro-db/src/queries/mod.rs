@@ -18,3 +18,4 @@ pub mod sync;
 pub mod sync_conflicts;
 pub mod tags;
 pub mod translations;
+pub mod watch_lists;

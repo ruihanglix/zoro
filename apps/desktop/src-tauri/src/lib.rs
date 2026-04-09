@@ -610,6 +610,20 @@ commands::debug::push_frontend_log,
             commands::updater::install_update,
             commands::updater::get_updater_config,
             commands::updater::update_updater_config,
+            // Watch Lists
+            commands::watch_list::list_watch_lists,
+            commands::watch_list::create_watch_list,
+            commands::watch_list::update_watch_list,
+            commands::watch_list::delete_watch_list,
+            commands::watch_list::list_watch_list_items,
+            commands::watch_list::add_watch_list_item,
+            commands::watch_list::delete_watch_list_item,
+            commands::watch_list::list_watch_list_results,
+            commands::watch_list::add_watch_list_result_to_library,
+            commands::watch_list::search_authors_for_watch_list,
+            commands::watch_list::refresh_watch_list,
+            commands::watch_list::get_watch_list_api_keys,
+            commands::watch_list::update_watch_list_api_keys,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

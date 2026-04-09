@@ -80,7 +80,9 @@
 		"addBookmark": "Ajouter un signet",
 		"plugins": "Extensions",
 		"noPlugins": "Aucune extension activée",
-		"knowledgeAssets": "Base de connaissances"
+		"knowledgeAssets": "Base de connaissances",
+		"watchLists": "LISTES DE SUIVI",
+		"noWatchLists": "Aucune liste de suivi"
 	},
 	"tabBar": {
 		"edit": "Édition",
@@ -821,7 +823,13 @@
 		"fetchModels": "Récupérer les modèles",
 		"clearModels": "Effacer les modèles",
 		"modelsDesc": "Appuyez sur Entrée pour ajouter un nom de modèle, ou cliquez sur 'Récupérer les modèles'.",
-		"modelNamePlaceholder": "Nom du modèle + Entrée"
+		"modelNamePlaceholder": "Nom du modèle + Entrée",
+		"watchListApiKeys": "Clés API des listes de suivi",
+		"watchListApiKeysDesc": "Configurez les clés API pour les sources de données des listes de suivi. Sans clés, les API gratuites (DBLP, OpenCitations, OpenAlex) sont utilisées. L'ajout d'une clé Semantic Scholar permet des limites de débit plus élevées et des données unifiées.",
+		"semanticScholarApiKey": "Clé API Semantic Scholar",
+		"getApiKey": "Obtenir une clé API",
+		"openAlexEmail": "Email OpenAlex (Pool poli)",
+		"openAlexEmailDesc": "Fournir votre email donne un accès plus rapide à l'API OpenAlex (pool poli). Optionnel."
 	},
 	"backgroundTasks": {
 		"title": "Tâches en arrière-plan",
@@ -1031,5 +1039,32 @@
 		"cloudWarningTitle_other": "{{count}} PDFs encore dans le cloud (non téléchargés localement)",
 		"cloudWarningDesc": "Certains PDFs de votre bibliothèque Zotero n'ont pas encore été téléchargés sur votre ordinateur. Nous recommandons d'ouvrir Zotero, de sélectionner le téléchargement de tous les fichiers PDF dans les paramètres de synchronisation, puis d'effectuer une synchronisation complète pour une meilleure expérience d'importation.",
 		"cloudWarningAck": "Je comprends, importer quand même"
+	},
+	"watchList": {
+		"title": "Listes de suivi",
+		"newResults": "nouveau",
+		"manage": "Gérer",
+		"refresh": "Actualiser",
+		"newList": "Nouvelle liste",
+		"listNamePlaceholder": "Nom de la liste de suivi...",
+		"emptyTitle": "Aucune liste de suivi",
+		"emptyDescription": "Créez une liste de suivi pour suivre les auteurs et les alertes de citations",
+		"createFirst": "Créer une liste de suivi",
+		"allResultsDescription": "Affichage des résultats de toutes les listes de suivi",
+		"manageItems": "Gérer les éléments",
+		"currentItems": "Éléments suivis",
+		"noItems": "Aucun élément suivi pour le moment",
+		"addItem": "Ajouter un élément",
+		"author": "Auteur",
+		"seedPaper": "Article de référence",
+		"searchAuthorPlaceholder": "Rechercher un nom d'auteur...",
+		"doiPlaceholder": "DOI (ex. 10.1234/...)",
+		"titlePlaceholder": "Titre de l'article (optionnel)",
+		"addSeedPaper": "Ajouter un article de référence",
+		"deleteList": "Supprimer la liste de suivi",
+		"confirmDeleteList": "Êtes-vous sûr de vouloir supprimer cette liste de suivi ? Tous les éléments suivis et les résultats seront supprimés.",
+		"noResults": "Pas encore de résultats",
+		"noResultsHint": "Ajoutez des auteurs ou des articles de référence, puis actualisez pour obtenir des résultats",
+		"addToLibrary": "Ajouter"
 	}
 }

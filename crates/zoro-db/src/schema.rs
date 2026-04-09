@@ -246,6 +246,41 @@ pub fn create_tables(conn: &Connection) -> Result<(), DbError> {
             abstract_text TEXT
         );
 
+        CREATE TABLE IF NOT EXISTS watch_lists (
+            id TEXT PRIMARY KEY,
+            name TEXT NOT NULL,
+            description TEXT,
+            poll_interval_minutes INTEGER DEFAULT 360,
+            last_polled TEXT,
+            created_date TEXT NOT NULL
+        );
+
+        CREATE TABLE IF NOT EXISTS watch_list_items (
+            id TEXT PRIMARY KEY,
+            list_id TEXT NOT NULL REFERENCES watch_lists(id) ON DELETE CASCADE,
+            item_type TEXT NOT NULL,
+            external_id TEXT NOT NULL,
+            source TEXT NOT NULL,
+            display_name TEXT NOT NULL,
+            config_json TEXT,
+            last_checked TEXT,
+            created_date TEXT NOT NULL
+        );
+
+        CREATE TABLE IF NOT EXISTS watch_list_results (
+            id TEXT PRIMARY KEY,
+            list_id TEXT NOT NULL REFERENCES watch_lists(id) ON DELETE CASCADE,
+            item_id TEXT NOT NULL REFERENCES watch_list_items(id) ON DELETE CASCADE,
+            item_type TEXT NOT NULL,
+            external_id TEXT NOT NULL,
+            title TEXT NOT NULL,
+            data_json TEXT,
+            fetched_date TEXT NOT NULL,
+            added_to_library INTEGER DEFAULT 0,
+            paper_id TEXT REFERENCES papers(id),
+            published_date TEXT
+        );
+
         -- Indexes
         CREATE INDEX IF NOT EXISTS idx_papers_slug ON papers(slug);
         CREATE INDEX IF NOT EXISTS idx_papers_doi ON papers(doi);
@@ -276,6 +311,11 @@ pub fn create_tables(conn: &Connection) -> Result<(), DbError> {
             ON translations(entity_type, entity_id, target_lang);
         CREATE INDEX IF NOT EXISTS idx_glossary_lang ON glossary(target_lang);
         CREATE INDEX IF NOT EXISTS idx_glossary_source ON glossary(source);
+
+        CREATE INDEX IF NOT EXISTS idx_watch_list_items_list ON watch_list_items(list_id);
+        CREATE INDEX IF NOT EXISTS idx_watch_list_results_list ON watch_list_results(list_id);
+        CREATE INDEX IF NOT EXISTS idx_watch_list_results_item ON watch_list_results(item_id);
+        CREATE INDEX IF NOT EXISTS idx_watch_list_results_ext ON watch_list_results(external_id);
         "
     )?;
 

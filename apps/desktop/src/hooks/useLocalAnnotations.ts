@@ -55,7 +55,10 @@ export function useLocalAnnotations(
 		try {
 			const resp = await commands.listAnnotations(paperId, sourceFile);
 			const highlights = resp.map(responseToHighlight);
-			logger.debug("annotation", `[${sourceFile}] fetched ${highlights.length} annotations (types: ${highlights.map((h) => h.type).join(", ") || "none"})`);
+			logger.debug(
+				"annotation",
+				`[${sourceFile}] fetched ${highlights.length} annotations (types: ${highlights.map((h) => h.type).join(", ") || "none"})`,
+			);
 			setAnnotations(highlights);
 		} catch (e) {
 			logger.error("annotation", "Local fetch failed", e);
@@ -147,7 +150,7 @@ export function useLocalAnnotations(
 				const updated = responseToHighlight(resp);
 				setAnnotations((prev) => prev.map((a) => (a.id === id ? updated : a)));
 			} catch (e) {
-			logger.error("annotation", "Local update failed", e);
+				logger.error("annotation", "Local update failed", e);
 			}
 		},
 		[],
@@ -169,7 +172,7 @@ export function useLocalAnnotations(
 				const updated = responseToHighlight(resp);
 				setAnnotations((prev) => prev.map((a) => (a.id === id ? updated : a)));
 			} catch (e) {
-			logger.error("annotation", "Local update type failed", e);
+				logger.error("annotation", "Local update type failed", e);
 			}
 		},
 		[],

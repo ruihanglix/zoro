@@ -265,6 +265,9 @@ pub struct SubscriptionsConfig {
     pub poll_interval_minutes: i32,
     #[serde(default = "default_feed_cache_retention_days")]
     pub feed_cache_retention_days: i32,
+    /// API keys for watch list data sources (Semantic Scholar, OpenAlex).
+    #[serde(default)]
+    pub watch_list_api_keys: WatchListApiKeys,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -655,6 +658,7 @@ impl Default for AppConfig {
             subscriptions: SubscriptionsConfig {
                 poll_interval_minutes: 60,
                 feed_cache_retention_days: 7,
+                watch_list_api_keys: WatchListApiKeys::default(),
             },
             ai: AiConfig {
                 provider: String::new(),
@@ -792,6 +796,64 @@ impl Default for UpdaterConfig {
             skipped_version: String::new(),
         }
     }
+}
+
+/// A user-created watch list that groups authors and seed papers for tracking.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WatchList {
+    pub id: String,
+    pub name: String,
+    pub description: Option<String>,
+    pub poll_interval_minutes: i32,
+    pub last_polled: Option<String>,
+    pub created_date: String,
+}
+
+/// An item inside a watch list: either an author to follow or a seed paper
+/// whose new citations should be tracked.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WatchListItem {
+    pub id: String,
+    pub list_id: String,
+    pub item_type: String,   // "author" | "seed_paper"
+    pub external_id: String, // DBLP author ID / S2 author ID / DOI
+    pub source: String,      // "dblp" | "semantic-scholar" | "opencitations" | "openalex"
+    pub display_name: String,
+    pub config: Option<serde_json::Value>,
+    pub last_checked: Option<String>,
+    pub created_date: String,
+}
+
+/// A paper discovered by the watch list poller (new publication by a tracked
+/// author, or a new citation of a seed paper).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WatchListResult {
+    pub id: String,
+    pub list_id: String,
+    pub item_id: String,     // which WatchListItem triggered this
+    pub item_type: String,   // "author" | "seed_paper" (denormalized for easy filtering)
+    pub external_id: String, // DOI or arXiv ID of the discovered paper
+    pub title: String,
+    pub authors: Vec<Author>,
+    pub abstract_text: Option<String>,
+    pub url: Option<String>,
+    pub pdf_url: Option<String>,
+    pub published_date: Option<String>,
+    pub data: Option<serde_json::Value>,
+    pub fetched_date: String,
+    pub added_to_library: bool,
+    pub paper_id: Option<String>,
+}
+
+/// Configuration for external API keys used by watch lists.
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct WatchListApiKeys {
+    /// Semantic Scholar API key (optional, enables S2 as data source).
+    #[serde(default)]
+    pub semantic_scholar: String,
+    /// OpenAlex mailto email for polite pool (optional but recommended).
+    #[serde(default)]
+    pub openalex_email: String,
 }
 
 // Implement conversion from Paper to PaperMetadata

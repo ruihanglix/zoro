@@ -16,7 +16,7 @@ import { create } from "zustand";
 
 const ONBOARDING_KEY = "zoro-onboarding-completed";
 
-type View = "library" | "feed" | "papers-cool" | "plugins";
+type View = "library" | "feed" | "papers-cool" | "plugins" | "watch-list";
 type ListMode = "list" | "card";
 export type Theme = "light" | "dark" | "system";
 export type CitationPreviewMode = "text" | "image" | "off";
@@ -129,6 +129,9 @@ interface UiState {
 	debugMode: boolean;
 	disableNativeContextMenu: boolean;
 
+	// Watch List
+	activeWatchListId: string | null;
+
 	// Persisted preferences
 	theme: Theme;
 	confirmBeforeDelete: boolean;
@@ -165,6 +168,9 @@ interface UiState {
 	setShowBackgroundTasks: (show: boolean) => void;
 	setDebugMode: (enabled: boolean) => void;
 	setDisableNativeContextMenu: (v: boolean) => void;
+
+	// Watch List actions
+	setActiveWatchListId: (id: string | null) => void;
 
 	// Persisted preference actions
 	setTheme: (theme: Theme) => void;
@@ -218,6 +224,7 @@ export const useUiStore = create<UiState>((set, get) => ({
 		"zoro-disable-native-ctx",
 		false,
 	),
+	activeWatchListId: null,
 	columns: loadColumnState(),
 	readerPanelLayout: loadSetting<PanelLayout>("zoro-reader-layout", {
 		"reader-left": 22,
@@ -270,6 +277,7 @@ export const useUiStore = create<UiState>((set, get) => ({
 		saveSetting("zoro-disable-native-ctx", v);
 		set({ disableNativeContextMenu: v });
 	},
+	setActiveWatchListId: (id) => set({ activeWatchListId: id }),
 
 	setTheme: (theme) => {
 		saveSetting("zoro-theme", theme);

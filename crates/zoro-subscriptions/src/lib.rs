@@ -2,9 +2,13 @@
 // Licensed under the AGPL-3.0 license.
 // See LICENSE file in the project root for full license information.
 
+pub mod dblp;
 pub mod error;
 pub mod huggingface;
+pub mod openalex;
+pub mod opencitations;
 pub mod papers_cool;
+pub mod semantic_scholar;
 pub mod source;
 
 pub use error::SubscriptionError;

@@ -80,7 +80,9 @@
 		"addBookmark": "Lesezeichen hinzufügen",
 		"plugins": "Plugins",
 		"noPlugins": "Keine aktivierten Plugins",
-		"knowledgeAssets": "Wissensressourcen"
+		"knowledgeAssets": "Wissensressourcen",
+		"watchLists": "BEOBACHTUNGSLISTEN",
+		"noWatchLists": "Noch keine Beobachtungslisten"
 	},
 	"tabBar": {
 		"edit": "Bearbeiten",
@@ -821,7 +823,13 @@
 		"fetchModels": "Modelle abrufen",
 		"clearModels": "Modelle löschen",
 		"modelsDesc": "Enter drücken um Modellnamen hinzuzufügen, oder 'Modelle abrufen' klicken.",
-		"modelNamePlaceholder": "Modellname eingeben + Enter"
+		"modelNamePlaceholder": "Modellname eingeben + Enter",
+		"watchListApiKeys": "Beobachtungslisten-API-Schlüssel",
+		"watchListApiKeysDesc": "Konfigurieren Sie API-Schlüssel für Beobachtungslisten-Datenquellen. Ohne Schlüssel werden kostenlose APIs (DBLP, OpenCitations, OpenAlex) verwendet. Ein Semantic Scholar-Schlüssel ermöglicht höhere Ratenlimits und einheitliche Daten.",
+		"semanticScholarApiKey": "Semantic Scholar API-Schlüssel",
+		"getApiKey": "API-Schlüssel erhalten",
+		"openAlexEmail": "OpenAlex E-Mail (Polite Pool)",
+		"openAlexEmailDesc": "Die Angabe Ihrer E-Mail ermöglicht schnelleren Zugriff auf die OpenAlex-API (Polite Pool). Optional."
 	},
 	"backgroundTasks": {
 		"title": "Hintergrundaufgaben",
@@ -1031,5 +1039,32 @@
 		"cloudWarningTitle_other": "{{count}} PDFs noch in der Cloud (nicht lokal heruntergeladen)",
 		"cloudWarningDesc": "Einige PDFs in Ihrer Zotero-Bibliothek wurden noch nicht auf Ihren Computer heruntergeladen. Wir empfehlen, in den Zotero-Synchronisierungseinstellungen die Option zum Herunterladen aller PDF-Dateien zu aktivieren und dann eine vollständige Synchronisierung durchzuführen, um das beste Import-Erlebnis zu erzielen.",
 		"cloudWarningAck": "Verstanden, trotzdem importieren"
+	},
+	"watchList": {
+		"title": "Beobachtungslisten",
+		"newResults": "neu",
+		"manage": "Verwalten",
+		"refresh": "Aktualisieren",
+		"newList": "Neue Liste",
+		"listNamePlaceholder": "Name der Beobachtungsliste...",
+		"emptyTitle": "Keine Beobachtungslisten",
+		"emptyDescription": "Erstellen Sie eine Beobachtungsliste, um Autoren und Zitierungsbenachrichtigungen zu verfolgen",
+		"createFirst": "Beobachtungsliste erstellen",
+		"allResultsDescription": "Ergebnisse aller Beobachtungslisten anzeigen",
+		"manageItems": "Einträge verwalten",
+		"currentItems": "Verfolgte Einträge",
+		"noItems": "Noch keine verfolgten Einträge",
+		"addItem": "Eintrag hinzufügen",
+		"author": "Autor",
+		"seedPaper": "Referenzartikel",
+		"searchAuthorPlaceholder": "Autorennamen suchen...",
+		"doiPlaceholder": "DOI (z.B. 10.1234/...)",
+		"titlePlaceholder": "Artikeltitel (optional)",
+		"addSeedPaper": "Referenzartikel hinzufügen",
+		"deleteList": "Beobachtungsliste löschen",
+		"confirmDeleteList": "Sind Sie sicher, dass Sie diese Beobachtungsliste löschen möchten? Alle verfolgten Einträge und Ergebnisse werden entfernt.",
+		"noResults": "Noch keine Ergebnisse",
+		"noResultsHint": "Fügen Sie Autoren oder Referenzartikel hinzu und aktualisieren Sie dann, um Ergebnisse abzurufen",
+		"addToLibrary": "Hinzufügen"
 	}
 }

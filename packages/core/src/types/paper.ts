@@ -106,33 +106,90 @@ export interface SubscriptionItem {
 }
 
 export interface PaperMetadata {
-  id: string;
-  slug: string;
-  title: string;
-  short_title: string | null;
-  authors: Author[];
-  abstract: string | null;
-  doi: string | null;
-  arxiv_id: string | null;
-  url: string | null;
-  pdf_url: string | null;
-  html_url: string | null;
-  published_date: string | null;
-  added_date: string;
-  source: string | null;
-  tags: string[];
-  collections: string[];
-  attachments: AttachmentInfo[];
-  notes: string[];
-  read_status: "unread" | "reading" | "read";
-  rating: number | null;
-  extra: Record<string, unknown>;
-  entry_type: string | null;
-  journal: string | null;
-  volume: string | null;
-  issue: string | null;
-  pages: string | null;
-  publisher: string | null;
-  issn: string | null;
-  isbn: string | null;
+	id: string;
+	slug: string;
+	title: string;
+	short_title: string | null;
+	authors: Author[];
+	abstract: string | null;
+	doi: string | null;
+	arxiv_id: string | null;
+	url: string | null;
+	pdf_url: string | null;
+	html_url: string | null;
+	published_date: string | null;
+	added_date: string;
+	source: string | null;
+	tags: string[];
+	collections: string[];
+	attachments: AttachmentInfo[];
+	notes: string[];
+	read_status: "unread" | "reading" | "read";
+	rating: number | null;
+	extra: Record<string, unknown>;
+	entry_type: string | null;
+	journal: string | null;
+	volume: string | null;
+	issue: string | null;
+	pages: string | null;
+	publisher: string | null;
+	issn: string | null;
+	isbn: string | null;
+}
+
+// ── Watch List types ────────────────────────────────────────────────────────
+
+export interface WatchList {
+	id: string;
+	name: string;
+	description: string | null;
+	poll_interval_minutes: number;
+	last_polled: string | null;
+	created_date: string;
+	item_count: number;
+	new_result_count: number;
+}
+
+export interface WatchListItem {
+	id: string;
+	list_id: string;
+	item_type: "author" | "seed-paper";
+	external_id: string;
+	source: string;
+	display_name: string;
+	config: Record<string, unknown> | null;
+	last_checked: string | null;
+	created_date: string;
+}
+
+export interface WatchListResult {
+	id: string;
+	list_id: string;
+	item_id: string;
+	item_type: string;
+	external_id: string;
+	title: string;
+	authors: { name: string }[];
+	abstract_text: string | null;
+	url: string | null;
+	pdf_url: string | null;
+	published_date: string | null;
+	fetched_date: string;
+	added_to_library: boolean;
+	paper_id: string | null;
+	source_display_name: string | null;
+}
+
+export interface AuthorSearchResult {
+	name: string;
+	external_id: string;
+	source: string;
+	notes: string | null;
+	paper_count: number | null;
+	citation_count: number | null;
+}
+
+export interface WatchListApiKeysResponse {
+	semantic_scholar_set: boolean;
+	openalex_email: string;
 }

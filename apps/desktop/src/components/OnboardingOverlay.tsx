@@ -111,7 +111,7 @@ export function OnboardingOverlay({ onComplete }: { onComplete: () => void }) {
 
 	// Lab store for Free LLM
 	const labProviders = useLabStore((s) => s.providers);
-const addProviderKey = useLabStore((s) => s.addProviderKey);
+	const addProviderKey = useLabStore((s) => s.addProviderKey);
 	const setLabEnabled = useLabStore((s) => s.setEnabled);
 	const labInitialize = useLabStore((s) => s.initialize);
 
@@ -215,7 +215,7 @@ const addProviderKey = useLabStore((s) => s.addProviderKey);
 				// Save free provider keys to labStore
 				for (const [providerId, key] of Object.entries(freeKeys)) {
 					if (key.trim()) {
-addProviderKey(providerId, key.trim());
+						addProviderKey(providerId, key.trim());
 					}
 				}
 				setLabEnabled(true);
@@ -407,7 +407,7 @@ addProviderKey(providerId, key.trim());
 						{/* ── Free Mode: Provider Key List ── */}
 						{aiMode === "free" && (
 							<div className="space-y-2">
-							<p className="text-[11px] text-muted-foreground">
+								<p className="text-[11px] text-muted-foreground">
 									{t("onboarding.freeProviderLabel")}
 								</p>
 
@@ -456,8 +456,8 @@ addProviderKey(providerId, key.trim());
 												{t("settings.labGetKey")}
 												<ExternalLink className="h-2.5 w-2.5" />
 											</a>
-									</div>
-								);
+										</div>
+									);
 								})}
 
 								{secondaryProviders.length > 0 && (
@@ -474,60 +474,62 @@ addProviderKey(providerId, key.trim());
 										) : (
 											<>
 												<ChevronRight className="h-3 w-3 transition-transform" />
-												{t("onboarding.showMoreProviders")} ({secondaryProviders.length})
+												{t("onboarding.showMoreProviders")} (
+												{secondaryProviders.length})
 											</>
 										)}
 									</button>
 								)}
 
-								{showMoreProviders && secondaryProviders.map((provider) => {
-									const hasKey = !!freeKeys[provider.id]?.trim();
-									return (
-										<div
-											key={provider.id}
-											className={cn(
-												"flex items-center gap-2 rounded-md border p-2 transition-colors",
-												hasKey
-													? "border-green-500/30 bg-green-50/50 dark:bg-green-950/20"
-													: "border-border",
-											)}
-										>
-											<div className="w-24 shrink-0">
-												<span className="text-xs font-medium">
-													{provider.display_name}
-												</span>
-											</div>
-											<input
-												type="password"
-												placeholder={
-													provider.key_prefix
-														? `${provider.key_prefix}...`
-														: t("onboarding.freeProviderApiKeyPlaceholder")
-												}
-												value={freeKeys[provider.id] || ""}
-												onChange={(e) =>
-													setFreeKeys((prev) => ({
-														...prev,
-														[provider.id]: e.target.value,
-													}))
-												}
-												className="h-7 flex-1 min-w-0 rounded-md border bg-transparent px-2 text-xs"
-											/>
-											{hasKey && (
-												<Check className="h-3.5 w-3.5 text-green-600 shrink-0" />
-											)}
-											<a
-												href={provider.sign_up_url}
-												target="_blank"
-												rel="noopener noreferrer"
-												className="flex items-center gap-0.5 text-[10px] text-primary hover:underline shrink-0"
+								{showMoreProviders &&
+									secondaryProviders.map((provider) => {
+										const hasKey = !!freeKeys[provider.id]?.trim();
+										return (
+											<div
+												key={provider.id}
+												className={cn(
+													"flex items-center gap-2 rounded-md border p-2 transition-colors",
+													hasKey
+														? "border-green-500/30 bg-green-50/50 dark:bg-green-950/20"
+														: "border-border",
+												)}
 											>
-												{t("settings.labGetKey")}
-												<ExternalLink className="h-2.5 w-2.5" />
-											</a>
-										</div>
-									);
-								})}
+												<div className="w-24 shrink-0">
+													<span className="text-xs font-medium">
+														{provider.display_name}
+													</span>
+												</div>
+												<input
+													type="password"
+													placeholder={
+														provider.key_prefix
+															? `${provider.key_prefix}...`
+															: t("onboarding.freeProviderApiKeyPlaceholder")
+													}
+													value={freeKeys[provider.id] || ""}
+													onChange={(e) =>
+														setFreeKeys((prev) => ({
+															...prev,
+															[provider.id]: e.target.value,
+														}))
+													}
+													className="h-7 flex-1 min-w-0 rounded-md border bg-transparent px-2 text-xs"
+												/>
+												{hasKey && (
+													<Check className="h-3.5 w-3.5 text-green-600 shrink-0" />
+												)}
+												<a
+													href={provider.sign_up_url}
+													target="_blank"
+													rel="noopener noreferrer"
+													className="flex items-center gap-0.5 text-[10px] text-primary hover:underline shrink-0"
+												>
+													{t("settings.labGetKey")}
+													<ExternalLink className="h-2.5 w-2.5" />
+												</a>
+											</div>
+										);
+									})}
 
 								{freeConfiguredCount === 0 && (
 									<p className="text-[10px] text-amber-600 dark:text-amber-400">

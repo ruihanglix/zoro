@@ -27,4 +27,5 @@ pub mod sync;
 pub mod terminal;
 pub mod translation;
 pub mod updater;
+pub mod watch_list;
 pub mod zotero_import;

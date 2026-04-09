@@ -80,7 +80,9 @@
 		"addBookmark": "ブックマークに追加",
 		"plugins": "プラグイン",
 		"noPlugins": "有効なプラグインがありません",
-		"knowledgeAssets": "ナレッジアセット"
+		"knowledgeAssets": "ナレッジアセット",
+		"watchLists": "ウォッチリスト",
+		"noWatchLists": "ウォッチリストはまだありません"
 	},
 	"tabBar": {
 		"edit": "編集",
@@ -821,7 +823,13 @@
 		"fetchModels": "モデルを取得",
 		"clearModels": "モデルをクリア",
 		"modelsDesc": "Enterキーでモデル名を追加、または「モデルを取得」で自動検出。",
-		"modelNamePlaceholder": "モデル名を入力してEnter"
+		"modelNamePlaceholder": "モデル名を入力してEnter",
+		"watchListApiKeys": "ウォッチリスト API キー",
+		"watchListApiKeysDesc": "ウォッチリストのデータソース用 API キーを設定します。キーなしでは無料 API（DBLP、OpenCitations、OpenAlex）が使用されます。Semantic Scholar キーを追加すると、レート制限が緩和され統合データが利用できます。",
+		"semanticScholarApiKey": "Semantic Scholar API キー",
+		"getApiKey": "API キーを取得",
+		"openAlexEmail": "OpenAlex メール（ポライトプール）",
+		"openAlexEmailDesc": "メールアドレスを提供すると、OpenAlex API へのアクセスが高速化されます（ポライトプール）。任意。"
 	},
 	"backgroundTasks": {
 		"title": "バックグラウンドタスク",
@@ -1031,5 +1039,32 @@
 		"cloudWarningTitle_other": "{{count}}件のPDFがまだクラウド上にあります（ローカルに未ダウンロード）",
 		"cloudWarningDesc": "Zoteroライブラリの一部のPDFがまだコンピューターにダウンロードされていません。最高のインポート体験のために、まずZoteroを開き、同期設定ですべてのPDFファイルのダウンロードを選択してから、フル同期を実行することをお勧めします。",
 		"cloudWarningAck": "理解しました、このままインポートする"
+	},
+	"watchList": {
+		"title": "ウォッチリスト",
+		"newResults": "新着",
+		"manage": "管理",
+		"refresh": "更新",
+		"newList": "新規リスト",
+		"listNamePlaceholder": "ウォッチリスト名...",
+		"emptyTitle": "ウォッチリストなし",
+		"emptyDescription": "ウォッチリストを作成して著者や引用アラートを追跡",
+		"createFirst": "ウォッチリストを作成",
+		"allResultsDescription": "すべてのウォッチリストの結果を表示",
+		"manageItems": "アイテム管理",
+		"currentItems": "追跡中のアイテム",
+		"noItems": "追跡中のアイテムはありません",
+		"addItem": "アイテムを追加",
+		"author": "著者",
+		"seedPaper": "シード論文",
+		"searchAuthorPlaceholder": "著者名を検索...",
+		"doiPlaceholder": "DOI（例: 10.1234/...）",
+		"titlePlaceholder": "論文タイトル（任意）",
+		"addSeedPaper": "シード論文を追加",
+		"deleteList": "ウォッチリストを削除",
+		"confirmDeleteList": "このウォッチリストを削除しますか？すべての追跡アイテムと結果が削除されます。",
+		"noResults": "結果はまだありません",
+		"noResultsHint": "著者またはシード論文を追加してから更新して結果を取得",
+		"addToLibrary": "追加"
 	}
 }

@@ -524,7 +524,7 @@ export function createPluginSDK(
 				// Dispatch a custom DOM event that the host toast system can pick up
 				const detail = { message, type: type ?? "info", pluginId };
 				window.dispatchEvent(new CustomEvent("zoro:toast", { detail }));
-			logger.info("plugin", `Toast(${type ?? "info"}): ${message}`);
+				logger.info("plugin", `Toast(${type ?? "info"}): ${message}`);
 			},
 			async showConfirm(message: string, _title?: string) {
 				return window.confirm(message);

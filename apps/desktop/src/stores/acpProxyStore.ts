@@ -72,7 +72,7 @@ export const useAcpProxyStore = create<AcpProxyState>((set, get) => ({
 
 			// Restore cached config options for the selected agent (instant display)
 			const cached = config.agentName
-				? mergedCache[config.agentName] ?? []
+				? (mergedCache[config.agentName] ?? [])
 				: [];
 
 			set({
@@ -213,11 +213,15 @@ export const useAcpProxyStore = create<AcpProxyState>((set, get) => ({
 					const patch = { ...currentConfig };
 					for (const opt of options) {
 						const cat = opt.category ?? "other";
-					if (cat === "mode" && !patch.modeValue && opt.current_value) {
+						if (cat === "mode" && !patch.modeValue && opt.current_value) {
 							patch.modeConfigId = opt.id;
 							patch.modeValue = opt.current_value;
 							updated = true;
-						} else if (cat === "model" && !patch.modelValue && opt.current_value) {
+						} else if (
+							cat === "model" &&
+							!patch.modelValue &&
+							opt.current_value
+						) {
 							patch.modelConfigId = opt.id;
 							patch.modelValue = opt.current_value;
 							updated = true;
@@ -230,7 +234,11 @@ export const useAcpProxyStore = create<AcpProxyState>((set, get) => ({
 				}
 			}
 		} catch (err) {
-			logger.error("acp-proxy", "Failed to fetch config options on switchAgent", err);
+			logger.error(
+				"acp-proxy",
+				"Failed to fetch config options on switchAgent",
+				err,
+			);
 			if (get().config?.agentName === agentName) {
 				set({ configOptionsLoading: false });
 			}

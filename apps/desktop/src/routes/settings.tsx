@@ -805,7 +805,9 @@ export function Settings() {
 	const [mcpStarting, setMcpStarting] = useState(false);
 
 	// CLI state
-	const [cliStatus, setCliStatus] = useState<commands.CliStatusResponse | null>(null);
+	const [cliStatus, setCliStatus] = useState<commands.CliStatusResponse | null>(
+		null,
+	);
 	const [cliLoading, setCliLoading] = useState(false);
 
 	// Subscription toggling/refreshing
@@ -816,9 +818,25 @@ export function Settings() {
 		count: number;
 	} | null>(null);
 
+	// Watch List API Keys
+	const [wlS2Key, setWlS2Key] = useState("");
+	const [wlS2KeySet, setWlS2KeySet] = useState(false);
+	const [wlOpenAlexEmail, setWlOpenAlexEmail] = useState("");
+	const [wlApiKeysSaving, setWlApiKeysSaving] = useState(false);
+
 	// Export extra state
 	const [exportRisResult, setExportRisResult] = useState<string | null>(null);
 	const [clearingTranslations, setClearingTranslations] = useState(false);
+
+	const loadWatchListApiKeys = useCallback(async () => {
+		try {
+			const keys = await commands.getWatchListApiKeys();
+			setWlS2KeySet(keys.semantic_scholar_set);
+			setWlOpenAlexEmail(keys.openalex_email);
+		} catch (err) {
+			logger.error("settings", "Failed to load watch list API keys", err);
+		}
+	}, []);
 
 	const fetchStorageInfo = useCallback(async () => {
 		try {
@@ -1000,12 +1018,22 @@ export function Settings() {
 	}, []);
 
 	useEffect(() => {
-		commands.getConnectorStatus().then(setConnectorStatus).catch((e: unknown) => logger.error("settings", "Failed to get connector status", e));
-		commands.getLogConfig().then((cfg) => {
-			setLogToFile(cfg.logToFile);
-			setLogRetentionDays(cfg.logRetentionDays);
-			setLogConfigLoaded(true);
-		}).catch((e: unknown) => logger.error("settings", "Failed to load log config", e));
+		commands
+			.getConnectorStatus()
+			.then(setConnectorStatus)
+			.catch((e: unknown) =>
+				logger.error("settings", "Failed to get connector status", e),
+			);
+		commands
+			.getLogConfig()
+			.then((cfg) => {
+				setLogToFile(cfg.logToFile);
+				setLogRetentionDays(cfg.logRetentionDays);
+				setLogConfigLoaded(true);
+			})
+			.catch((e: unknown) =>
+				logger.error("settings", "Failed to load log config", e),
+			);
 		fetchSubscriptions();
 		fetchStorageInfo();
 		fetchSyncStatus();
@@ -1015,12 +1043,19 @@ export function Settings() {
 		loadCliStatus();
 		fetchCollections();
 		fetchTags();
+		loadWatchListApiKeys();
 
 		const unlistenZoteroError = listen<string>("zotero-compat-error", () => {
 			commands
 				.getConnectorStatus()
 				.then(setConnectorStatus)
-				.catch((e: unknown) => logger.error("settings", "Failed to get connector status on zotero error", e));
+				.catch((e: unknown) =>
+					logger.error(
+						"settings",
+						"Failed to get connector status on zotero error",
+						e,
+					),
+				);
 		});
 		return () => {
 			unlistenZoteroError.then((fn) => fn());
@@ -1034,6 +1069,7 @@ export function Settings() {
 		loadMcpStatus,
 		fetchCollections,
 		fetchTags,
+		loadWatchListApiKeys,
 	]);
 
 	// Auto-sync lab proxy provider to Rust backend AiConfig.providers
@@ -1045,7 +1081,7 @@ export function Settings() {
 				// Initialize lab store on mount
 				await labInitialize();
 			} catch (err) {
-			logger.error("settings", "Failed to initialize lab store", err);
+				logger.error("settings", "Failed to initialize lab store", err);
 			}
 		};
 		syncLabProxy();
@@ -1094,7 +1130,11 @@ export function Settings() {
 							}
 						}
 					} catch (fetchErr) {
-					logger.warn("settings", "Failed to fetch models from proxy /v1/models", fetchErr);
+						logger.warn(
+							"settings",
+							"Failed to fetch models from proxy /v1/models",
+							fetchErr,
+						);
 					}
 					if (modelIds.length > 0) {
 						labProxy = {
@@ -1143,7 +1183,11 @@ export function Settings() {
 				// Reload AI config to pick up the new models in UI
 				await loadAiConfig();
 			} catch (err) {
-				logger.error("settings", "Failed to sync lab proxy provider to AI config", err);
+				logger.error(
+					"settings",
+					"Failed to sync lab proxy provider to AI config",
+					err,
+				);
 			}
 		};
 		syncLabProxyProvider();
@@ -1365,7 +1409,10 @@ export function Settings() {
 		try {
 			// All user-configured providers (exclude internal lab providers and __main__)
 			const userProviders = aiProviders.filter(
-				(p) => p.id !== "__main__" && p.id !== "__acp_proxy__" && !p.id.startsWith("__lab_"),
+				(p) =>
+					p.id !== "__main__" &&
+					p.id !== "__acp_proxy__" &&
+					!p.id.startsWith("__lab_"),
 			);
 
 			// __main__ provider holds the primary (fallback) base_url and api_key.
@@ -1391,7 +1438,11 @@ export function Settings() {
 						}
 					}
 				} catch (fetchErr) {
-				logger.warn("settings", "Failed to fetch proxy models during save", fetchErr);
+					logger.warn(
+						"settings",
+						"Failed to fetch proxy models during save",
+						fetchErr,
+					);
 				}
 			}
 
@@ -1649,6 +1700,22 @@ export function Settings() {
 			logger.error("settings", "Failed to toggle subscription", err);
 		} finally {
 			setTogglingSubId(null);
+		}
+	};
+
+	const handleSaveWatchListApiKeys = async () => {
+		setWlApiKeysSaving(true);
+		try {
+			await commands.updateWatchListApiKeys(
+				wlS2Key || undefined,
+				wlOpenAlexEmail || undefined,
+			);
+			setWlS2Key("");
+			await loadWatchListApiKeys();
+		} catch (err) {
+			logger.error("settings", "Failed to save watch list API keys", err);
+		} finally {
+			setWlApiKeysSaving(false);
 		}
 	};
 
@@ -2674,7 +2741,11 @@ export function Settings() {
 																			editingProvider.id,
 																		);
 																	} catch (e) {
-																logger.warn("settings", "Failed to retrieve saved API key for fetchModels", e);
+																		logger.warn(
+																			"settings",
+																			"Failed to retrieve saved API key for fetchModels",
+																			e,
+																		);
 																	}
 																}
 																const headers: Record<string, string> = {
@@ -2684,18 +2755,29 @@ export function Settings() {
 																	headers.Authorization = `Bearer ${apiKey}`;
 																}
 																const fetchUrl = `${baseUrl}/models`;
-															logger.info("settings", `fetchModels requesting: ${fetchUrl} (apiKey: ${apiKey ? "yes" : "none"})`);
+																logger.info(
+																	"settings",
+																	`fetchModels requesting: ${fetchUrl} (apiKey: ${apiKey ? "yes" : "none"})`,
+																);
 																const resp = await commands.httpProxyGet(
 																	fetchUrl,
 																	headers,
 																);
-															logger.info("settings", `fetchModels response status: ${resp.status}, body length: ${resp.body?.length ?? 0}`);
+																logger.info(
+																	"settings",
+																	`fetchModels response status: ${resp.status}, body length: ${resp.body?.length ?? 0}`,
+																);
 																if (resp.status >= 200 && resp.status < 300) {
 																	let json: Record<string, unknown>;
 																	try {
 																		json = JSON.parse(resp.body);
 																	} catch (parseErr) {
-																	logger.error("settings", "fetchModels JSON parse error", parseErr, resp.body?.slice(0, 500));
+																		logger.error(
+																			"settings",
+																			"fetchModels JSON parse error",
+																			parseErr,
+																			resp.body?.slice(0, 500),
+																		);
 																		alert(
 																			`Failed to parse response as JSON.\n\n${resp.body?.slice(0, 300)}`,
 																		);
@@ -2716,7 +2798,11 @@ export function Settings() {
 																			)
 																			.filter(Boolean);
 																	}
-																logger.info("settings", `fetchModels parsed ${modelIds.length} model(s)`, modelIds.slice(0, 10));
+																	logger.info(
+																		"settings",
+																		`fetchModels parsed ${modelIds.length} model(s)`,
+																		modelIds.slice(0, 10),
+																	);
 																	if (modelIds.length > 0) {
 																		const existing = editingProvider.models
 																			.split(",")
@@ -2730,19 +2816,31 @@ export function Settings() {
 																			models: merged.join(", "),
 																		});
 																	} else {
-																	logger.warn("settings", "fetchModels no models found in response", Object.keys(json));
+																		logger.warn(
+																			"settings",
+																			"fetchModels no models found in response",
+																			Object.keys(json),
+																		);
 																		alert(
 																			`No models found in response.\nResponse keys: ${Object.keys(json).join(", ")}\n\nBody preview:\n${resp.body?.slice(0, 300)}`,
 																		);
 																	}
 																} else {
-																logger.error("settings", `fetchModels HTTP ${resp.status} from ${fetchUrl}`, resp.body?.slice(0, 500));
+																	logger.error(
+																		"settings",
+																		`fetchModels HTTP ${resp.status} from ${fetchUrl}`,
+																		resp.body?.slice(0, 500),
+																	);
 																	alert(
 																		`Failed to fetch models: HTTP ${resp.status}\n\n${resp.body?.slice(0, 300)}`,
 																	);
 																}
 															} catch (err) {
-															logger.error("settings", "fetchModels exception", err);
+																logger.error(
+																	"settings",
+																	"fetchModels exception",
+																	err,
+																);
 																alert(
 																	`Failed to fetch models:\n${err instanceof Error ? err.message : String(err)}`,
 																);
@@ -3650,7 +3748,11 @@ export function Settings() {
 													presets: chatPresets,
 												});
 											} catch (err) {
-											logger.error("settings", "Failed to save chat config", err);
+												logger.error(
+													"settings",
+													"Failed to save chat config",
+													err,
+												);
 											} finally {
 												setChatSaving(false);
 											}
@@ -4091,6 +4193,95 @@ export function Settings() {
 										)}
 									</div>
 								))}
+
+								<Separator className="my-4" />
+
+								{/* Watch List API Keys */}
+								<div className="space-y-3">
+									<div>
+										<p className="text-xs font-semibold">
+											{t("settings.watchListApiKeys")}
+										</p>
+										<p className="text-[11px] text-muted-foreground mt-0.5">
+											{t("settings.watchListApiKeysDesc")}
+										</p>
+									</div>
+
+									<div className="space-y-2">
+										<div>
+											<label
+												className="text-xs font-medium"
+												htmlFor="wl-s2-key"
+											>
+												{t("settings.semanticScholarApiKey")}
+											</label>
+											<input
+												id="wl-s2-key"
+												type="password"
+												placeholder={
+													wlS2KeySet
+														? t("settings.apiKeyKeepPlaceholder")
+														: "API key..."
+												}
+												value={wlS2Key}
+												onChange={(e) => setWlS2Key(e.target.value)}
+												className="mt-1 h-8 w-full rounded-md border bg-transparent px-2 text-sm"
+											/>
+											<p className="text-[11px] text-muted-foreground mt-0.5 flex items-center gap-1">
+												{wlS2KeySet && (
+													<span className="text-green-600">
+														{t("settings.keySet")}
+													</span>
+												)}
+												<a
+													href="https://www.semanticscholar.org/product/api#api-key"
+													target="_blank"
+													rel="noopener noreferrer"
+													className="inline-flex items-center gap-0.5 text-primary hover:underline"
+												>
+													{t("settings.getApiKey")}
+													<ExternalLink className="h-2.5 w-2.5" />
+												</a>
+											</p>
+										</div>
+
+										<div>
+											<label
+												className="text-xs font-medium"
+												htmlFor="wl-openalex-email"
+											>
+												{t("settings.openAlexEmail")}
+											</label>
+											<input
+												id="wl-openalex-email"
+												type="email"
+												placeholder="your@email.com"
+												value={wlOpenAlexEmail}
+												onChange={(e) => setWlOpenAlexEmail(e.target.value)}
+												className="mt-1 h-8 w-full rounded-md border bg-transparent px-2 text-sm"
+											/>
+											<p className="text-[11px] text-muted-foreground mt-0.5">
+												{t("settings.openAlexEmailDesc")}
+											</p>
+										</div>
+									</div>
+
+									<Button
+										variant="default"
+										size="sm"
+										onClick={handleSaveWatchListApiKeys}
+										disabled={wlApiKeysSaving}
+									>
+										{wlApiKeysSaving ? (
+											<>
+												<Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+												{t("common.saving")}
+											</>
+										) : (
+											t("common.save")
+										)}
+									</Button>
+								</div>
 							</div>
 						)}
 
@@ -4717,9 +4908,7 @@ export function Settings() {
 							</div>
 						)}
 
-						{section === "about" && (
-							<AboutSection />
-						)}
+						{section === "about" && <AboutSection />}
 
 						{section === "ai-lab" && <LabSection />}
 
@@ -4935,7 +5124,11 @@ function LabSection() {
 		// Apply the config change to running workers in real-time
 		if (acpStatus?.running) {
 			commands.acpProxyApplyConfigOption(configId, value).catch((err) => {
-logger.warn("settings", "Failed to apply config option to workers", err);
+				logger.warn(
+					"settings",
+					"Failed to apply config option to workers",
+					err,
+				);
 			});
 		}
 	};
@@ -5252,7 +5445,8 @@ logger.warn("settings", "Failed to apply config option to workers", err);
 														</span>
 														{isConfigured && (
 															<span className="inline-flex items-center gap-1 rounded-full bg-green-100 dark:bg-green-900/40 px-2 py-0.5 text-[10px] font-medium text-green-700 dark:text-green-400">
-																{t("settings.labConfigured")} · {provider.model_count}
+																{t("settings.labConfigured")} ·{" "}
+																{provider.model_count}
 															</span>
 														)}
 													</div>
@@ -5363,7 +5557,9 @@ logger.warn("settings", "Failed to apply config option to workers", err);
 															</span>
 															<button
 																type="button"
-																onClick={() => handleRemoveKey(provider.id, idx)}
+																onClick={() =>
+																	handleRemoveKey(provider.id, idx)
+																}
 																className="text-destructive hover:text-destructive/80 transition-colors ml-2"
 																title={t("common.delete")}
 															>
@@ -5378,7 +5574,6 @@ logger.warn("settings", "Failed to apply config option to workers", err);
 								})}
 							</div>
 						)}
-
 					</div>
 
 					<Separator />
@@ -5576,76 +5771,85 @@ logger.warn("settings", "Failed to apply config option to workers", err);
 														title={t("settings.labDisableAll")}
 													>
 														{t("settings.labDisableAll")}
-										</button>
-									</div>
-								{(() => {
-										const COLLAPSED_COUNT = 10;
-										const isExpanded = expandedModelGroups[providerId] ?? false;
-										const shouldCollapse = providerModels.length > COLLAPSED_COUNT;
-										// When collapsed, prioritize enabled models at the top
-										const sortedModels = shouldCollapse && !isExpanded
-											? [...providerModels].sort((a, b) => Number(a.disabled) - Number(b.disabled))
-											: providerModels;
-										const visibleModels = shouldCollapse && !isExpanded
-											? sortedModels.slice(0, COLLAPSED_COUNT)
-											: sortedModels;
-										return (
-											<>
-												{shouldCollapse && (
-													<button
-														type="button"
-														onClick={() =>
-															setExpandedModelGroups((prev) => ({
-																...prev,
-																[providerId]: !isExpanded,
-															}))
-														}
-														className="flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground transition-colors cursor-pointer select-none mb-1"
-													>
-										{isExpanded ? (
-														<>
-															<ChevronRight className="h-3 w-3 transition-transform rotate-90" />
-															{t("settings.labCollapseModels")}
-														</>
-													) : (
-														<>
-															<ChevronRight className="h-3 w-3 transition-transform" />
-															{t("settings.labShowAllModels", { count: providerModels.length })}
-															</>
-														)}
 													</button>
-												)}
-												<div className="flex flex-wrap gap-1.5">
-													{visibleModels.map((model) => (
-														<button
-															key={model.id}
-															type="button"
-															onClick={() =>
-																toggleModelDisabled(
-																	providerId,
-																	model.id,
-																	!model.disabled,
-																)
-															}
-															className={cn(
-																"px-2 py-0.5 rounded-md text-[11px] border transition-all cursor-pointer select-none active:scale-95",
-																model.disabled
-																	? "border-border bg-muted/30 text-muted-foreground/60 line-through opacity-50 hover:opacity-70 hover:border-muted-foreground/30"
-																	: "border-primary/40 bg-primary/10 text-primary font-medium hover:bg-primary/15 hover:border-primary/60",
-															)}
-															title={
-																model.disabled
-																	? t("settings.labModelDisabled")
-																	: t("settings.labModelEnabled")
-															}
-														>
-															{model.name || model.id}
-														</button>
-													))}
 												</div>
-											</>
-										);
-									})()}
+												{(() => {
+													const COLLAPSED_COUNT = 10;
+													const isExpanded =
+														expandedModelGroups[providerId] ?? false;
+													const shouldCollapse =
+														providerModels.length > COLLAPSED_COUNT;
+													// When collapsed, prioritize enabled models at the top
+													const sortedModels =
+														shouldCollapse && !isExpanded
+															? [...providerModels].sort(
+																	(a, b) =>
+																		Number(a.disabled) - Number(b.disabled),
+																)
+															: providerModels;
+													const visibleModels =
+														shouldCollapse && !isExpanded
+															? sortedModels.slice(0, COLLAPSED_COUNT)
+															: sortedModels;
+													return (
+														<>
+															{shouldCollapse && (
+																<button
+																	type="button"
+																	onClick={() =>
+																		setExpandedModelGroups((prev) => ({
+																			...prev,
+																			[providerId]: !isExpanded,
+																		}))
+																	}
+																	className="flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground transition-colors cursor-pointer select-none mb-1"
+																>
+																	{isExpanded ? (
+																		<>
+																			<ChevronRight className="h-3 w-3 transition-transform rotate-90" />
+																			{t("settings.labCollapseModels")}
+																		</>
+																	) : (
+																		<>
+																			<ChevronRight className="h-3 w-3 transition-transform" />
+																			{t("settings.labShowAllModels", {
+																				count: providerModels.length,
+																			})}
+																		</>
+																	)}
+																</button>
+															)}
+															<div className="flex flex-wrap gap-1.5">
+																{visibleModels.map((model) => (
+																	<button
+																		key={model.id}
+																		type="button"
+																		onClick={() =>
+																			toggleModelDisabled(
+																				providerId,
+																				model.id,
+																				!model.disabled,
+																			)
+																		}
+																		className={cn(
+																			"px-2 py-0.5 rounded-md text-[11px] border transition-all cursor-pointer select-none active:scale-95",
+																			model.disabled
+																				? "border-border bg-muted/30 text-muted-foreground/60 line-through opacity-50 hover:opacity-70 hover:border-muted-foreground/30"
+																				: "border-primary/40 bg-primary/10 text-primary font-medium hover:bg-primary/15 hover:border-primary/60",
+																		)}
+																		title={
+																			model.disabled
+																				? t("settings.labModelDisabled")
+																				: t("settings.labModelEnabled")
+																		}
+																	>
+																		{model.name || model.id}
+																	</button>
+																))}
+															</div>
+														</>
+													);
+												})()}
 											</div>
 										);
 									},
@@ -6363,9 +6567,12 @@ function AboutSection() {
 
 	// Load updater config on mount
 	useEffect(() => {
-		commands.getUpdaterConfig().then((cfg) => {
-			setAutoCheck(cfg.autoCheck);
-		}).catch(() => {});
+		commands
+			.getUpdaterConfig()
+			.then((cfg) => {
+				setAutoCheck(cfg.autoCheck);
+			})
+			.catch(() => {});
 	}, []);
 
 	const handleCheckUpdate = async () => {
@@ -6410,13 +6617,13 @@ function AboutSection() {
 			<div className="space-y-1">
 				<h3 className="text-lg font-bold">Zoro</h3>
 				<p className="text-sm text-muted-foreground">
-					{t("settings.version", { version: updateInfo?.currentVersion ?? "0.1.0" })}
+					{t("settings.version", {
+						version: updateInfo?.currentVersion ?? "0.1.0",
+					})}
 				</p>
 			</div>
 
-			<p className="text-sm leading-relaxed">
-				{t("settings.aboutDesc")}
-			</p>
+			<p className="text-sm leading-relaxed">{t("settings.aboutDesc")}</p>
 
 			<Separator />
 
@@ -6445,7 +6652,9 @@ function AboutSection() {
 					<div className="rounded-md border border-primary/30 bg-primary/5 p-3 space-y-2">
 						<div className="flex items-center gap-2">
 							<CheckCircle className="h-4 w-4 text-primary" />
-							<p className="text-sm font-medium">{t("settings.updateAvailable")}</p>
+							<p className="text-sm font-medium">
+								{t("settings.updateAvailable")}
+							</p>
 						</div>
 						<p className="text-xs text-muted-foreground">
 							{t("settings.updateAvailableDesc")}
@@ -6454,7 +6663,9 @@ function AboutSection() {
 							{t("settings.newVersion", { version: updateInfo.version })}
 						</p>
 						<p className="text-xs text-muted-foreground">
-							{t("settings.currentVersion", { version: updateInfo.currentVersion })}
+							{t("settings.currentVersion", {
+								version: updateInfo.currentVersion,
+							})}
 						</p>
 						{updateInfo.body && (
 							<p className="text-xs text-muted-foreground whitespace-pre-wrap max-h-32 overflow-y-auto border rounded p-2 mt-1">
@@ -6496,7 +6707,9 @@ function AboutSection() {
 							<p className="text-sm font-medium">{t("settings.upToDate")}</p>
 						</div>
 						<p className="text-xs text-muted-foreground">
-							{t("settings.upToDateDesc", { version: updateInfo.currentVersion })}
+							{t("settings.upToDateDesc", {
+								version: updateInfo.currentVersion,
+							})}
 						</p>
 					</div>
 				)}
@@ -6506,7 +6719,9 @@ function AboutSection() {
 					<div className="rounded-md border border-destructive/30 bg-destructive/5 p-3 space-y-1">
 						<div className="flex items-center gap-2">
 							<AlertCircle className="h-4 w-4 text-destructive" />
-							<p className="text-sm font-medium">{t("settings.updateFailed")}</p>
+							<p className="text-sm font-medium">
+								{t("settings.updateFailed")}
+							</p>
 						</div>
 						<p className="text-xs text-muted-foreground">{updateError}</p>
 					</div>
@@ -6550,9 +6765,7 @@ function AboutSection() {
 
 			<Separator />
 
-			<p className="text-xs text-muted-foreground">
-				{t("settings.madeBy")}
-			</p>
+			<p className="text-xs text-muted-foreground">{t("settings.madeBy")}</p>
 		</div>
 	);
 }
