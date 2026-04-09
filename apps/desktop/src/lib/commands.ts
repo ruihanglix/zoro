@@ -831,6 +831,20 @@ export const stopMcpServer = () => invoke<McpStatusResponse>("stop_mcp_server");
 export const restartMcpServer = () =>
 	invoke<McpStatusResponse>("restart_mcp_server");
 
+// CLI
+export interface CliStatusResponse {
+	installed: boolean;
+	path: string | null;
+	sidecar_found: boolean;
+}
+
+export const checkCliInstalled = () =>
+	invoke<CliStatusResponse>("check_cli_installed");
+
+export const installCli = () => invoke<CliStatusResponse>("install_cli");
+
+export const uninstallCli = () => invoke<CliStatusResponse>("uninstall_cli");
+
 // Translation / AI
 export interface TranslationResponse {
 	field: string;

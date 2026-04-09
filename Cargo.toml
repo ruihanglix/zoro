@@ -15,6 +15,7 @@ members = [
   "crates/zoro-storage",
   "crates/zoro-subscriptions",
   "crates/zoro-webdav",
+  "crates/zoro-cli",
 ]
 resolver = "2"
 

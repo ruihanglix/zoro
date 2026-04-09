@@ -6,6 +6,8 @@ use crate::AppState;
 use std::path::PathBuf;
 use tauri::{Manager, State};
 
+use crate::sidecar::find_sidecar_binary;
+
 #[derive(Debug, serde::Serialize)]
 pub struct McpStatus {
     pub enabled: bool,
@@ -24,47 +26,7 @@ pub struct UpdateMcpConfigInput {
 }
 
 fn find_mcp_binary() -> Option<PathBuf> {
-    let name = if cfg!(windows) {
-        "zoro-mcp.exe"
-    } else {
-        "zoro-mcp"
-    };
-
-    // 1. Next to the current executable (production bundles and dev when both are
-    //    built into the same target/<profile>/ directory).
-    if let Ok(exe) = std::env::current_exe() {
-        if let Some(dir) = exe.parent() {
-            let candidate = dir.join(name);
-            if candidate.exists() {
-                return Some(candidate);
-            }
-        }
-    }
-
-    // 2. Cargo workspace target directories (dev mode). Walk up from the
-    //    executable path looking for a `target` directory that contains the
-    //    binary in debug or release sub-directories.
-    if let Ok(exe) = std::env::current_exe() {
-        let mut dir = exe.parent();
-        while let Some(d) = dir {
-            if d.file_name().is_some_and(|n| n == "target") {
-                for profile in &["debug", "release"] {
-                    let candidate = d.join(profile).join(name);
-                    if candidate.exists() {
-                        return Some(candidate);
-                    }
-                }
-            }
-            dir = d.parent();
-        }
-    }
-
-    // 3. Resolve via PATH (system-wide install).
-    if let Ok(path) = which::which(name) {
-        return Some(path);
-    }
-
-    None
+    find_sidecar_binary("zoro-mcp", true)
 }
 
 fn is_child_running(child: &mut std::process::Child) -> bool {

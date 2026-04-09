@@ -181,6 +181,29 @@ Agents can create any files they want in this directory. The naming convention i
 
 The `notes/` subdirectory stores user and agent notes as Markdown files. Unlike `attachments/` (which is for derived content), `notes/` is for commentary and annotations.
 
+## Zoro CLI
+
+For agents that can execute shell commands, the `zoro` CLI provides the most convenient access to the library. Unlike the filesystem approach (which requires parsing JSON files) or the MCP server (which requires MCP protocol support), the CLI works with **any agent that can run shell commands**.
+
+```bash
+# Search papers
+zoro --json search "transformer"
+
+# Get paper details
+zoro --json get "2017-attention-is-all-you-need-a1b2c3d4"
+
+# List papers filtered by tag
+zoro --json list --tag "NLP"
+
+# Add a tag to a paper
+zoro tags add "2017-attention-is-all-you-need-a1b2c3d4" "important"
+
+# Export citation
+zoro export "2017-attention-is-all-you-need-a1b2c3d4" --format bibtex
+```
+
+The `--json` flag outputs machine-readable JSON, making it easy to pipe into `jq` or parse programmatically. See [Zoro CLI](cli.md) for full documentation.
+
 ## Example Workflows
 
 ### Reading Paper Metadata with an AI Agent
@@ -291,6 +314,8 @@ sqlite3 ~/.zoro/library.db "SELECT title, added_date FROM papers ORDER BY added_
 
 ## See Also
 
+- [Zoro CLI](cli.md) -- Command-line interface for shell-based agents and human users
+- [MCP Server](mcp-server.md) -- MCP protocol integration for agents that support it
 - [Data Model & API Reference](data-model.md) -- Full database schema and API
 - [Architecture Overview](architecture.md) -- System design
 - [Browser Extension](browser-extension.md) -- Connector API for programmatic paper saving

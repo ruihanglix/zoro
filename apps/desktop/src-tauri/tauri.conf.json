@@ -4,9 +4,9 @@
   "identifier": "com.zoro.app",
   "version": "0.1.0",
   "build": {
-    "beforeDevCommand": "bash ../../scripts/build-mcp-sidecar.sh && pnpm dev:frontend",
+    "beforeDevCommand": "bash ../../scripts/build-mcp-sidecar.sh && bash ../../scripts/build-cli-sidecar.sh && pnpm dev:frontend",
     "devUrl": "http://localhost:1420",
-    "beforeBuildCommand": "bash ../../scripts/build-mcp-sidecar.sh --release && pnpm build:frontend",
+    "beforeBuildCommand": "bash ../../scripts/build-mcp-sidecar.sh --release && bash ../../scripts/build-cli-sidecar.sh --release && pnpm build:frontend",
     "frontendDist": "../dist"
   },
   "app": {
@@ -34,7 +34,7 @@
   "bundle": {
     "active": true,
     "targets": "all",
-    "externalBin": ["binaries/zoro-mcp"],
+    "externalBin": ["binaries/zoro-mcp", "binaries/zoro"],
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
@@ -42,7 +42,21 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ],
-    "createUpdaterArtifacts": "v1Compatible"
+    "createUpdaterArtifacts": "v1Compatible",
+    "windows": {
+      "nsis": {
+        "installMode": "currentUser",
+        "installerIcon": "icons/icon.ico",
+        "displayLanguageSelector": false,
+        "installerHooks": "nsis-hooks.nsi"
+      }
+    },
+    "linux": {
+      "deb": {
+        "postInstallScript": "deb-scripts/postinst",
+        "preRemoveScript": "deb-scripts/prerm"
+      }
+    }
   },
   "plugins": {
     "updater": {

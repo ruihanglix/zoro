@@ -84,6 +84,7 @@ type SettingsSection =
 	| "ai-translation"
 	| "ai-pdf-translation"
 	| "ai-mcp"
+	| "ai-cli"
 	| "ai-lab"
 	| "general"
 	| "connector"
@@ -115,6 +116,7 @@ const NAV_GROUPS: NavGroup[] = [
 				icon: FileText,
 			},
 			{ id: "ai-mcp", labelKey: "settings.navMcpServer", icon: Terminal },
+			{ id: "ai-cli", labelKey: "settings.navCli", icon: Terminal },
 			{ id: "ai-lab", labelKey: "settings.navLab", icon: FlaskConical },
 		],
 	},
@@ -802,6 +804,10 @@ export function Settings() {
 	const [mcpSaving, setMcpSaving] = useState(false);
 	const [mcpStarting, setMcpStarting] = useState(false);
 
+	// CLI state
+	const [cliStatus, setCliStatus] = useState<commands.CliStatusResponse | null>(null);
+	const [cliLoading, setCliLoading] = useState(false);
+
 	// Subscription toggling/refreshing
 	const [togglingSubId, setTogglingSubId] = useState<string | null>(null);
 	const [refreshingSubId, setRefreshingSubId] = useState<string | null>(null);
@@ -984,6 +990,15 @@ export function Settings() {
 		}
 	}, []);
 
+	const loadCliStatus = useCallback(async () => {
+		try {
+			const status = await commands.checkCliInstalled();
+			setCliStatus(status);
+		} catch (err) {
+			logger.error("settings", "Failed to check CLI status", err);
+		}
+	}, []);
+
 	useEffect(() => {
 		commands.getConnectorStatus().then(setConnectorStatus).catch((e: unknown) => logger.error("settings", "Failed to get connector status", e));
 		commands.getLogConfig().then((cfg) => {
@@ -997,6 +1012,7 @@ export function Settings() {
 		loadAiConfig();
 		loadChatConfig();
 		loadMcpStatus();
+		loadCliStatus();
 		fetchCollections();
 		fetchTags();
 
@@ -1597,6 +1613,30 @@ export function Settings() {
 			logger.error("settings", "Failed to restart MCP server", err);
 		} finally {
 			setMcpStarting(false);
+		}
+	};
+
+	const handleInstallCli = async () => {
+		setCliLoading(true);
+		try {
+			const status = await commands.installCli();
+			setCliStatus(status);
+		} catch (err) {
+			logger.error("settings", "Failed to install CLI", err);
+		} finally {
+			setCliLoading(false);
+		}
+	};
+
+	const handleUninstallCli = async () => {
+		setCliLoading(true);
+		try {
+			const status = await commands.uninstallCli();
+			setCliStatus(status);
+		} catch (err) {
+			logger.error("settings", "Failed to uninstall CLI", err);
+		} finally {
+			setCliLoading(false);
 		}
 	};
 
@@ -3896,6 +3936,89 @@ export function Settings() {
 									</p>
 									<p className="text-[11px] text-muted-foreground leading-relaxed">
 										{t("settings.aboutMcpDesc")}
+									</p>
+								</div>
+							</div>
+						)}
+
+						{section === "ai-cli" && (
+							<div className="space-y-5">
+								{/* Status */}
+								<div className="space-y-3">
+									<div className="flex items-center gap-3">
+										<span className="text-sm">{t("settings.cliCommand")}:</span>
+										<Badge
+											variant={cliStatus?.installed ? "default" : "secondary"}
+										>
+											{cliStatus?.installed
+												? t("settings.installed")
+												: t("settings.notInstalled")}
+										</Badge>
+									</div>
+									{cliStatus?.installed && cliStatus.path && (
+										<div className="flex items-center gap-2 text-xs">
+											<span className="text-muted-foreground">
+												{t("settings.cliPath")}:
+											</span>
+											<code className="bg-muted px-1.5 py-0.5 rounded">
+												{cliStatus.path}
+											</code>
+										</div>
+									)}
+									{cliStatus && !cliStatus.sidecar_found && (
+										<div className="flex items-center gap-2 rounded-md border border-amber-500/30 bg-amber-50 p-2 text-xs text-amber-700 dark:bg-amber-950 dark:text-amber-300">
+											<AlertCircle className="h-3.5 w-3.5 shrink-0" />
+											{t("settings.cliBinaryNotFound")}
+										</div>
+									)}
+								</div>
+
+								<Separator />
+
+								{/* Install / Uninstall */}
+								<div className="space-y-3">
+									<div className="flex items-center gap-2">
+										{cliStatus?.installed ? (
+											<Button
+												variant="outline"
+												size="sm"
+												onClick={handleUninstallCli}
+												disabled={cliLoading}
+											>
+												{cliLoading ? (
+													<Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+												) : (
+													<Trash2 className="mr-1.5 h-3.5 w-3.5" />
+												)}
+												{t("settings.uninstallCli")}
+											</Button>
+										) : (
+											<Button
+												variant="default"
+												size="sm"
+												onClick={handleInstallCli}
+												disabled={cliLoading || !cliStatus?.sidecar_found}
+											>
+												{cliLoading ? (
+													<Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+												) : (
+													<Download className="mr-1.5 h-3.5 w-3.5" />
+												)}
+												{t("settings.installCli")}
+											</Button>
+										)}
+									</div>
+								</div>
+
+								<Separator />
+
+								{/* About */}
+								<div className="space-y-2">
+									<p className="text-xs font-medium">
+										{t("settings.aboutCli")}
+									</p>
+									<p className="text-[11px] text-muted-foreground leading-relaxed">
+										{t("settings.aboutCliDesc")}
 									</p>
 								</div>
 							</div>
