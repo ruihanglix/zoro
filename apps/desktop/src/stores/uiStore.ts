@@ -19,7 +19,7 @@ const ONBOARDING_KEY = "zoro-onboarding-completed";
 type View = "library" | "feed" | "papers-cool" | "plugins";
 type ListMode = "list" | "card";
 export type Theme = "light" | "dark" | "system";
-export type CitationPreviewMode = "text" | "image" | "off";
+export type CitationPreviewMode = "auto" | "text" | "image" | "off";
 
 export type HtmlReaderFontFamily =
 	| "system"
@@ -237,7 +237,7 @@ export const useUiStore = create<UiState>((set, get) => ({
 	defaultSortOrder: loadSetting<string>("zoro-default-sort-order", "desc"),
 	citationPreviewMode: loadSetting<CitationPreviewMode>(
 		"zoro-citation-preview-mode",
-		"text",
+		"auto",
 	),
 	showReaderTerminal: loadSetting<boolean>("zoro-show-reader-terminal", true),
 	terminalFontSize: loadSetting<number>("zoro-terminal-font-size", 13),
