@@ -11,6 +11,7 @@ import { TabBar } from "@/components/layout/TabBar";
 import { FileDropZone } from "@/components/library/FileDropZone";
 import { MetadataSearchDialog } from "@/components/library/MetadataSearchDialog";
 import * as commands from "@/lib/commands";
+import { useKeybindings } from "@/hooks/useKeybindings";
 import { useMenuEvents } from "@/hooks/useMenuEvents";
 import { injectPluginSharedDeps } from "@/plugins/PluginSharedDeps";
 import { usePluginStore } from "@/plugins/pluginStore";
@@ -28,7 +29,7 @@ import { useTranslationStore } from "@/stores/translationStore";
 import { useUiStore } from "@/stores/uiStore";
 import { listen } from "@tauri-apps/api/event";
 import { invoke } from "@tauri-apps/api/core";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 // Inject shared dependencies for plugins before any plugin loads
@@ -51,6 +52,104 @@ export default function App() {
 	const tabs = useTabStore((s) => s.tabs);
 	const activeTabId = useTabStore((s) => s.activeTabId);
 	const metadataSearchPaperId = useUiStore((s) => s.metadataSearchPaperId);
+
+	// Global keyboard shortcuts
+	const globalHandlers = useMemo(
+		() => ({
+			"global.focusLibrarySearch": () => {
+				window.dispatchEvent(new CustomEvent("zoro-focus-library-search"));
+			},
+			"global.openSettings": () => {
+				useTabStore.getState().openTab({
+					id: "settings",
+					type: "settings",
+					title: t("common.settings"),
+				});
+			},
+			"global.toggleSidebar": () => {
+				useUiStore.getState().toggleSidebar();
+			},
+			"global.toggleAgentPanel": () => {
+				const state = useTabStore.getState();
+				if (state.activeTabId === "agent") {
+					// Go back to previous tab (home)
+					state.setActiveTab("home");
+				} else {
+					state.setActiveTab("agent");
+				}
+			},
+			"global.newNote": () => {
+				// Create and open a new standalone note
+				useLibraryStore
+					.getState()
+					.createStandaloneNote()
+					.then((paper) => {
+						if (paper) {
+							useTabStore.getState().openTab({
+								type: "note",
+								paperId: paper.id,
+								title: paper.title,
+							});
+						}
+					});
+			},
+			"global.viewLibrary": () => {
+				useUiStore.getState().setView("library");
+				useTabStore.getState().setActiveTab("home");
+			},
+			"global.viewFeed": () => {
+				useUiStore.getState().setView("feed");
+				useTabStore.getState().setActiveTab("home");
+			},
+			"global.viewPapersCool": () => {
+				useUiStore.getState().setView("papers-cool");
+				useTabStore.getState().setActiveTab("home");
+			},
+			"global.actualSize": () => {
+				useUiStore.getState().setUiScale(1);
+			},
+			"global.closeTab": () => {
+				const state = useTabStore.getState();
+				if (
+					state.activeTabId !== "home" &&
+					state.activeTabId !== "agent"
+				) {
+					state.closeTab(state.activeTabId);
+				}
+			},
+			"global.nextTab": () => {
+				const state = useTabStore.getState();
+				const idx = state.tabs.findIndex(
+					(t) => t.id === state.activeTabId,
+				);
+				if (idx < state.tabs.length - 1) {
+					state.setActiveTab(state.tabs[idx + 1].id);
+				}
+			},
+			"global.prevTab": () => {
+				const state = useTabStore.getState();
+				const idx = state.tabs.findIndex(
+					(t) => t.id === state.activeTabId,
+				);
+				if (idx > 0) {
+					state.setActiveTab(state.tabs[idx - 1].id);
+				}
+			},
+			...Object.fromEntries(
+				Array.from({ length: 9 }, (_, i) => [
+					`global.tab${i + 1}`,
+					() => {
+						const state = useTabStore.getState();
+						if (i < state.tabs.length) {
+							state.setActiveTab(state.tabs[i].id);
+						}
+					},
+				]),
+			),
+		}),
+		[t],
+	);
+	useKeybindings("global", globalHandlers);
 
 	// Update notification state
 	const [updateAvailable, setUpdateAvailable] = useState<{

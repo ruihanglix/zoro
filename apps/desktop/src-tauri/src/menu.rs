@@ -343,7 +343,6 @@ pub fn build_menu(app: &AppHandle, lang: &str) -> Result<tauri::menu::Menu<Wry>,
     let file_menu = SubmenuBuilder::new(app, t(&tr, "file"))
         .item(
             &MenuItemBuilder::with_id("add-paper", t(&tr, "add_paper"))
-                .accelerator("CmdOrCtrl+N")
                 .build(app)?,
         )
         .item(
@@ -366,7 +365,6 @@ pub fn build_menu(app: &AppHandle, lang: &str) -> Result<tauri::menu::Menu<Wry>,
         .cut()
         .copy()
         .paste()
-        .select_all()
         .build()?;
 
     // --- View menu ---
@@ -398,7 +396,6 @@ pub fn build_menu(app: &AppHandle, lang: &str) -> Result<tauri::menu::Menu<Wry>,
         )
         .item(
             &MenuItemBuilder::with_id("actual-size", t(&tr, "actual_size"))
-                .accelerator("CmdOrCtrl+0")
                 .build(app)?,
         )
         .separator()
@@ -410,17 +407,14 @@ pub fn build_menu(app: &AppHandle, lang: &str) -> Result<tauri::menu::Menu<Wry>,
         .separator()
         .item(
             &MenuItemBuilder::with_id("view-library", t(&tr, "library"))
-                .accelerator("CmdOrCtrl+1")
                 .build(app)?,
         )
         .item(
             &MenuItemBuilder::with_id("view-feed", t(&tr, "feed"))
-                .accelerator("CmdOrCtrl+2")
                 .build(app)?,
         )
         .item(
             &MenuItemBuilder::with_id("view-papers-cool", t(&tr, "papers_cool"))
-                .accelerator("CmdOrCtrl+3")
                 .build(app)?,
         )
         .separator()

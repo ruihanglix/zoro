@@ -40,7 +40,7 @@ export interface HtmlReaderTypography {
 }
 
 // localStorage helpers
-function loadSetting<T>(key: string, fallback: T): T {
+export function loadSetting<T>(key: string, fallback: T): T {
 	try {
 		const raw = localStorage.getItem(key);
 		if (raw === null) return fallback;
@@ -50,7 +50,7 @@ function loadSetting<T>(key: string, fallback: T): T {
 	}
 }
 
-function saveSetting<T>(key: string, value: T): void {
+export function saveSetting<T>(key: string, value: T): void {
 	try {
 		localStorage.setItem(key, JSON.stringify(value));
 	} catch {
