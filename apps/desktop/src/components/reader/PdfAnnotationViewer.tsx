@@ -797,6 +797,11 @@ export function PdfAnnotationViewer({
 		// Track the last zoomLevel we committed so visual phase computes
 		// the correct relative transform.
 		let committedZoom = targetZoom;
+		// Guard: prevent subscribe callback from double-setting currentScale
+		// when commitZoom updates the store internally.
+		let isCommitting = false;
+		// Handle for the deferred CSS-transform cleanup after commit
+		let cleanupRafId = 0;
 
 		// Pointer position for anchor-based zoom (relative to scroll container viewport)
 		let pointerClientX = 0;
@@ -855,50 +860,91 @@ export function PdfAnnotationViewer({
 
 		const commitZoom = () => {
 			commitTimer = null;
+			if (cleanupRafId) {
+				cancelAnimationFrame(cleanupRafId);
+				cleanupRafId = 0;
+			}
+			isCommitting = true;
+
 			const viewerEl = getPdfViewerEl();
 			const scrollContainer = getScrollContainer();
-
-			// Snapshot the pointer's document-position before clearing transform
-			// so we can restore it after pdf.js re-renders at the new scale.
-			let anchorDocX = 0;
-			let anchorDocY = 0;
-			if (scrollContainer) {
-				const containerRect = scrollContainer.getBoundingClientRect();
-				// Where the pointer is in the *content* coordinate system (at old committed scale)
-				const contentX = (pointerClientX - containerRect.left + scrollContainer.scrollLeft);
-				const contentY = (pointerClientY - containerRect.top + scrollContainer.scrollTop);
-				// Convert to "document" coordinates (independent of zoom) by dividing by old committed scale factor
-				const oldBase = baseScaleRef.current || 1;
-				const oldAbsoluteScale = oldBase * committedZoom;
-				anchorDocX = contentX / oldAbsoluteScale;
-				anchorDocY = contentY / oldAbsoluteScale;
-			}
-
-			if (viewerEl) {
-				viewerEl.style.transform = "";
-				viewerEl.style.transformOrigin = "";
-			}
-
-			// Update store (for UI display, e.g. ZoomControls percentage)
-			useAnnotationStore.getState().setZoomLevel(targetZoom);
-			// Tell pdf.js to re-render canvases at the new scale → sharp text
 			const base = baseScaleRef.current || 1;
 			const pdfViewer = getPdfJsViewer();
+
+			// ── 1. Compute scroll anchor ──
+			// The transform origin is at the pointer's content-space position,
+			// which is a fixed point of the CSS scale transform — its content-space
+			// coordinate equals (viewportOffset + scrollOffset) regardless of scale.
+			let vpX = 0;
+			let vpY = 0;
+			let anchorContentX = 0;
+			let anchorContentY = 0;
+			if (scrollContainer) {
+				const rect = scrollContainer.getBoundingClientRect();
+				vpX = pointerClientX - rect.left;
+				vpY = pointerClientY - rect.top;
+				anchorContentX = vpX + scrollContainer.scrollLeft;
+				anchorContentY = vpY + scrollContainer.scrollTop;
+			}
+			// Normalise to scale-independent "document" coordinates
+			const oldAbsScale = base * committedZoom;
+			const anchorDocX = anchorContentX / oldAbsScale;
+			const anchorDocY = anchorContentY / oldAbsScale;
+
+			// ── 2. Set pdf.js scale FIRST ──
+			// This synchronously resizes page containers (via CSS --scale-factor)
+			// and queues async canvas re-renders. We do this BEFORE clearing the
+			// CSS transform so there is no intermediate frame at the old layout size.
 			if (pdfViewer) {
 				pdfViewer.currentScale = base * targetZoom;
 			}
 
-			// Adjust scroll so the pointer position stays over the same content
-			if (scrollContainer) {
-				const containerRect = scrollContainer.getBoundingClientRect();
-				const newAbsoluteScale = base * targetZoom;
-				const newContentX = anchorDocX * newAbsoluteScale;
-				const newContentY = anchorDocY * newAbsoluteScale;
-				scrollContainer.scrollLeft = newContentX - (pointerClientX - containerRect.left);
-				scrollContainer.scrollTop = newContentY - (pointerClientY - containerRect.top);
+			// ── 3. Compensating CSS transform ──
+			// Right now the visual = (new pdf.js layout) × (old CSS scale).
+			// Replace with a compensating transform that keeps the visual identical
+			// to what the user was seeing, then remove it after pdf.js paints.
+			// compensate = targetZoom / (targetZoom / committedZoom * committedZoom ... )
+			//
+			// Simpler: new layout is (base * targetZoom), old visual was
+			// (base * committedZoom) × scale(targetZoom/committedZoom) = (base * targetZoom).
+			// After setting new currentScale the layout is already (base * targetZoom),
+			// so the correct CSS transform to maintain the same visual is scale(1).
+			// We keep it momentarily as scale(1) and defer the actual removal
+			// so the browser can composite the stale canvases at the correct size
+			// while pdf.js re-renders them in the background.
+			if (viewerEl) {
+				viewerEl.style.transform = "scale(1)";
+				// transformOrigin doesn't matter at scale(1), but clean it up
+				viewerEl.style.transformOrigin = "";
 			}
 
+			// ── 4. Adjust scroll so pointer stays over the same content ──
+			if (scrollContainer) {
+				const newAbsScale = base * targetZoom;
+				scrollContainer.scrollLeft = anchorDocX * newAbsScale - vpX;
+				scrollContainer.scrollTop = anchorDocY * newAbsScale - vpY;
+			}
+
+			// ── 5. Update store (for UI, e.g. ZoomControls percentage) ──
+			useAnnotationStore.getState().setZoomLevel(targetZoom);
+
 			committedZoom = targetZoom;
+			isCommitting = false;
+
+			// ── 6. Deferred cleanup: remove the scale(1) transform ──
+			// Wait two animation frames so pdf.js has a chance to paint updated
+			// canvases for the visible pages. This avoids the "flash to blank
+			// canvas" that occurs if we remove the transform in the same frame.
+			cleanupRafId = requestAnimationFrame(() => {
+				cleanupRafId = requestAnimationFrame(() => {
+					cleanupRafId = 0;
+					const v = getPdfViewerEl();
+					if (v) {
+						v.style.transform = "";
+						v.style.transformOrigin = "";
+					}
+				});
+			});
 		};
 
 		const scheduleCommit = () => {
@@ -921,14 +967,11 @@ export function PdfAnnotationViewer({
 			e.preventDefault();
 			if (commitTimer) clearTimeout(commitTimer);
 			gestureBaseZoom = targetZoom;
-			// Safari gesture events don't have clientX/Y on gesturestart,
-			// but the pointer position from the last mousemove/wheel is fine.
 		};
 
 		const handleGestureChange = (e: Event) => {
 			e.preventDefault();
 			const ge = e as unknown as { scale: number; clientX?: number; clientY?: number };
-			// Update pointer position if available (Safari provides it on gesturechange)
 			if (ge.clientX != null && ge.clientY != null) {
 				pointerClientX = ge.clientX;
 				pointerClientY = ge.clientY;
@@ -957,6 +1000,7 @@ export function PdfAnnotationViewer({
 
 		// Sync if zoomLevel changes externally (e.g. ZoomControls +/- buttons)
 		const unsubZoom = useAnnotationStore.subscribe((state, prevState) => {
+			if (isCommitting) return; // skip internal updates from commitZoom
 			if (state.zoomLevel !== prevState.zoomLevel) {
 				const newZoom = state.zoomLevel;
 				targetZoom = newZoom;
@@ -975,6 +1019,7 @@ export function PdfAnnotationViewer({
 		return () => {
 			if (commitTimer) clearTimeout(commitTimer);
 			if (baseScaleTimer) clearTimeout(baseScaleTimer);
+			if (cleanupRafId) cancelAnimationFrame(cleanupRafId);
 			unsubZoom();
 			el.removeEventListener("pointermove", handlePointerMove);
 			el.removeEventListener("wheel", handleWheel);
