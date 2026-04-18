@@ -233,6 +233,9 @@ export function PdfAnnotationViewer({
 	const blobUrlRef = useRef<string | null>(null);
 	const containerRef = useRef<HTMLDivElement>(null);
 	const pdfHighlighterRef = useRef<PdfHighlighter<ZoroHighlight>>(null);
+	// The pdf.js scale value when pdfScaleValue="auto" is applied (i.e. "fit width").
+	// We treat zoomLevel=1 as this base scale, so actual pdf.js currentScale = baseScale * zoomLevel.
+	const baseScaleRef = useRef<number>(0);
 
 	const sourceFile = pdfFilename || "paper.pdf";
 
@@ -251,7 +254,6 @@ export function PdfAnnotationViewer({
 	const storeSetCurrentPage = useAnnotationStore((s) => s.setCurrentPage);
 	const storeFetchReaderState = useAnnotationStore((s) => s.fetchReaderState);
 	const storeSaveReaderState = useAnnotationStore((s) => s.saveReaderState);
-	const zoomLevel = useAnnotationStore((s) => s.zoomLevel);
 	const storePdfDocument = useAnnotationStore((s) => s.pdfDocument);
 
 	const isDark = useIsDarkMode();
@@ -777,37 +779,78 @@ export function PdfAnnotationViewer({
 	// Pinch-to-zoom (trackpad) and Ctrl/Cmd+wheel zoom.
 	// Two-phase approach for smooth performance:
 	//   1. Visual phase: apply GPU-composited transform: scale() during gesture
-	//   2. Commit phase: apply CSS zoom via store update when gesture ends
+	//   2. Commit phase: set pdf.js currentScale so it re-renders canvas at the
+	//      new resolution (sharp text instead of blurry CSS zoom)
+	//
+	// zoomLevel in the store is a *relative* multiplier (1 = fit-to-width).
+	// Actual pdf.js scale = baseScaleRef.current * zoomLevel.
 	useEffect(() => {
 		const el = containerRef.current;
 		if (!el) return;
 
+		// New PDF loaded — reset baseScale so it's recaptured from pdf.js "auto"
+		baseScaleRef.current = 0;
+
 		let targetZoom = useAnnotationStore.getState().zoomLevel;
 		let commitTimer: ReturnType<typeof setTimeout> | null = null;
+		// Track the last zoomLevel we committed so visual phase computes
+		// the correct relative transform.
+		let committedZoom = targetZoom;
 
-		const getPdfViewer = () =>
+		const getPdfViewerEl = () =>
 			el.querySelector(".pdfViewer") as HTMLElement | null;
+
+		const getPdfJsViewer = () => {
+			const hlRef = pdfHighlighterRef.current as unknown as Record<
+				string,
+				unknown
+			> | null;
+			return hlRef?.viewer as
+				| { currentScale: number; currentScaleValue: string | number }
+				| undefined;
+		};
 
 		const clampZoom = (z: number) => Math.max(0.25, Math.min(5, z));
 
+		// Capture baseScale once pdf.js has initialised with "auto".
+		// We poll briefly because pagesinit may fire after this effect mounts.
+		let baseScaleTimer: ReturnType<typeof setTimeout> | null = null;
+		const captureBaseScale = () => {
+			if (baseScaleRef.current > 0) return; // already captured
+			const pdfViewer = getPdfJsViewer();
+			if (pdfViewer && pdfViewer.currentScale > 0) {
+				baseScaleRef.current = pdfViewer.currentScale;
+			} else {
+				baseScaleTimer = setTimeout(captureBaseScale, 150);
+			}
+		};
+		captureBaseScale();
+
 		const applyVisualZoom = (newTarget: number) => {
 			targetZoom = clampZoom(newTarget);
-			const viewer = getPdfViewer();
-			if (!viewer) return;
-			const storeZoom = useAnnotationStore.getState().zoomLevel;
-			const scaleFactor = targetZoom / storeZoom;
-			viewer.style.transformOrigin = "0 0";
-			viewer.style.transform = `scale(${scaleFactor})`;
+			const viewerEl = getPdfViewerEl();
+			if (!viewerEl) return;
+			const scaleFactor = targetZoom / committedZoom;
+			viewerEl.style.transformOrigin = "0 0";
+			viewerEl.style.transform = `scale(${scaleFactor})`;
 		};
 
 		const commitZoom = () => {
 			commitTimer = null;
-			const viewer = getPdfViewer();
-			if (viewer) {
-				viewer.style.transform = "";
-				viewer.style.transformOrigin = "";
+			const viewerEl = getPdfViewerEl();
+			if (viewerEl) {
+				viewerEl.style.transform = "";
+				viewerEl.style.transformOrigin = "";
 			}
+			// Update store (for UI display, e.g. ZoomControls percentage)
 			useAnnotationStore.getState().setZoomLevel(targetZoom);
+			// Tell pdf.js to re-render canvases at the new scale → sharp text
+			const base = baseScaleRef.current || 1;
+			const pdfViewer = getPdfJsViewer();
+			if (pdfViewer) {
+				pdfViewer.currentScale = base * targetZoom;
+			}
+			committedZoom = targetZoom;
 		};
 
 		const scheduleCommit = () => {
@@ -848,8 +891,27 @@ export function PdfAnnotationViewer({
 		});
 		el.addEventListener("gestureend", handleGestureEnd, { passive: false });
 
+		// Sync if zoomLevel changes externally (e.g. ZoomControls +/- buttons)
+		const unsubZoom = useAnnotationStore.subscribe((state, prevState) => {
+			if (state.zoomLevel !== prevState.zoomLevel) {
+				const newZoom = state.zoomLevel;
+				targetZoom = newZoom;
+				committedZoom = newZoom;
+				const base = baseScaleRef.current || 1;
+				const pdfViewer = getPdfJsViewer();
+				if (
+					pdfViewer &&
+					Math.abs(pdfViewer.currentScale - base * newZoom) > 0.001
+				) {
+					pdfViewer.currentScale = base * newZoom;
+				}
+			}
+		});
+
 		return () => {
 			if (commitTimer) clearTimeout(commitTimer);
+			if (baseScaleTimer) clearTimeout(baseScaleTimer);
+			unsubZoom();
 			el.removeEventListener("wheel", handleWheel);
 			el.removeEventListener("gesturestart", handleGestureStart);
 			el.removeEventListener("gesturechange", handleGestureChange);
@@ -1483,11 +1545,8 @@ export function PdfAnnotationViewer({
 					);
 				}}
 			</PdfLoader>
-			{/* Custom styles for zoom, annotation colors, underlines, and ghost highlights */}
+			{/* Custom styles for annotation colors, underlines, and ghost highlights */}
 			<style>{`
-        .pdfViewer {
-          zoom: ${zoomLevel};
-        }
         ${
 					activeTool === "note"
 						? `

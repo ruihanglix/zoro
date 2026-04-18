@@ -138,6 +138,7 @@ interface UiState {
 	defaultSortOrder: string;
 	citationPreviewMode: CitationPreviewMode;
 	showReaderTerminal: boolean;
+	terminalFontSize: number;
 	language: SupportedLanguage;
 	uiScale: number;
 
@@ -175,6 +176,7 @@ interface UiState {
 	setDefaultSortOrder: (order: string) => void;
 	setCitationPreviewMode: (mode: CitationPreviewMode) => void;
 	setShowReaderTerminal: (v: boolean) => void;
+	setTerminalFontSize: (size: number) => void;
 	setLanguage: (lang: SupportedLanguage) => void;
 	setUiScale: (scale: number) => void;
 
@@ -238,6 +240,7 @@ export const useUiStore = create<UiState>((set, get) => ({
 		"text",
 	),
 	showReaderTerminal: loadSetting<boolean>("zoro-show-reader-terminal", true),
+	terminalFontSize: loadSetting<number>("zoro-terminal-font-size", 13),
 	language: (localStorage.getItem("zoro-ui-language") ??
 		i18n.language ??
 		"en") as SupportedLanguage,
@@ -303,6 +306,11 @@ export const useUiStore = create<UiState>((set, get) => ({
 	setShowReaderTerminal: (v) => {
 		saveSetting("zoro-show-reader-terminal", v);
 		set({ showReaderTerminal: v });
+	},
+	setTerminalFontSize: (size) => {
+		const clamped = Math.max(10, Math.min(24, size));
+		saveSetting("zoro-terminal-font-size", clamped);
+		set({ terminalFontSize: clamped });
 	},
 	setLanguage: (lang) => {
 		localStorage.setItem("zoro-ui-language", lang);

@@ -652,6 +652,8 @@ export function Settings() {
 	const setCitationPreviewMode = useUiStore((s) => s.setCitationPreviewMode);
 	const showReaderTerminal = useUiStore((s) => s.showReaderTerminal);
 	const setShowReaderTerminal = useUiStore((s) => s.setShowReaderTerminal);
+	const terminalFontSize = useUiStore((s) => s.terminalFontSize);
+	const setTerminalFontSize = useUiStore((s) => s.setTerminalFontSize);
 	const language = useUiStore((s) => s.language);
 	const setLanguage = useUiStore((s) => s.setLanguage);
 	const uiScale = useUiStore((s) => s.uiScale);
@@ -1997,6 +1999,29 @@ export function Settings() {
 										/>
 										{t("settings.showTerminalTab")}
 									</label>
+									<div>
+										<label
+											className="text-xs text-muted-foreground"
+											htmlFor="terminal-font-size"
+										>
+											{t("settings.terminalFontSize")}: {terminalFontSize}px
+										</label>
+										<input
+											id="terminal-font-size"
+											type="range"
+											min={10}
+											max={24}
+											step={1}
+											value={terminalFontSize}
+											onChange={(e) =>
+												setTerminalFontSize(Number(e.target.value))
+											}
+											className="mt-1 w-full max-w-xs"
+										/>
+										<p className="text-[11px] text-muted-foreground mt-1">
+											{t("settings.terminalFontSizeDesc")}
+										</p>
+									</div>
 								</div>
 
 								<Separator />
