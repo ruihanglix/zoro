@@ -5,14 +5,13 @@
 mod commands;
 mod connector;
 pub mod log_buffer;
+mod menu;
 pub mod sidecar;
 mod storage;
 mod subscriptions;
 
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
-#[cfg(target_os = "macos")]
-use tauri::menu::{MenuBuilder, PredefinedMenuItem, SubmenuBuilder};
 use tauri::Manager;
 use tokio_util::sync::CancellationToken;
 use tracing_subscriber::layer::SubscriberExt;
@@ -122,18 +121,11 @@ pub fn run() {
                 main_window.create_overlay_titlebar().unwrap();
                 main_window.set_traffic_lights_inset(16.0, 14.0).unwrap();
 
-                // Native menu so Cmd+C/V/X/A work on macOS
-                let edit_menu = SubmenuBuilder::new(app, "Edit")
-                    .item(&PredefinedMenuItem::undo(app, None)?)
-                    .item(&PredefinedMenuItem::redo(app, None)?)
-                    .separator()
-                    .item(&PredefinedMenuItem::cut(app, None)?)
-                    .item(&PredefinedMenuItem::copy(app, None)?)
-                    .item(&PredefinedMenuItem::paste(app, None)?)
-                    .item(&PredefinedMenuItem::select_all(app, None)?)
-                    .build()?;
-                let menu = MenuBuilder::new(app).item(&edit_menu).build()?;
-                app.set_menu(menu)?;
+                // Build full native menu bar (File / Edit / View / Window / Help)
+                let menu_handle = app.handle();
+                let native_menu = menu::build_menu(menu_handle, "en")?;
+                app.set_menu(native_menu)?;
+                menu::register_menu_event_handler(menu_handle);
             }
 
             // Windows/Linux: remove native title bar and menu bar
@@ -618,6 +610,8 @@ commands::debug::push_frontend_log,
             commands::updater::install_update,
             commands::updater::get_updater_config,
             commands::updater::update_updater_config,
+            // Menu
+            menu::set_menu_language,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

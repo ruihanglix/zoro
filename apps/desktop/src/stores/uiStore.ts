@@ -11,6 +11,7 @@ import {
 } from "@/lib/columnConfig";
 import i18n from "@/lib/i18n";
 import type { SupportedLanguage } from "@/lib/i18n";
+import { invoke } from "@tauri-apps/api/core";
 import { useEffect, useState } from "react";
 import { create } from "zustand";
 
@@ -328,6 +329,7 @@ export const useUiStore = create<UiState>((set, get) => ({
 		localStorage.setItem("zoro-ui-language", lang);
 		i18n.changeLanguage(lang);
 		set({ language: lang });
+		invoke("set_menu_language", { lang }).catch(() => {});
 	},
 	setUiScale: (scale) => {
 		const clamped = Math.max(0.5, Math.min(2, scale));
