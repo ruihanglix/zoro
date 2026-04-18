@@ -44,10 +44,8 @@ export function PaperCardGrid() {
 	useEffect(() => {
 		const handler = (e: KeyboardEvent) => {
 			if ((e.metaKey || e.ctrlKey) && e.key === "a") {
-				if (
-					gridRef.current?.contains(document.activeElement) ||
-					gridRef.current?.contains(e.target as Node)
-				) {
+				const tag = (e.target as HTMLElement).tagName;
+				if (tag !== "INPUT" && tag !== "TEXTAREA" && !(e.target as HTMLElement).isContentEditable) {
 					e.preventDefault();
 					selectAllPapers();
 				}
@@ -74,6 +72,7 @@ export function PaperCardGrid() {
 				}
 				setSelectedPaper(paper);
 			}
+			gridRef.current?.focus();
 		},
 		[
 			setSelectedPaper,

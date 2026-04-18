@@ -497,6 +497,7 @@ commands::debug::push_frontend_log,
                 commands::debug::update_log_config,
                 commands::debug::get_html_fetch_config,
                 commands::debug::update_html_fetch_config,
+                commands::debug::fetch_all_missing_arxiv_html,
             // Sync
             commands::sync::test_webdav_connection,
             commands::sync::save_sync_config,

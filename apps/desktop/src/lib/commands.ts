@@ -533,6 +533,9 @@ export const updateHtmlFetchConfig = (
 		htmlFetchDelaySecs: htmlFetchDelaySecs ?? null,
 	});
 
+export const fetchAllMissingArxivHtml = () =>
+	invoke<number>("fetch_all_missing_arxiv_html");
+
 // Citation
 export const enrichPaperMetadata = (paperId: string) =>
 	invoke<PaperResponse>("enrich_paper_metadata", { paperId });

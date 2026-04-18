@@ -641,6 +641,8 @@ export function Settings() {
 	const [htmlFetchConcurrency, setHtmlFetchConcurrency] = useState(2);
 	const [htmlFetchDelaySecs, setHtmlFetchDelaySecs] = useState(3);
 	const [htmlFetchConfigLoaded, setHtmlFetchConfigLoaded] = useState(false);
+	const [fetchAllMissingLoading, setFetchAllMissingLoading] = useState(false);
+	const [fetchAllMissingResult, setFetchAllMissingResult] = useState<number | null>(null);
 
 	const theme = useUiStore((s) => s.theme);
 	const setTheme = useUiStore((s) => s.setTheme);
@@ -1226,6 +1228,19 @@ export function Settings() {
 			setHtmlFetchDelaySecs(value);
 		} catch (err) {
 			logger.error("settings", "Failed to update HTML fetch delay", err);
+		}
+	};
+
+	const handleFetchAllMissing = async () => {
+		setFetchAllMissingLoading(true);
+		setFetchAllMissingResult(null);
+		try {
+			const count = await commands.fetchAllMissingArxivHtml();
+			setFetchAllMissingResult(count);
+		} catch (err) {
+			logger.error("settings", "Failed to fetch all missing arXiv HTML", err);
+		} finally {
+			setFetchAllMissingLoading(false);
 		}
 	};
 
@@ -2068,6 +2083,30 @@ export function Settings() {
 											</div>
 										</div>
 									)}
+									<div className="flex items-center gap-2 mt-2">
+										<Button
+											variant="outline"
+											size="sm"
+											className="text-xs h-7"
+											disabled={fetchAllMissingLoading}
+											onClick={handleFetchAllMissing}
+										>
+											{fetchAllMissingLoading && (
+												<Loader2 className="w-3 h-3 mr-1 animate-spin" />
+											)}
+											{t("settings.fetchAllMissingHtml")}
+										</Button>
+										{fetchAllMissingResult !== null && (
+											<span className="text-xs text-muted-foreground">
+												{t("settings.fetchAllMissingHtmlEnqueued", {
+													count: fetchAllMissingResult,
+												})}
+											</span>
+										)}
+									</div>
+									<p className="text-[11px] text-muted-foreground">
+										{t("settings.fetchAllMissingHtmlDesc")}
+									</p>
 								</div>
 
 								<Separator />
