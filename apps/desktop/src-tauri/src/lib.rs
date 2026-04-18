@@ -50,6 +50,8 @@ pub struct AppState {
     pub active_html_translations: Arc<Mutex<std::collections::HashSet<String>>>,
     /// Whether debug mode is currently enabled (toggled at runtime).
     pub debug_mode: std::sync::atomic::AtomicBool,
+    /// Semaphore to limit concurrent arXiv HTML fetch tasks.
+    pub html_fetch_semaphore: Arc<tokio::sync::Semaphore>,
 }
 
 pub fn make_filter(debug: bool) -> EnvFilter {
@@ -185,6 +187,9 @@ pub fn run() {
                 terminals: Mutex::new(commands::terminal::new_terminal_map()),
                 active_html_translations: Arc::new(Mutex::new(std::collections::HashSet::new())),
                 debug_mode: std::sync::atomic::AtomicBool::new(false),
+                html_fetch_semaphore: Arc::new(tokio::sync::Semaphore::new(
+                    config.general.html_fetch_concurrency.max(1) as usize,
+                )),
             });
 
             // Initialize sync state
@@ -490,6 +495,8 @@ pub fn run() {
 commands::debug::push_frontend_log,
                 commands::debug::get_log_config,
                 commands::debug::update_log_config,
+                commands::debug::get_html_fetch_config,
+                commands::debug::update_html_fetch_config,
             // Sync
             commands::sync::test_webdav_connection,
             commands::sync::save_sync_config,

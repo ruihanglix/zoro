@@ -140,3 +140,57 @@ pub async fn update_log_config(
 
     Ok(())
 }
+
+/// Response for the HTML fetch configuration.
+#[derive(Debug, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct HtmlFetchConfigResponse {
+    pub auto_fetch_arxiv_html: bool,
+    pub html_fetch_concurrency: u32,
+    pub html_fetch_delay_secs: u32,
+}
+
+/// Get the current HTML fetch configuration.
+#[tauri::command]
+pub async fn get_html_fetch_config(
+    state: State<'_, AppState>,
+) -> Result<HtmlFetchConfigResponse, String> {
+    let config = state
+        .config
+        .lock()
+        .map_err(|e| format!("Config lock error: {}", e))?;
+    Ok(HtmlFetchConfigResponse {
+        auto_fetch_arxiv_html: config.general.auto_fetch_arxiv_html,
+        html_fetch_concurrency: config.general.html_fetch_concurrency,
+        html_fetch_delay_secs: config.general.html_fetch_delay_secs,
+    })
+}
+
+/// Update the HTML fetch configuration. Concurrency changes require app restart.
+#[tauri::command]
+pub async fn update_html_fetch_config(
+    state: State<'_, AppState>,
+    auto_fetch_arxiv_html: Option<bool>,
+    html_fetch_concurrency: Option<u32>,
+    html_fetch_delay_secs: Option<u32>,
+) -> Result<(), String> {
+    let mut config = state
+        .config
+        .lock()
+        .map_err(|e| format!("Config lock error: {}", e))?;
+
+    if let Some(v) = auto_fetch_arxiv_html {
+        config.general.auto_fetch_arxiv_html = v;
+    }
+    if let Some(v) = html_fetch_concurrency {
+        config.general.html_fetch_concurrency = v;
+    }
+    if let Some(v) = html_fetch_delay_secs {
+        config.general.html_fetch_delay_secs = v;
+    }
+
+    crate::storage::config::save_config(&state.data_dir, &config)
+        .map_err(|e| format!("Failed to save config: {}", e))?;
+
+    Ok(())
+}
