@@ -379,7 +379,7 @@ export function PaperTable() {
 											}}
 											onPointerDown={(e) => handleColumnDragStart(e, col.id)}
 										>
-											<span className="truncate">{def.label}</span>
+											<span className="truncate">{t(def.label)}</span>
 											{isSortable && def.sortField && (
 												<SortIcon
 													field={def.sortField}
@@ -419,7 +419,7 @@ export function PaperTable() {
 										onCheckedChange={() => toggleColumnVisibility(def.id)}
 										onSelect={(e) => e.preventDefault()}
 									>
-										{def.label}
+										{t(def.label)}
 									</ContextMenuCheckboxItem>
 								);
 							})}

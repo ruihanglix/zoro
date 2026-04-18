@@ -362,7 +362,7 @@ export function AnnotationSidePanel({
 										{ann.type === "area" && ann.imageData && (
 											<img
 												src={ann.imageData}
-												alt="Area highlight"
+												alt={t("annotation.areaHighlight")}
 												className="mt-1 rounded border max-h-20 w-full object-contain"
 											/>
 										)}
@@ -370,7 +370,7 @@ export function AnnotationSidePanel({
 										{/* Ink annotation label */}
 										{ann.type === "ink" && !ann.selectedText && (
 											<p className="text-[11px] text-muted-foreground italic mt-0.5">
-												Ink drawing
+												{t("annotation.inkDrawing")}
 											</p>
 										)}
 

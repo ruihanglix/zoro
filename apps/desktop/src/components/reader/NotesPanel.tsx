@@ -73,12 +73,12 @@ export function NotesPanel({ paperId, onCitationJump }: NotesPanelProps) {
 						<ArrowLeft className="h-3.5 w-3.5" />
 					</button>
 					<span className="flex-1 truncate text-xs text-muted-foreground">
-						{extractTitle(activeNote.content)}
+						{extractTitle(activeNote.content) || t("notes.untitledNote")}
 					</span>
 					{saving && (
 						<span className="text-[10px] text-muted-foreground flex items-center gap-1">
 							<Loader2 className="h-3 w-3 animate-spin" />
-							Saving
+							{t("common.saving")}
 						</span>
 					)}
 				</div>
@@ -98,7 +98,7 @@ export function NotesPanel({ paperId, onCitationJump }: NotesPanelProps) {
 			{/* List header */}
 			<div className="flex items-center justify-between border-b px-3 py-1.5">
 				<span className="text-xs font-medium text-muted-foreground">
-					{notes.length} {notes.length === 1 ? "note" : "notes"}
+					{t("notes.noteCount", { count: notes.length })}
 				</span>
 				<button
 					type="button"
@@ -140,7 +140,7 @@ export function NotesPanel({ paperId, onCitationJump }: NotesPanelProps) {
 							>
 								<div className="flex items-start justify-between gap-2">
 									<p className="text-xs font-medium line-clamp-2 flex-1">
-										{extractTitle(note.content) || "Untitled note"}
+										{extractTitle(note.content) || t("notes.untitledNote")}
 									</p>
 									<button
 										type="button"
@@ -152,7 +152,7 @@ export function NotesPanel({ paperId, onCitationJump }: NotesPanelProps) {
 									</button>
 								</div>
 								<p className="text-[10px] text-muted-foreground mt-1">
-									{formatDate(note.modified_date)}
+									{formatDate(note.modified_date, t)}
 								</p>
 							</button>
 						))}
@@ -164,21 +164,21 @@ export function NotesPanel({ paperId, onCitationJump }: NotesPanelProps) {
 }
 
 function extractTitle(content: string): string {
-	if (!content.trim()) return "Untitled note";
+	if (!content.trim()) return "";
 	const firstLine = content.trim().split("\n")[0];
-	return firstLine.replace(/^#+\s*/, "").slice(0, 80) || "Untitled note";
+	return firstLine.replace(/^#+\s*/, "").slice(0, 80) || "";
 }
 
-function formatDate(dateStr: string): string {
+function formatDate(dateStr: string, t: (key: string, opts?: Record<string, unknown>) => string): string {
 	try {
 		const d = new Date(dateStr);
 		const now = new Date();
 		const diffMs = now.getTime() - d.getTime();
 		const diffMin = Math.floor(diffMs / 60000);
-		if (diffMin < 1) return "Just now";
-		if (diffMin < 60) return `${diffMin}m ago`;
+		if (diffMin < 1) return t("common.justNow");
+		if (diffMin < 60) return t("common.minutesAgo", { count: diffMin });
 		const diffHr = Math.floor(diffMin / 60);
-		if (diffHr < 24) return `${diffHr}h ago`;
+		if (diffHr < 24) return t("common.hoursAgo", { count: diffHr });
 		return d.toLocaleDateString();
 	} catch {
 		return dateStr;
