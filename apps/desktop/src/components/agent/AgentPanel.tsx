@@ -56,7 +56,10 @@ import {
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import Markdown from "react-markdown";
+import rehypeKatex from "rehype-katex";
 import remarkGfm from "remark-gfm";
+import remarkMath from "remark-math";
+import "katex/dist/katex.min.css";
 
 interface AgentPanelProps {
 	cwd?: string;
@@ -1608,7 +1611,7 @@ function AgentMessageBubble({
 						"prose-img:rounded-md",
 					)}
 				>
-					<Markdown remarkPlugins={[remarkGfm]}>{message.text}</Markdown>
+					<Markdown remarkPlugins={[remarkGfm, remarkMath]} rehypePlugins={[rehypeKatex]}>{message.text}</Markdown>
 				</div>
 			</div>
 			<div className="flex items-center gap-1 h-5">
