@@ -784,6 +784,7 @@ export function PdfAnnotationViewer({
 	//
 	// zoomLevel in the store is a *relative* multiplier (1 = fit-to-width).
 	// Actual pdf.js scale = baseScaleRef.current * zoomLevel.
+	// Zoom is centred on the pointer position for a natural feel.
 	useEffect(() => {
 		const el = containerRef.current;
 		if (!el) return;
@@ -797,8 +798,16 @@ export function PdfAnnotationViewer({
 		// the correct relative transform.
 		let committedZoom = targetZoom;
 
+		// Pointer position for anchor-based zoom (relative to scroll container viewport)
+		let pointerClientX = 0;
+		let pointerClientY = 0;
+
 		const getPdfViewerEl = () =>
 			el.querySelector(".pdfViewer") as HTMLElement | null;
+
+		// The scroll container is the react-pdf-highlighter ._container_ div
+		const getScrollContainer = () =>
+			el.querySelector("[class*='_container_']") as HTMLElement | null;
 
 		const getPdfJsViewer = () => {
 			const hlRef = pdfHighlighterRef.current as unknown as Record<
@@ -829,19 +838,47 @@ export function PdfAnnotationViewer({
 		const applyVisualZoom = (newTarget: number) => {
 			targetZoom = clampZoom(newTarget);
 			const viewerEl = getPdfViewerEl();
-			if (!viewerEl) return;
+			const scrollContainer = getScrollContainer();
+			if (!viewerEl || !scrollContainer) return;
+
 			const scaleFactor = targetZoom / committedZoom;
-			viewerEl.style.transformOrigin = "0 0";
+
+			// Compute transform-origin so the pointer position stays fixed.
+			// Origin must be in .pdfViewer coordinates (which is the transformed element).
+			const containerRect = scrollContainer.getBoundingClientRect();
+			const originX = pointerClientX - containerRect.left + scrollContainer.scrollLeft;
+			const originY = pointerClientY - containerRect.top + scrollContainer.scrollTop;
+
+			viewerEl.style.transformOrigin = `${originX}px ${originY}px`;
 			viewerEl.style.transform = `scale(${scaleFactor})`;
 		};
 
 		const commitZoom = () => {
 			commitTimer = null;
 			const viewerEl = getPdfViewerEl();
+			const scrollContainer = getScrollContainer();
+
+			// Snapshot the pointer's document-position before clearing transform
+			// so we can restore it after pdf.js re-renders at the new scale.
+			let anchorDocX = 0;
+			let anchorDocY = 0;
+			if (scrollContainer) {
+				const containerRect = scrollContainer.getBoundingClientRect();
+				// Where the pointer is in the *content* coordinate system (at old committed scale)
+				const contentX = (pointerClientX - containerRect.left + scrollContainer.scrollLeft);
+				const contentY = (pointerClientY - containerRect.top + scrollContainer.scrollTop);
+				// Convert to "document" coordinates (independent of zoom) by dividing by old committed scale factor
+				const oldBase = baseScaleRef.current || 1;
+				const oldAbsoluteScale = oldBase * committedZoom;
+				anchorDocX = contentX / oldAbsoluteScale;
+				anchorDocY = contentY / oldAbsoluteScale;
+			}
+
 			if (viewerEl) {
 				viewerEl.style.transform = "";
 				viewerEl.style.transformOrigin = "";
 			}
+
 			// Update store (for UI display, e.g. ZoomControls percentage)
 			useAnnotationStore.getState().setZoomLevel(targetZoom);
 			// Tell pdf.js to re-render canvases at the new scale → sharp text
@@ -850,6 +887,17 @@ export function PdfAnnotationViewer({
 			if (pdfViewer) {
 				pdfViewer.currentScale = base * targetZoom;
 			}
+
+			// Adjust scroll so the pointer position stays over the same content
+			if (scrollContainer) {
+				const containerRect = scrollContainer.getBoundingClientRect();
+				const newAbsoluteScale = base * targetZoom;
+				const newContentX = anchorDocX * newAbsoluteScale;
+				const newContentY = anchorDocY * newAbsoluteScale;
+				scrollContainer.scrollLeft = newContentX - (pointerClientX - containerRect.left);
+				scrollContainer.scrollTop = newContentY - (pointerClientY - containerRect.top);
+			}
+
 			committedZoom = targetZoom;
 		};
 
@@ -861,6 +909,8 @@ export function PdfAnnotationViewer({
 		const handleWheel = (e: WheelEvent) => {
 			if (!e.ctrlKey && !e.metaKey) return;
 			e.preventDefault();
+			pointerClientX = e.clientX;
+			pointerClientY = e.clientY;
 			applyVisualZoom(targetZoom * (1 - e.deltaY * 0.01));
 			scheduleCommit();
 		};
@@ -871,12 +921,19 @@ export function PdfAnnotationViewer({
 			e.preventDefault();
 			if (commitTimer) clearTimeout(commitTimer);
 			gestureBaseZoom = targetZoom;
+			// Safari gesture events don't have clientX/Y on gesturestart,
+			// but the pointer position from the last mousemove/wheel is fine.
 		};
 
 		const handleGestureChange = (e: Event) => {
 			e.preventDefault();
-			const s = (e as unknown as { scale: number }).scale;
-			applyVisualZoom(gestureBaseZoom * s);
+			const ge = e as unknown as { scale: number; clientX?: number; clientY?: number };
+			// Update pointer position if available (Safari provides it on gesturechange)
+			if (ge.clientX != null && ge.clientY != null) {
+				pointerClientX = ge.clientX;
+				pointerClientY = ge.clientY;
+			}
+			applyVisualZoom(gestureBaseZoom * ge.scale);
 		};
 
 		const handleGestureEnd = (e: Event) => {
@@ -884,6 +941,13 @@ export function PdfAnnotationViewer({
 			commitZoom();
 		};
 
+		// Track pointer position continuously so we always have a fresh anchor
+		const handlePointerMove = (e: PointerEvent) => {
+			pointerClientX = e.clientX;
+			pointerClientY = e.clientY;
+		};
+
+		el.addEventListener("pointermove", handlePointerMove, { passive: true });
 		el.addEventListener("wheel", handleWheel, { passive: false });
 		el.addEventListener("gesturestart", handleGestureStart, { passive: false });
 		el.addEventListener("gesturechange", handleGestureChange, {
@@ -912,6 +976,7 @@ export function PdfAnnotationViewer({
 			if (commitTimer) clearTimeout(commitTimer);
 			if (baseScaleTimer) clearTimeout(baseScaleTimer);
 			unsubZoom();
+			el.removeEventListener("pointermove", handlePointerMove);
 			el.removeEventListener("wheel", handleWheel);
 			el.removeEventListener("gesturestart", handleGestureStart);
 			el.removeEventListener("gesturechange", handleGestureChange);
