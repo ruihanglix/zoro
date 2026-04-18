@@ -141,6 +141,76 @@ pub async fn update_log_config(
     Ok(())
 }
 
+/// Batch-fetch missing arXiv HTML for all papers that have an arXiv ID but no
+/// downloaded `paper.html`. Returns the number of papers enqueued.
+#[tauri::command]
+pub async fn fetch_all_missing_arxiv_html(
+    app: tauri::AppHandle,
+    state: State<'_, AppState>,
+) -> Result<i32, String> {
+    use zoro_db::queries::papers;
+
+    let (rows, data_dir, semaphore, delay_secs) = {
+        let db = state
+            .db
+            .lock()
+            .map_err(|e| format!("DB lock error: {}", e))?;
+        let filter = papers::PaperFilter {
+            collection_id: None,
+            tag_name: None,
+            read_status: None,
+            search_query: None,
+            uncategorized: None,
+            sort_by: None,
+            sort_order: None,
+            limit: Some(100_000),
+            offset: None,
+        };
+        let rows = papers::list_papers(&db.conn, &filter)
+            .map_err(|e| format!("Failed to list papers: {}", e))?;
+        let delay = state
+            .config
+            .lock()
+            .map(|c| c.general.html_fetch_delay_secs)
+            .unwrap_or(3);
+        (
+            rows,
+            state.data_dir.clone(),
+            state.html_fetch_semaphore.clone(),
+            delay,
+        )
+    };
+
+    let db_path = data_dir.join("library.db");
+    let mut count = 0i32;
+
+    for row in &rows {
+        let arxiv_id = match row.arxiv_id.as_deref() {
+            Some(id) if !id.is_empty() => id,
+            _ => continue,
+        };
+        let paper_dir = data_dir.join("library").join(&row.dir_path);
+        let html_path = paper_dir.join("paper.html");
+        if html_path.exists() {
+            continue;
+        }
+
+        crate::connector::handlers::enqueue_html_fetch(
+            &app,
+            semaphore.clone(),
+            &db_path,
+            delay_secs,
+            &row.id,
+            &row.title,
+            arxiv_id,
+            &paper_dir,
+        );
+        count += 1;
+    }
+
+    Ok(count)
+}
+
 /// Response for the HTML fetch configuration.
 #[derive(Debug, serde::Serialize)]
 #[serde(rename_all = "camelCase")]

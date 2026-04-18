@@ -651,10 +651,49 @@ pub async fn fetch_arxiv_html_background(
     }
 }
 
+/// Enqueue a semaphore-gated arXiv HTML fetch for a single paper.
+/// Does NOT check the config enabled flag — the caller is responsible for that.
+pub fn enqueue_html_fetch(
+    app: &tauri::AppHandle,
+    semaphore: Arc<tokio::sync::Semaphore>,
+    db_path: &std::path::Path,
+    delay_secs: u32,
+    paper_id: &str,
+    paper_title: &str,
+    arxiv_id: &str,
+    paper_dir: &std::path::Path,
+) {
+    let app = app.clone();
+    let db_path = db_path.to_path_buf();
+    let paper_id = paper_id.to_string();
+    let paper_title = paper_title.to_string();
+    let arxiv_id = arxiv_id.to_string();
+    let paper_dir = paper_dir.to_path_buf();
+
+    tokio::spawn(async move {
+        let _permit = match semaphore.acquire().await {
+            Ok(p) => p,
+            Err(_) => return,
+        };
+        if delay_secs > 0 {
+            tokio::time::sleep(std::time::Duration::from_secs(delay_secs as u64)).await;
+        }
+        fetch_arxiv_html_background(
+            &app,
+            &db_path,
+            &paper_id,
+            &paper_title,
+            &arxiv_id,
+            &paper_dir,
+        )
+        .await;
+    });
+}
+
 /// Conditionally enqueue an arXiv HTML fetch for a paper.
 /// Checks the `auto_fetch_arxiv_html` config flag, verifies an arxiv_id is
-/// present and `paper.html` doesn't already exist, then spawns a
-/// semaphore-gated background task.
+/// present and `paper.html` doesn't already exist, then delegates to
+/// `enqueue_html_fetch`.
 pub fn maybe_enqueue_html_fetch(
     app: &tauri::AppHandle,
     state: &crate::AppState,
@@ -688,32 +727,16 @@ pub fn maybe_enqueue_html_fetch(
         return;
     }
 
-    let semaphore = state.html_fetch_semaphore.clone();
-    let app = app.clone();
-    let db_path = state.data_dir.join("zoro.db");
-    let paper_id = paper_id.to_string();
-    let paper_title = paper_title.to_string();
-    let arxiv_id = arxiv_id.to_string();
-    let paper_dir = paper_dir.to_path_buf();
-
-    tokio::spawn(async move {
-        let _permit = match semaphore.acquire().await {
-            Ok(p) => p,
-            Err(_) => return,
-        };
-        if delay_secs > 0 {
-            tokio::time::sleep(std::time::Duration::from_secs(delay_secs as u64)).await;
-        }
-        fetch_arxiv_html_background(
-            &app,
-            &db_path,
-            &paper_id,
-            &paper_title,
-            &arxiv_id,
-            &paper_dir,
-        )
-        .await;
-    });
+    enqueue_html_fetch(
+        app,
+        state.html_fetch_semaphore.clone(),
+        &state.data_dir.join("library.db"),
+        delay_secs,
+        paper_id,
+        paper_title,
+        arxiv_id,
+        paper_dir,
+    );
 }
 
 pub async fn save_html(

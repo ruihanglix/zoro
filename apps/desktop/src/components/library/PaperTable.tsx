@@ -81,11 +81,8 @@ export function PaperTable() {
 	useEffect(() => {
 		const handler = (e: KeyboardEvent) => {
 			if ((e.metaKey || e.ctrlKey) && e.key === "a") {
-				// Only handle when focus is within the table
-				if (
-					tableRef.current?.contains(document.activeElement) ||
-					tableRef.current?.contains(e.target as Node)
-				) {
+				const tag = (e.target as HTMLElement).tagName;
+				if (tag !== "INPUT" && tag !== "TEXTAREA" && !(e.target as HTMLElement).isContentEditable) {
 					e.preventDefault();
 					selectAllPapers();
 				}
@@ -113,6 +110,7 @@ export function PaperTable() {
 				}
 				setSelectedPaper(paper);
 			}
+			tableRef.current?.focus();
 		},
 		[
 			setSelectedPaper,
