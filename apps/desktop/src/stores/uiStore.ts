@@ -20,6 +20,7 @@ type View = "library" | "feed" | "papers-cool" | "plugins";
 type ListMode = "list" | "card";
 export type Theme = "light" | "dark" | "system";
 export type CitationPreviewMode = "auto" | "text" | "image" | "off";
+export type BilingualLayout = "interleaved" | "side-by-side";
 
 export type HtmlReaderFontFamily =
 	| "system"
@@ -145,6 +146,9 @@ interface UiState {
 	// HTML reader typography
 	htmlReaderTypography: HtmlReaderTypography;
 
+	// Bilingual layout mode
+	bilingualLayout: BilingualLayout;
+
 	// Column configuration (order = array order)
 	columns: ColumnState[];
 
@@ -183,6 +187,9 @@ interface UiState {
 	// HTML reader typography actions
 	setHtmlReaderTypography: (typography: Partial<HtmlReaderTypography>) => void;
 	resetHtmlReaderTypography: () => void;
+
+	// Bilingual layout actions
+	setBilingualLayout: (layout: BilingualLayout) => void;
 
 	// Column actions
 	setColumns: (columns: ColumnState[]) => void;
@@ -249,6 +256,11 @@ export const useUiStore = create<UiState>((set, get) => ({
 	htmlReaderTypography: loadSetting<HtmlReaderTypography>(
 		"zoro-html-reader-typography",
 		DEFAULT_HTML_READER_TYPOGRAPHY,
+	),
+
+	bilingualLayout: loadSetting<BilingualLayout>(
+		"zoro-bilingual-layout",
+		"interleaved",
 	),
 
 	setView: (view) => set({ view }),
@@ -333,6 +345,11 @@ export const useUiStore = create<UiState>((set, get) => ({
 	resetHtmlReaderTypography: () => {
 		saveSetting("zoro-html-reader-typography", DEFAULT_HTML_READER_TYPOGRAPHY);
 		set({ htmlReaderTypography: DEFAULT_HTML_READER_TYPOGRAPHY });
+	},
+
+	setBilingualLayout: (layout) => {
+		saveSetting("zoro-bilingual-layout", layout);
+		set({ bilingualLayout: layout });
 	},
 
 	setColumns: (columns) => {

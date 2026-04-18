@@ -31,6 +31,7 @@ import { useUiStore } from "@/stores/uiStore";
 import type {
 	CitationPreviewMode,
 	HtmlReaderFontFamily,
+	BilingualLayout,
 	Theme,
 } from "@/stores/uiStore";
 import { listen } from "@tauri-apps/api/event";
@@ -635,6 +636,12 @@ export function Settings() {
 	const [logRetentionDays, setLogRetentionDays] = useState(7);
 	const [logConfigLoaded, setLogConfigLoaded] = useState(false);
 
+	// HTML fetch config
+	const [autoFetchArxivHtml, setAutoFetchArxivHtml] = useState(false);
+	const [htmlFetchConcurrency, setHtmlFetchConcurrency] = useState(2);
+	const [htmlFetchDelaySecs, setHtmlFetchDelaySecs] = useState(3);
+	const [htmlFetchConfigLoaded, setHtmlFetchConfigLoaded] = useState(false);
+
 	const theme = useUiStore((s) => s.theme);
 	const setTheme = useUiStore((s) => s.setTheme);
 	const confirmBeforeDelete = useUiStore((s) => s.confirmBeforeDelete);
@@ -663,6 +670,8 @@ export function Settings() {
 	const resetHtmlReaderTypography = useUiStore(
 		(s) => s.resetHtmlReaderTypography,
 	);
+	const bilingualLayout = useUiStore((s) => s.bilingualLayout);
+	const setBilingualLayout = useUiStore((s) => s.setBilingualLayout);
 
 	// Lab store — Free LLM Proxy
 	const labEnabled = useLabStore((s) => s.enabled);
@@ -1008,6 +1017,12 @@ export function Settings() {
 			setLogRetentionDays(cfg.logRetentionDays);
 			setLogConfigLoaded(true);
 		}).catch((e: unknown) => logger.error("settings", "Failed to load log config", e));
+		commands.getHtmlFetchConfig().then((cfg) => {
+			setAutoFetchArxivHtml(cfg.autoFetchArxivHtml);
+			setHtmlFetchConcurrency(cfg.htmlFetchConcurrency);
+			setHtmlFetchDelaySecs(cfg.htmlFetchDelaySecs);
+			setHtmlFetchConfigLoaded(true);
+		}).catch((e: unknown) => logger.error("settings", "Failed to load HTML fetch config", e));
 		fetchSubscriptions();
 		fetchStorageInfo();
 		fetchSyncStatus();
@@ -1184,6 +1199,33 @@ export function Settings() {
 			setLogRetentionDays(days);
 		} catch (err) {
 			logger.error("settings", "Failed to update log retention", err);
+		}
+	};
+
+	const handleAutoFetchToggle = async (enabled: boolean) => {
+		try {
+			await commands.updateHtmlFetchConfig(enabled, undefined, undefined);
+			setAutoFetchArxivHtml(enabled);
+		} catch (err) {
+			logger.error("settings", "Failed to update HTML fetch config", err);
+		}
+	};
+
+	const handleHtmlFetchConcurrencySave = async (value: number) => {
+		try {
+			await commands.updateHtmlFetchConfig(undefined, value, undefined);
+			setHtmlFetchConcurrency(value);
+		} catch (err) {
+			logger.error("settings", "Failed to update HTML fetch concurrency", err);
+		}
+	};
+
+	const handleHtmlFetchDelaySave = async (value: number) => {
+		try {
+			await commands.updateHtmlFetchConfig(undefined, undefined, value);
+			setHtmlFetchDelaySecs(value);
+		} catch (err) {
+			logger.error("settings", "Failed to update HTML fetch delay", err);
 		}
 	};
 
@@ -1968,6 +2010,68 @@ export function Settings() {
 
 								<Separator />
 
+								{/* Downloads */}
+								<div className="space-y-2">
+									<p className="text-xs font-medium">
+										{t("settings.downloads")}
+									</p>
+									<label className="flex items-center gap-2 text-sm cursor-pointer">
+										<input
+											type="checkbox"
+											checked={autoFetchArxivHtml}
+											onChange={(e) => handleAutoFetchToggle(e.target.checked)}
+											disabled={!htmlFetchConfigLoaded}
+											className="rounded"
+										/>
+										{t("settings.autoFetchArxivHtml")}
+									</label>
+									<p className="text-[11px] text-muted-foreground ml-5">
+										{t("settings.autoFetchArxivHtmlDesc")}
+									</p>
+									{autoFetchArxivHtml && (
+										<div className="ml-5 space-y-2">
+											<div className="flex items-center gap-2">
+												<label className="text-xs text-muted-foreground">
+													{t("settings.htmlFetchConcurrency")}
+												</label>
+												<input
+													type="number"
+													min={1}
+													max={8}
+													value={htmlFetchConcurrency}
+													onChange={(e) => {
+														const v = Number.parseInt(e.target.value, 10);
+														if (v >= 1 && v <= 8) {
+															handleHtmlFetchConcurrencySave(v);
+														}
+													}}
+													className="w-16 rounded border bg-background px-2 py-0.5 text-xs"
+												/>
+											</div>
+											<div className="flex items-center gap-2">
+												<label className="text-xs text-muted-foreground">
+													{t("settings.htmlFetchDelay")}
+												</label>
+												<input
+													type="number"
+													min={0}
+													max={30}
+													value={htmlFetchDelaySecs}
+													onChange={(e) => {
+														const v = Number.parseInt(e.target.value, 10);
+														if (v >= 0 && v <= 30) {
+															handleHtmlFetchDelaySave(v);
+														}
+													}}
+													className="w-16 rounded border bg-background px-2 py-0.5 text-xs"
+												/>
+											</div>
+										</div>
+									)}
+								</div>
+
+								<Separator />
+
 								{/* Reader */}
 								<div className="space-y-2">
 									<p className="text-xs font-medium">{t("settings.reader")}</p>
@@ -2229,6 +2333,36 @@ export function Settings() {
 												className="mt-1 w-full accent-primary"
 											/>
 										</div>
+									</div>
+
+									{/* Bilingual Layout */}
+									<div>
+										<label
+											className="text-xs text-muted-foreground"
+											htmlFor="bilingual-layout"
+										>
+											{t("settings.bilingualLayout")}
+										</label>
+										<p className="text-[11px] text-muted-foreground mt-0.5 mb-1">
+											{t("settings.bilingualLayoutDesc")}
+										</p>
+										<select
+											id="bilingual-layout"
+											value={bilingualLayout}
+											onChange={(e) =>
+												setBilingualLayout(
+													e.target.value as BilingualLayout,
+												)
+											}
+											className="h-8 w-full max-w-[280px] rounded-md border bg-transparent px-2 text-sm"
+										>
+											<option value="interleaved">
+												{t("settings.bilingualLayoutInterleaved")}
+											</option>
+											<option value="side-by-side">
+												{t("settings.bilingualLayoutSideBySide")}
+											</option>
+										</select>
 									</div>
 
 									{/* Reset */}

@@ -2099,6 +2099,7 @@ function HtmlReader({
 	const localHtmlHeadingsRef = useRef<unknown[]>([]);
 	const isDark = useIsDarkMode();
 	const htmlReaderTypography = useUiStore((s) => s.htmlReaderTypography);
+	const bilingualLayout = useUiStore((s) => s.bilingualLayout);
 	const zoomLevel = useAnnotationStore((s) => s.zoomLevel);
 	const annotations = useAnnotationStore((s) => s.annotations);
 	const activeTool = useAnnotationStore((s) => s.activeTool);
@@ -2268,6 +2269,12 @@ function HtmlReader({
 		if (!iframeReadyRef.current) return;
 		postToIframe({ type: "zr-html-set-display-mode", mode: displayMode });
 	}, [displayMode, postToIframe]);
+
+	// Sync bilingual layout (interleaved / side-by-side) to iframe
+	useEffect(() => {
+		if (!iframeReadyRef.current) return;
+		postToIframe({ type: "zr-html-set-bilingual-layout", layout: bilingualLayout });
+	}, [bilingualLayout, postToIframe]);
 
 	// Send annotations to iframe whenever they change
 	useEffect(() => {
@@ -2477,6 +2484,11 @@ function HtmlReader({
 					postToIframe({
 						type: "zr-html-set-display-mode",
 						mode: useTranslationStore.getState().displayMode,
+					});
+					// Send current bilingual layout
+					postToIframe({
+						type: "zr-html-set-bilingual-layout",
+						layout: useUiStore.getState().bilingualLayout,
 					});
 					break;
 				}
@@ -2719,6 +2731,7 @@ function HtmlReader({
 
   var inGesture = false;
   var pzoom = 1;
+  var _bilingualLayout = 'interleaved';
   function applyVisualZoom(z) {
     pzoom = Math.max(0.5, Math.min(5, z));
     document.body.style.transformOrigin = '0 0';
@@ -2791,8 +2804,63 @@ function HtmlReader({
       var newEl = temp.firstElementChild;
       if (newEl && el.parentNode) {
         el.parentNode.insertBefore(newEl, el.nextSibling);
+        if (_bilingualLayout === 'side-by-side') {
+          _wrapPair(el, newEl);
+        }
       }
       break;
+    }
+  });
+
+  // Helper: wrap an original+translation pair in a flex container
+  function _wrapPair(origEl, transEl) {
+    if (origEl.parentNode && origEl.parentNode.classList && origEl.parentNode.classList.contains('zr-bilingual-pair')) return;
+    var wrapper = document.createElement('div');
+    wrapper.className = 'zr-bilingual-pair';
+    origEl.parentNode.insertBefore(wrapper, origEl);
+    wrapper.appendChild(origEl);
+    wrapper.appendChild(transEl);
+  }
+
+  // Bilingual layout: side-by-side vs interleaved
+  window.addEventListener('message', function(e) {
+    var data = e.data;
+    if (!data || data.type !== 'zr-html-set-bilingual-layout') return;
+    var layout = data.layout;
+    _bilingualLayout = layout;
+
+    var styleId = 'zr-bilingual-layout-style';
+    var style = document.getElementById(styleId);
+    if (!style) {
+      style = document.createElement('style');
+      style.id = styleId;
+      (document.head || document.documentElement).appendChild(style);
+    }
+
+    if (layout === 'side-by-side') {
+      style.textContent = '.zr-bilingual-pair { display: flex; gap: 16px; align-items: flex-start; } .zr-bilingual-pair > * { flex: 1; min-width: 0; } .zr-bilingual-pair .zr-translation-block { margin-top: 0; }';
+      // Wrap existing pairs
+      var originals = document.querySelectorAll('[data-zotero-translation="true"]:not(.zr-translation-block)');
+      for (var i = 0; i < originals.length; i++) {
+        var orig = originals[i];
+        if (orig.parentNode && orig.parentNode.classList && orig.parentNode.classList.contains('zr-bilingual-pair')) continue;
+        var trans = orig.nextElementSibling;
+        if (trans && trans.classList.contains('zr-translation-block')) {
+          _wrapPair(orig, trans);
+        }
+      }
+    } else {
+      style.textContent = '';
+      // Unwrap all pairs
+      var pairs = document.querySelectorAll('.zr-bilingual-pair');
+      for (var j = 0; j < pairs.length; j++) {
+        var pair = pairs[j];
+        var parent = pair.parentNode;
+        while (pair.firstChild) {
+          parent.insertBefore(pair.firstChild, pair);
+        }
+        parent.removeChild(pair);
+      }
     }
   });
 
