@@ -1632,3 +1632,7 @@ export const updateUpdaterConfig = (
 		autoCheck: autoCheck ?? null,
 		skippedVersion: skippedVersion ?? null,
 	});
+
+// Menu
+export const setMenuLanguage = (lang: string) =>
+	invoke<void>("set_menu_language", { lang });

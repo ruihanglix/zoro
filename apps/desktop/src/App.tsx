@@ -11,6 +11,7 @@ import { TabBar } from "@/components/layout/TabBar";
 import { FileDropZone } from "@/components/library/FileDropZone";
 import { MetadataSearchDialog } from "@/components/library/MetadataSearchDialog";
 import * as commands from "@/lib/commands";
+import { useMenuEvents } from "@/hooks/useMenuEvents";
 import { injectPluginSharedDeps } from "@/plugins/PluginSharedDeps";
 import { usePluginStore } from "@/plugins/pluginStore";
 import { Feed } from "@/routes/feed";
@@ -26,6 +27,7 @@ import { useTabStore } from "@/stores/tabStore";
 import { useTranslationStore } from "@/stores/translationStore";
 import { useUiStore } from "@/stores/uiStore";
 import { listen } from "@tauri-apps/api/event";
+import { invoke } from "@tauri-apps/api/core";
 import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 
@@ -34,6 +36,7 @@ injectPluginSharedDeps();
 
 export default function App() {
 	const { t } = useTranslation();
+	useMenuEvents();
 	const showOnboarding = useUiStore((s) => s.showOnboarding);
 	const setShowOnboarding = useUiStore((s) => s.setShowOnboarding);
 	const view = useUiStore((s) => s.view);
@@ -112,6 +115,11 @@ export default function App() {
 		fetchPlugins().then(() => loadAllEnabled());
 		if (debugMode) {
 			commands.setDebugMode(true).catch(() => {});
+		}
+		// Sync native menu language with UI language on startup
+		const lang = useUiStore.getState().language;
+		if (lang !== "en") {
+			invoke("set_menu_language", { lang }).catch(() => {});
 		}
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [
