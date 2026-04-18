@@ -62,7 +62,11 @@
 		"noEntries": "暂无条目",
 		"openInBrowser": "在浏览器中打开",
 		"unableToLoadPage": "无法加载页面",
-		"showAllAuthors": "展开全部 {{count}} 位隐藏作者"
+		"showAllAuthors": "展开全部 {{count}} 位隐藏作者",
+		"justNow": "刚刚",
+		"minutesAgo": "{{count}}分钟前",
+		"hoursAgo": "{{count}}小时前",
+		"translate": "翻译"
 	},
 	"sidebar": {
 		"myLibrary": "我的文库",
@@ -233,7 +237,6 @@
 		"showInFinder": "在 Finder 中显示",
 		"showInFileExplorer": "在文件管理器中显示",
 		"copyFilename": "复制文件名",
-		"openContainingFolder": "打开所在文件夹",
 		"metadata": "元数据...",
 		"autoFetchMetadata": "自动获取元数据",
 		"manualSearchMetadata": "手动搜索元数据",
@@ -381,7 +384,11 @@
 		"typographySettings": "排版设置",
 		"resetToDefault": "恢复默认",
 		"originalOnly": "仅显示原文",
-		"translatedOnly": "仅显示译文"
+		"translatedOnly": "仅显示译文",
+		"inkSize": "大小",
+		"citationPreview": "引文预览",
+		"cached": "已缓存",
+		"fetched": "已获取"
 	},
 	"agent": {
 		"showHistory": "显示历史",
@@ -407,7 +414,26 @@
 		"cancel": "取消",
 		"approveAction": "批准此操作？",
 		"allow": "允许",
-		"reject": "拒绝"
+		"reject": "拒绝",
+		"connected": "已连接",
+		"chatDescription": "直接与 LLM 对话，可使用文库工具",
+		"supportsTextAndImage": "支持文本和图片输入",
+		"inputPlaceholder": "向 Agent 提问...",
+		"imageHelp": "粘贴、拖放或点击附加图片",
+		"autoModel": "✨ Auto（免费模型）",
+		"selectModel": "选择模型",
+		"modelLabel": "模型",
+		"history": "历史记录",
+		"noConversations": "暂无对话",
+		"justNow": "刚刚",
+		"minuteShort": "{{count}}分钟前",
+		"hourShort": "{{count}}小时前",
+		"dayShort": "{{count}}天前",
+		"toolCall": "工具调用",
+		"input": "输入",
+		"output": "输出",
+		"noPresetsConfigured": "暂无预设配置",
+		"startingSession": "正在启动会话，请稍候"
 	},
 	"noteEditor": {
 		"startWriting": "开始写作...",
@@ -436,7 +462,8 @@
 		"noteNotFound": "未找到笔记",
 		"searchPapers": "搜索论文...",
 		"tagPlaceholder": "添加标签...",
-		"typeToSearchPapers": "输入以搜索论文"
+		"typeToSearchPapers": "输入以搜索论文",
+		"imagesFilter": "图片"
 	},
 	"settings": {
 		"title": "设置",
@@ -462,7 +489,7 @@
 		"imageMode": "图片（页面快照）",
 		"autoMode": "自动",
 		"offMode": "关闭",
-"providers": "模型提供商",
+		"providers": "模型提供商",
 		"nickname": "昵称",
 		"models": "模型",
 		"noModelsConfigured": "未配置模型",
@@ -716,12 +743,12 @@
 		"nativeLangDesc": "翻译的目标语言，通常是你的母语。",
 		"customLang": "自定义...",
 		"customLangPlaceholder": "例如 繁体中文",
-"providersDesc": "管理你的 AI 模型提供商。",
+		"providersDesc": "管理你的 AI 模型提供商。",
 		"noUrlSet": "未设置 URL",
 		"apiKeyKeepPlaceholder": "留空以保留当前密钥",
 		"passwordKeepPlaceholder": "留空以保留当前密码",
-		"modelNamePlaceholder": "模型名称",
-		"modelsDesc": "每行一个模型",
+		"modelNamePlaceholder": "输入模型名称后按回车",
+		"modelsDesc": "按回车添加模型名称，或点击「获取模型列表」自动获取。",
 		"globalDefaultModel": "全局默认模型",
 		"globalDefaultModelDesc": "未设置任务特定模型时使用的回退模型。",
 		"useGlobalDefault": "使用全局默认",
@@ -836,9 +863,7 @@
 		"acpLoadingOptions": "正在加载 Agent 选项...",
 		"acpModelMayNotApply": "模型切换可能无法生效，将以 Agent 默认模型为准。",
 		"fetchModels": "获取模型列表",
-		"clearModels": "清空模型列表",
-		"modelsDesc": "按回车添加模型名称，或点击「获取模型列表」自动获取。",
-		"modelNamePlaceholder": "输入模型名称后按回车"
+		"clearModels": "清空模型列表"
 	},
 	"backgroundTasks": {
 		"title": "后台任务",
@@ -892,7 +917,9 @@
 		"editComment": "编辑评论",
 		"deleteComment": "删除评论",
 		"copyText": "复制文本",
-		"goToAnnotation": "跳转到批注"
+		"goToAnnotation": "跳转到批注",
+		"areaHighlight": "区域高亮",
+		"inkDrawing": "墨迹绘图"
 	},
 	"toolbar": {
 		"highlight": "高亮",
@@ -914,7 +941,10 @@
 		"deleteNote": "删除笔记",
 		"deleteConfirm": "确定删除该笔记吗？",
 		"noNotes": "暂无笔记",
-		"clickToCreate": "点击 + 创建笔记"
+		"clickToCreate": "点击 + 创建笔记",
+		"untitledNote": "无标题笔记",
+		"noteCount": "{{count}} 条笔记",
+		"noteCount_other": "{{count}} 条笔记"
 	},
 	"outline": {
 		"title": "大纲",
@@ -1106,5 +1136,29 @@
 		"horizontalRule": "分隔线",
 		"insertLink": "插入链接",
 		"insertImage": "插入图片"
+	},
+	"columns": {
+		"shortTitle": "短标题",
+		"title": "标题",
+		"authors": "作者",
+		"year": "年份",
+		"source": "来源",
+		"status": "状态",
+		"added": "添加时间",
+		"modified": "修改时间",
+		"doi": "DOI",
+		"arxivId": "arXiv ID",
+		"journal": "期刊",
+		"volume": "卷",
+		"issue": "期",
+		"pages": "页码",
+		"publisher": "出版者",
+		"type": "类型",
+		"rating": "评分",
+		"tags": "标签",
+		"attachments": "附件",
+		"pdf": "PDF",
+		"abstract": "摘要",
+		"url": "URL"
 	}
 }

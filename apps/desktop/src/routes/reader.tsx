@@ -889,7 +889,7 @@ function ReaderToolbar({
 												<path d="M22 21H7" />
 												<path d="m5 11 9 9" />
 											</svg>
-											<span>Eraser</span>
+											<span>{t("reader.eraser")}</span>
 										</button>
 
 										<Separator className="my-1.5" />
@@ -897,7 +897,7 @@ function ReaderToolbar({
 										{/* Stroke size */}
 										<div className="flex items-center gap-2 px-2 py-1">
 											<span className="text-[10px] text-muted-foreground whitespace-nowrap">
-												Size:
+												{t("reader.inkSize")}:
 											</span>
 											<input
 												type="range"

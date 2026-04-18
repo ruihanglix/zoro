@@ -62,7 +62,11 @@
 		"noEntries": "No entries",
 		"openInBrowser": "Open in browser",
 		"unableToLoadPage": "Unable to load page",
-		"showAllAuthors": "Show all {{count}} hidden authors"
+		"showAllAuthors": "Show all {{count}} hidden authors",
+		"justNow": "just now",
+		"minutesAgo": "{{count}}m ago",
+		"hoursAgo": "{{count}}h ago",
+		"translate": "Translate"
 	},
 	"sidebar": {
 		"myLibrary": "My Library",
@@ -233,7 +237,6 @@
 		"showInFinder": "Show in Finder",
 		"showInFileExplorer": "Show in File Explorer",
 		"copyFilename": "Copy Filename",
-		"openContainingFolder": "Open Containing Folder",
 		"metadata": "Metadata...",
 		"autoFetchMetadata": "Auto Fetch Metadata",
 		"manualSearchMetadata": "Manual Search Metadata",
@@ -381,7 +384,11 @@
 		"typographySettings": "Typography settings",
 		"resetToDefault": "Reset to default",
 		"originalOnly": "Original only",
-		"translatedOnly": "Translated only"
+		"translatedOnly": "Translated only",
+		"inkSize": "Size",
+		"citationPreview": "Citation preview",
+		"cached": "Cached",
+		"fetched": "Fetched"
 	},
 	"agent": {
 		"showHistory": "Show history",
@@ -407,7 +414,26 @@
 		"cancel": "Cancel",
 		"approveAction": "Approve this action?",
 		"allow": "Allow",
-		"reject": "Reject"
+		"reject": "Reject",
+		"connected": "connected",
+		"chatDescription": "Direct LLM chat with library tools",
+		"supportsTextAndImage": "Supports text and image inputs",
+		"inputPlaceholder": "Ask the agent...",
+		"imageHelp": "Paste, drag & drop, or click to attach images",
+		"autoModel": "✨ Auto (free model)",
+		"selectModel": "Select model",
+		"modelLabel": "Model",
+		"history": "History",
+		"noConversations": "No conversations yet",
+		"justNow": "just now",
+		"minuteShort": "{{count}}m",
+		"hourShort": "{{count}}h",
+		"dayShort": "{{count}}d",
+		"toolCall": "Tool call",
+		"input": "Input",
+		"output": "Output",
+		"noPresetsConfigured": "No presets configured",
+		"startingSession": "Starting session, please wait"
 	},
 	"noteEditor": {
 		"startWriting": "Start writing...",
@@ -436,7 +462,8 @@
 		"noteNotFound": "Note not found",
 		"searchPapers": "Search papers...",
 		"tagPlaceholder": "Add a tag...",
-		"typeToSearchPapers": "Type to search papers"
+		"typeToSearchPapers": "Type to search papers",
+		"imagesFilter": "Images"
 	},
 	"settings": {
 		"title": "Settings",
@@ -720,8 +747,8 @@
 		"noUrlSet": "No URL set",
 		"apiKeyKeepPlaceholder": "Leave blank to keep current key",
 		"passwordKeepPlaceholder": "Leave blank to keep current password",
-		"modelNamePlaceholder": "Model name",
-		"modelsDesc": "One model per line",
+		"modelNamePlaceholder": "Type model name + Enter",
+		"modelsDesc": "Press Enter to add a model name. Or click 'Fetch Models' to auto-detect.",
 		"globalDefaultModel": "Global Default Model",
 		"globalDefaultModelDesc": "Fallback model used when no task-specific model is set.",
 		"useGlobalDefault": "Use global default",
@@ -836,9 +863,7 @@
 		"acpLoadingOptions": "Loading agent options...",
 		"acpModelMayNotApply": "Model switching may not take effect. The agent's default model will be used.",
 		"fetchModels": "Fetch Models",
-		"clearModels": "Clear Models",
-		"modelsDesc": "Press Enter to add a model name. Or click 'Fetch Models' to auto-detect.",
-		"modelNamePlaceholder": "Type model name + Enter"
+		"clearModels": "Clear Models"
 	},
 	"backgroundTasks": {
 		"title": "Background Tasks",
@@ -892,7 +917,9 @@
 		"editComment": "Edit comment",
 		"deleteComment": "Delete comment",
 		"copyText": "Copy text",
-		"goToAnnotation": "Go to annotation"
+		"goToAnnotation": "Go to annotation",
+		"areaHighlight": "Area highlight",
+		"inkDrawing": "Ink drawing"
 	},
 	"toolbar": {
 		"highlight": "Highlight",
@@ -914,7 +941,10 @@
 		"deleteNote": "Delete note",
 		"deleteConfirm": "Delete this note?",
 		"noNotes": "No notes yet",
-		"clickToCreate": "Click + to create a note"
+		"clickToCreate": "Click + to create a note",
+		"untitledNote": "Untitled note",
+		"noteCount": "{{count}} note",
+		"noteCount_other": "{{count}} notes"
 	},
 	"outline": {
 		"title": "Outline",
@@ -1106,5 +1136,29 @@
 		"horizontalRule": "Horizontal Rule",
 		"insertLink": "Insert Link",
 		"insertImage": "Insert Image"
+	},
+	"columns": {
+		"shortTitle": "Short Title",
+		"title": "Title",
+		"authors": "Authors",
+		"year": "Year",
+		"source": "Source",
+		"status": "Status",
+		"added": "Added",
+		"modified": "Modified",
+		"doi": "DOI",
+		"arxivId": "arXiv ID",
+		"journal": "Journal",
+		"volume": "Volume",
+		"issue": "Issue",
+		"pages": "Pages",
+		"publisher": "Publisher",
+		"type": "Type",
+		"rating": "Rating",
+		"tags": "Tags",
+		"attachments": "Attachments",
+		"pdf": "PDF",
+		"abstract": "Abstract",
+		"url": "URL"
 	}
 }

@@ -227,7 +227,7 @@ export function NoteEditor({
 			const selected = await open({
 				multiple: false,
 				filters: [
-					{ name: "Images", extensions: ["png", "jpg", "jpeg", "gif", "webp"] },
+					{ name: t("noteEditor.imagesFilter"), extensions: ["png", "jpg", "jpeg", "gif", "webp"] },
 				],
 			});
 			if (!selected) return;
@@ -517,7 +517,7 @@ export function NoteEditor({
 		for (let i = 1; i <= 6; i++) {
 			if (editor.isActive("heading", { level: i })) return `H${i}`;
 		}
-		return "Text";
+		return t("noteEditor.text");
 	})();
 
 	const headingOptions: { label: string; action: () => void }[] = [
@@ -600,8 +600,8 @@ export function NoteEditor({
 										type="button"
 										className={cn(
 											"w-full text-left px-2 py-1 text-xs hover:bg-muted transition-colors",
-											headingLabel === opt.label.replace("Heading ", "H") ||
-												(opt.label === "Text" && headingLabel === "Text")
+											headingLabel === opt.label.replace(`${t("noteEditor.heading")} `, "H") ||
+												(opt.label === t("noteEditor.text") && headingLabel === t("noteEditor.text"))
 												? "bg-muted font-medium"
 												: "",
 										)}

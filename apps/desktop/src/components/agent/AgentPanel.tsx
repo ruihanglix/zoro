@@ -293,7 +293,7 @@ export function AgentPanel({ cwd, paperId }: AgentPanelProps) {
 										<PanelLeft className="h-4 w-4" />
 									</Button>
 								</TooltipTrigger>
-								<TooltipContent>Show history</TooltipContent>
+								<TooltipContent>{t("agent.showHistory")}</TooltipContent>
 							</Tooltip>
 						</TooltipProvider>
 					)}
@@ -315,7 +315,7 @@ export function AgentPanel({ cwd, paperId }: AgentPanelProps) {
 											<History className="h-4 w-4" />
 										</Button>
 									</TooltipTrigger>
-									<TooltipContent>Chat history</TooltipContent>
+									<TooltipContent>{t("agent.chatHistory")}</TooltipContent>
 								</Tooltip>
 							</TooltipProvider>
 							{historyPopoverOpen && (
@@ -345,10 +345,10 @@ export function AgentPanel({ cwd, paperId }: AgentPanelProps) {
 						>
 							<span className="truncate">
 								{isChatMode
-									? "Chat"
+									? t("agent.chat")
 									: activeAgent
-										? `${activeAgent.title}${connecting ? "" : sessionId ? " (connected)" : ""}`
-										: "Chat"}
+										? `${activeAgent.title}${connecting ? "" : sessionId ? ` (${t("agent.connected")})` : ""}`
+										: t("agent.chat")}
 							</span>
 							<ChevronDown className="h-3.5 w-3.5 shrink-0 ml-2 text-muted-foreground" />
 						</button>
@@ -369,9 +369,9 @@ export function AgentPanel({ cwd, paperId }: AgentPanelProps) {
 								>
 									<MessageCircle className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
 									<div className="flex-1 min-w-0">
-										<div className="truncate font-medium">Chat</div>
+										<div className="truncate font-medium">{t("agent.chat")}</div>
 										<div className="truncate text-xs text-muted-foreground">
-											Direct LLM chat with library tools
+											{t("agent.chatDescription")}
 										</div>
 									</div>
 								</button>
@@ -451,7 +451,7 @@ export function AgentPanel({ cwd, paperId }: AgentPanelProps) {
 									))}
 									{chatPresets.length === 0 && (
 										<p className="px-2 py-1.5 text-xs text-muted-foreground">
-											No presets configured
+											{t("agent.noPresetsConfigured")}
 										</p>
 									)}
 								</div>
@@ -591,10 +591,10 @@ export function AgentPanel({ cwd, paperId }: AgentPanelProps) {
 				<div className="flex flex-1 flex-col items-center justify-center text-muted-foreground">
 					<Loader2 className="h-8 w-8 mb-3 animate-spin opacity-60" />
 					<p className="text-sm font-medium">
-						Connecting to {activeAgent?.title ?? "agent"}...
+						{t("agent.connecting", { name: activeAgent?.title ?? "agent" })}
 					</p>
 					<p className="text-xs mt-1 opacity-60">
-						Starting session, please wait
+						{t("agent.startingSession")}
 					</p>
 				</div>
 			) : messages.length > 0 ? (
@@ -616,13 +616,13 @@ export function AgentPanel({ cwd, paperId }: AgentPanelProps) {
 						{connecting && (
 							<div className="flex items-center gap-1.5 text-xs text-muted-foreground px-1 py-1">
 								<Loader2 className="h-3 w-3 animate-spin" />
-								<span>Connecting to {activeAgent?.title ?? "agent"}...</span>
+								<span>{t("agent.connecting", { name: activeAgent?.title ?? "agent" })}</span>
 							</div>
 						)}
 						{streaming && (
 							<div className="flex items-center gap-1 text-xs text-muted-foreground px-1">
 								<Loader2 className="h-3 w-3 animate-spin" />
-								<span>Thinking...</span>
+								<span>{t("agent.thinking")}</span>
 							</div>
 						)}
 					</div>
@@ -634,9 +634,9 @@ export function AgentPanel({ cwd, paperId }: AgentPanelProps) {
 			) : (
 				<div className="flex flex-1 flex-col items-center justify-center text-muted-foreground">
 					<Bot className="h-10 w-10 mb-3 opacity-40" />
-					<p className="text-sm">Ask the agent anything</p>
+					<p className="text-sm">{t("agent.askAnything")}</p>
 					<p className="text-xs mt-1 opacity-60">
-						Supports text and image inputs
+						{t("agent.supportsTextAndImage")}
 					</p>
 				</div>
 			)}
@@ -677,7 +677,7 @@ export function AgentPanel({ cwd, paperId }: AgentPanelProps) {
 							<textarea
 								ref={textareaRef}
 								className="w-full resize-none rounded-md border bg-muted/30 px-3 py-2 pr-8 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring min-h-[38px] max-h-[120px]"
-								placeholder="Ask the agent..."
+								placeholder={t("agent.inputPlaceholder")}
 								rows={1}
 								value={inputText}
 								onChange={(e) => {
@@ -702,7 +702,7 @@ export function AgentPanel({ cwd, paperId }: AgentPanelProps) {
 											<Image className="h-4 w-4" />
 										</button>
 									</TooltipTrigger>
-									<TooltipContent>Attach image</TooltipContent>
+									<TooltipContent>{t("agent.attachImage")}</TooltipContent>
 								</Tooltip>
 							</TooltipProvider>
 							<input
@@ -743,8 +743,7 @@ export function AgentPanel({ cwd, paperId }: AgentPanelProps) {
 						)}
 					</div>
 					<p className="mt-1 text-[10px] text-muted-foreground text-center">
-						Paste, drag & drop, or click <Image className="inline h-3 w-3" /> to
-						attach images
+						{t("agent.imageHelp")}
 					</p>
 				</div>
 			)}
@@ -788,6 +787,7 @@ interface FlatModelOption {
 
 function buildModelOptions(
 	providers: { id: string; name: string; models: string[] }[],
+	t: (key: string) => string,
 ): FlatModelOption[] {
 	const options: FlatModelOption[] = [];
 	let labAutoAdded = false;
@@ -801,7 +801,7 @@ function buildModelOptions(
 					providerId: provider.id,
 					providerName: provider.name,
 					model,
-					label: "✨ Auto (免费模型)",
+					label: t("agent.autoModel"),
 				});
 			} else {
 				options.push({
@@ -827,6 +827,7 @@ function ChatModelSelector({
 	activeModel: string;
 	onSelect: (providerId: string, model: string) => void;
 }) {
+	const { t } = useTranslation();
 	const [open, setOpen] = useState(false);
 	const ref = useRef<HTMLDivElement>(null);
 
@@ -841,11 +842,11 @@ function ChatModelSelector({
 		return () => document.removeEventListener("mousedown", handleClick);
 	}, [open]);
 
-	const options = buildModelOptions(providers);
+	const options = buildModelOptions(providers, t);
 	const active = options.find(
 		(o) => o.providerId === activeProviderId && o.model === activeModel,
 	);
-	const label = active?.label ?? (activeModel || "Select model");
+	const label = active?.label ?? (activeModel || t("agent.selectModel"));
 
 	return (
 		<div ref={ref} className="relative">
@@ -854,7 +855,7 @@ function ChatModelSelector({
 				className="flex items-center gap-1 rounded-md border px-2 py-0.5 text-xs hover:bg-accent/50 transition-colors"
 				onClick={() => setOpen(!open)}
 			>
-				<span className="text-muted-foreground">Model:</span>
+				<span className="text-muted-foreground">{t("agent.modelLabel")}:</span>
 				<span className="font-medium max-w-[240px] truncate">{label}</span>
 				<ChevronDown className="h-3 w-3 shrink-0 text-muted-foreground" />
 			</button>
@@ -900,6 +901,7 @@ function ConfigSelector({
 	option: ConfigOptionInfo;
 	onChange: (value: string) => void;
 }) {
+	const { t } = useTranslation();
 	const [open, setOpen] = useState(false);
 	const ref = useRef<HTMLDivElement>(null);
 
@@ -915,7 +917,7 @@ function ConfigSelector({
 	}, [open]);
 
 	const selected = option.options.find((o) => o.value === option.current_value);
-	const label = option.category === "model" ? "Model" : option.name;
+	const label = option.category === "model" ? t("agent.modelLabel") : option.name;
 
 	return (
 		<div ref={ref} className="relative">
@@ -983,6 +985,7 @@ interface HistoryPopoverProps {
 
 const HistoryPopover = React.forwardRef<HTMLDivElement, HistoryPopoverProps>(
 	({ sessions, activeChatId, onNewChat, onSwitchChat, onDeleteChat }, ref) => {
+		const { t } = useTranslation();
 		return (
 			<div
 				ref={ref}
@@ -990,7 +993,7 @@ const HistoryPopover = React.forwardRef<HTMLDivElement, HistoryPopoverProps>(
 			>
 				<div className="flex items-center justify-between px-3 py-2 border-b">
 					<span className="text-xs font-medium text-muted-foreground">
-						History
+						{t("agent.history")}
 					</span>
 					<TooltipProvider>
 						<Tooltip>
@@ -1004,7 +1007,7 @@ const HistoryPopover = React.forwardRef<HTMLDivElement, HistoryPopoverProps>(
 									<MessageSquarePlus className="h-3.5 w-3.5" />
 								</Button>
 							</TooltipTrigger>
-							<TooltipContent>New chat</TooltipContent>
+							<TooltipContent>{t("agent.newChat")}</TooltipContent>
 						</Tooltip>
 					</TooltipProvider>
 				</div>
@@ -1012,7 +1015,7 @@ const HistoryPopover = React.forwardRef<HTMLDivElement, HistoryPopoverProps>(
 					<div className="p-1">
 						{sessions.length === 0 ? (
 							<p className="px-2 py-4 text-center text-xs text-muted-foreground">
-								No conversations yet
+								{t("agent.noConversations")}
 							</p>
 						) : (
 							sessions.map((session) => (
@@ -1033,17 +1036,17 @@ const HistoryPopover = React.forwardRef<HTMLDivElement, HistoryPopoverProps>(
 );
 HistoryPopover.displayName = "HistoryPopover";
 
-function formatTime(iso: string) {
+function formatTime(iso: string, t: (key: string, opts?: Record<string, unknown>) => string) {
 	const d = new Date(iso);
 	const now = new Date();
 	const diffMs = now.getTime() - d.getTime();
 	const diffMin = Math.floor(diffMs / 60000);
-	if (diffMin < 1) return "just now";
-	if (diffMin < 60) return `${diffMin}m`;
+	if (diffMin < 1) return t("agent.justNow");
+	if (diffMin < 60) return t("agent.minuteShort", { count: diffMin });
 	const diffHr = Math.floor(diffMin / 60);
-	if (diffHr < 24) return `${diffHr}h`;
+	if (diffHr < 24) return t("agent.hourShort", { count: diffHr });
 	const diffDay = Math.floor(diffHr / 24);
-	if (diffDay < 7) return `${diffDay}d`;
+	if (diffDay < 7) return t("agent.dayShort", { count: diffDay });
 	return d.toLocaleDateString();
 }
 
@@ -1065,6 +1068,7 @@ function SessionItem({
 	onSwitch: () => void;
 	onDelete: () => void;
 }) {
+	const { t } = useTranslation();
 	return (
 		<div
 			className={cn(
@@ -1080,10 +1084,10 @@ function SessionItem({
 				<div className="truncate font-medium leading-snug">{session.title}</div>
 				<div className="flex items-center gap-1 text-[10px] text-muted-foreground mt-0.5">
 					<span className="truncate">
-						{session.agentName === CHAT_AGENT_NAME ? "Chat" : session.agentName}
+						{session.agentName === CHAT_AGENT_NAME ? t("agent.chat") : session.agentName}
 					</span>
 					<span>·</span>
-					<span>{formatTime(session.updatedAt)}</span>
+					<span>{formatTime(session.updatedAt, t)}</span>
 				</div>
 			</button>
 			<button
@@ -1128,6 +1132,7 @@ function ChatSidebar({
 	onCollapse: () => void;
 	papers: { slug: string; title: string; short_title: string | null }[];
 }) {
+	const { t } = useTranslation();
 	const [paperFolderOpen, setPaperFolderOpen] = useState(false);
 	const [expandedPapers, setExpandedPapers] = useState<Set<string>>(new Set());
 
@@ -1202,11 +1207,11 @@ function ChatSidebar({
 									<PanelLeftClose className="h-3.5 w-3.5" />
 								</Button>
 							</TooltipTrigger>
-							<TooltipContent>Hide history</TooltipContent>
+							<TooltipContent>{t("agent.hideHistory")}</TooltipContent>
 						</Tooltip>
 					</TooltipProvider>
 					<span className="text-xs font-medium text-muted-foreground">
-						History
+						{t("agent.history")}
 					</span>
 				</div>
 				<TooltipProvider>
@@ -1221,7 +1226,7 @@ function ChatSidebar({
 								<MessageSquarePlus className="h-3.5 w-3.5" />
 							</Button>
 						</TooltipTrigger>
-						<TooltipContent>New chat</TooltipContent>
+						<TooltipContent>{t("agent.newChat")}</TooltipContent>
 					</Tooltip>
 				</TooltipProvider>
 			</div>
@@ -1230,7 +1235,7 @@ function ChatSidebar({
 				<div className="px-2 pb-2">
 					{generalSessions.length === 0 && paperSessions.length === 0 && (
 						<p className="px-2 py-6 text-center text-xs text-muted-foreground">
-							No conversations yet
+							{t("agent.noConversations")}
 						</p>
 					)}
 
@@ -1263,7 +1268,7 @@ function ChatSidebar({
 								) : (
 									<FolderClosed className="h-3.5 w-3.5 shrink-0" />
 								)}
-								<span className="font-medium">Paper Chats</span>
+								<span className="font-medium">{t("agent.paperChats")}</span>
 								<span className="ml-auto text-[10px] opacity-60">
 									{paperSessions.length}
 								</span>
@@ -1376,6 +1381,7 @@ function MessageBubble({
 	isLastAgent?: boolean;
 	isStreaming?: boolean;
 }) {
+	const { t } = useTranslation();
 	if (message.role === "user") {
 		return <UserMessageBubble message={message} isStreaming={isStreaming} />;
 	}
@@ -1412,7 +1418,7 @@ function MessageBubble({
 	if (message.role === "plan") {
 		return (
 			<div className="rounded-md border bg-muted/40 px-2 py-1.5 text-xs">
-				<p className="font-medium mb-1">Plan</p>
+				<p className="font-medium mb-1">{t("agent.plan")}</p>
 				{message.planEntries?.map((entry) => (
 					<div
 						key={`plan-${entry.content}`}
@@ -1463,6 +1469,7 @@ function UserMessageBubble({
 	message: ChatMessage;
 	isStreaming: boolean;
 }) {
+	const { t } = useTranslation();
 	const [editing, setEditing] = useState(false);
 	const [editText, setEditText] = useState(message.text);
 	const editRef = useRef<HTMLTextAreaElement>(null);
@@ -1530,7 +1537,7 @@ function UserMessageBubble({
 							className="h-6 px-2 text-xs"
 							onClick={handleCancelEdit}
 						>
-							Cancel
+							{t("agent.cancel")}
 						</Button>
 						<Button
 							size="sm"
@@ -1539,7 +1546,7 @@ function UserMessageBubble({
 							disabled={!editText.trim()}
 						>
 							<Send className="h-3 w-3 mr-1" />
-							Submit & Regenerate
+							{t("agent.submitAndRegenerate")}
 						</Button>
 					</div>
 				</div>
@@ -1573,7 +1580,7 @@ function UserMessageBubble({
 						type="button"
 						className="p-0.5 rounded text-muted-foreground opacity-0 group-hover:opacity-100 hover:bg-accent hover:text-foreground transition-all"
 						onClick={handleStartEdit}
-						title="Edit & regenerate"
+						title={t("agent.editAndRegenerate")}
 					>
 						<Pencil className="h-3 w-3" />
 					</button>
@@ -1594,6 +1601,7 @@ function AgentMessageBubble({
 	isLastAgent: boolean;
 	isStreaming: boolean;
 }) {
+	const { t } = useTranslation();
 	const regenerateLastResponse = useAgentStore((s) => s.regenerateLastResponse);
 
 	return (
@@ -1621,7 +1629,7 @@ function AgentMessageBubble({
 						type="button"
 						className="p-0.5 rounded text-muted-foreground opacity-0 group-hover:opacity-100 hover:bg-accent hover:text-foreground transition-all"
 						onClick={regenerateLastResponse}
-						title="Regenerate response"
+						title={t("agent.regenerateResponse")}
 					>
 						<RefreshCw className="h-3 w-3" />
 					</button>
@@ -1634,6 +1642,7 @@ function AgentMessageBubble({
 // ── Tool call bubble with expandable details + confirmation ─────────────────
 
 function ToolCallBubble({ message }: { message: ChatMessage }) {
+	const { t } = useTranslation();
 	const [expanded, setExpanded] = useState(false);
 	const confirmTool = useAgentStore((s) => s.confirmTool);
 
@@ -1666,7 +1675,7 @@ function ToolCallBubble({ message }: { message: ChatMessage }) {
 			>
 				{statusIcon}
 				<span className="text-muted-foreground flex-1 min-w-0 truncate">
-					{message.toolTitle || "Tool call"}
+					{message.toolTitle || t("agent.toolCall")}
 				</span>
 				{hasDetails && (
 					<ChevronRight
@@ -1683,7 +1692,7 @@ function ToolCallBubble({ message }: { message: ChatMessage }) {
 			{isPending && (
 				<div className="flex items-center gap-1.5 pl-6 pb-1">
 					<span className="text-amber-600 text-[10px]">
-						Approve this action?
+						{t("agent.approveAction")}
 					</span>
 					<Button
 						variant="outline"
@@ -1692,7 +1701,7 @@ function ToolCallBubble({ message }: { message: ChatMessage }) {
 						onClick={() => confirmTool(true)}
 					>
 						<Check className="h-2.5 w-2.5 mr-0.5" />
-						Allow
+						{t("agent.allow")}
 					</Button>
 					<Button
 						variant="ghost"
@@ -1701,7 +1710,7 @@ function ToolCallBubble({ message }: { message: ChatMessage }) {
 						onClick={() => confirmTool(false)}
 					>
 						<X className="h-2.5 w-2.5 mr-0.5" />
-						Reject
+						{t("agent.reject")}
 					</Button>
 				</div>
 			)}
@@ -1712,7 +1721,7 @@ function ToolCallBubble({ message }: { message: ChatMessage }) {
 					{message.toolArguments && (
 						<div>
 							<p className="text-[10px] text-muted-foreground font-medium mb-0.5">
-								Input
+								{t("agent.input")}
 							</p>
 							<pre className="text-[10px] bg-background/60 rounded p-1.5 overflow-x-auto max-h-40 whitespace-pre-wrap break-all">
 								{formatJson(message.toolArguments)}
@@ -1722,7 +1731,7 @@ function ToolCallBubble({ message }: { message: ChatMessage }) {
 					{message.toolResult && (
 						<div>
 							<p className="text-[10px] text-muted-foreground font-medium mb-0.5">
-								Output
+								{t("agent.output")}
 							</p>
 							<pre className="text-[10px] bg-background/60 rounded p-1.5 overflow-x-auto max-h-60 overflow-y-auto whitespace-pre-wrap break-all">
 								{formatJson(message.toolResult)}

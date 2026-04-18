@@ -5,6 +5,7 @@
 import { useUiStore } from "@/stores/uiStore";
 import type { PDFDocumentProxy } from "pdfjs-dist";
 import { useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 
 interface TooltipState {
 	x: number;
@@ -309,6 +310,7 @@ export function CitationPreview({
 	pdfDocument,
 	containerEl,
 }: CitationPreviewProps) {
+	const { t } = useTranslation();
 	const [tooltip, setTooltip] = useState<TooltipState | null>(null);
 	const cacheRef = useRef<
 		Map<string, { text: string | null; image: string | null }>
@@ -532,7 +534,7 @@ export function CitationPreview({
 			{tooltip.imageDataUrl && (
 				<img
 					src={tooltip.imageDataUrl}
-					alt="Citation preview"
+					alt={t("reader.citationPreview")}
 					className="block w-full"
 					draggable={false}
 				/>
