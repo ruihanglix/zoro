@@ -32,6 +32,89 @@ const IMAGE_RENDER_SCALE = 1.5;
 const IMAGE_CROP_HEIGHT = 200;
 const IMAGE_CROP_PADDING_TOP = 20;
 
+// ─── Destination index ───
+// Collects all internal link destination Y coordinates per page so we can
+// determine where one bibliography entry ends and the next begins.
+
+type DestinationIndex = Map<number, number[]>; // pageIndex → sorted Y[]
+
+async function buildDestinationIndex(
+	pdfDocument: PDFDocumentProxy,
+): Promise<DestinationIndex> {
+	const index: DestinationIndex = new Map();
+	const numPages = pdfDocument.numPages;
+
+	// Cache resolved page viewports to avoid redundant getPage calls
+	const viewportCache = new Map<number, { height: number }>();
+
+	async function getViewportHeight(pageIndex: number): Promise<number> {
+		let cached = viewportCache.get(pageIndex);
+		if (!cached) {
+			const page = await pdfDocument.getPage(pageIndex + 1);
+			const viewport = page.getViewport({ scale: 1 });
+			cached = { height: viewport.height };
+			viewportCache.set(pageIndex, cached);
+		}
+		return cached.height;
+	}
+
+	async function resolveAnnotDest(
+		rawDest: unknown,
+	): Promise<{ pageIndex: number; targetY: number } | null> {
+		let destArray: unknown[] | null = null;
+
+		if (typeof rawDest === "string") {
+			// Named destination — resolve via the PDF's name tree
+			destArray = await pdfDocument.getDestination(rawDest);
+		} else if (Array.isArray(rawDest)) {
+			destArray = rawDest;
+		}
+
+		if (!destArray || destArray.length === 0) return null;
+
+		const pageRef = destArray[0] as { num: number; gen: number };
+		const pageIndex = await pdfDocument.getPageIndex(pageRef);
+		const vpHeight = await getViewportHeight(pageIndex);
+
+		const destY =
+			typeof destArray[3] === "number" ? (destArray[3] as number) : null;
+		const targetY = destY !== null ? vpHeight - destY : 0;
+
+		return { pageIndex, targetY };
+	}
+
+	for (let i = 1; i <= numPages; i++) {
+		const page = await pdfDocument.getPage(i);
+		const annotations = await page.getAnnotations();
+
+		for (const ann of annotations) {
+			if (ann.subtype !== "Link" || !ann.dest) continue;
+
+			try {
+				const resolved = await resolveAnnotDest(ann.dest);
+				if (!resolved) continue;
+
+				let arr = index.get(resolved.pageIndex);
+				if (!arr) {
+					arr = [];
+					index.set(resolved.pageIndex, arr);
+				}
+				arr.push(resolved.targetY);
+			} catch {
+				/* skip unresolvable destinations */
+			}
+		}
+	}
+
+	// Deduplicate and sort each page's Y list
+	for (const [pageIdx, ys] of index) {
+		const unique = [...new Set(ys)].sort((a, b) => a - b);
+		index.set(pageIdx, unique);
+	}
+
+	return index;
+}
+
 // ─── Destination resolver ───
 
 interface ResolvedDest {
@@ -78,6 +161,7 @@ async function resolveDestination(
 async function extractDestinationText(
 	pdfDocument: PDFDocumentProxy,
 	dest: ResolvedDest,
+	nextY?: number,
 ): Promise<string | null> {
 	const page = await pdfDocument.getPage(dest.pageIndex + 1);
 	const textContent = await page.getTextContent();
@@ -127,6 +211,9 @@ async function extractDestinationText(
 		i < Math.min(startIdx + MAX_LINES, lines.length);
 		i++
 	) {
+		// Stop before the next bibliography entry's Y boundary
+		if (nextY !== undefined && lines[i].y >= nextY - Y_SNAP_TOLERANCE) break;
+
 		const lineText = lines[i].text.trim();
 		if (!lineText && collected.length > 0) break;
 		if (lineText) collected.push(lineText);
@@ -208,6 +295,8 @@ export function CitationPreview({
 	const cacheRef = useRef<
 		Map<string, { text: string | null; image: string | null }>
 	>(new Map());
+	const destIndexRef = useRef<DestinationIndex | null>(null);
+	const destIndexPromiseRef = useRef<Promise<DestinationIndex> | null>(null);
 	const hideTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 	const showTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 	const activeDestRef = useRef<string | null>(null);
@@ -218,6 +307,8 @@ export function CitationPreview({
 	if (prevPdfDocRef.current !== pdfDocument) {
 		prevPdfDocRef.current = pdfDocument;
 		cacheRef.current.clear();
+		destIndexRef.current = null;
+		destIndexPromiseRef.current = null;
 	}
 
 	useEffect(() => {
@@ -242,10 +333,30 @@ export function CitationPreview({
 					return null;
 				}
 
+				// Lazily build the destination index (once per PDF)
+				if (!destIndexRef.current) {
+					if (!destIndexPromiseRef.current) {
+						destIndexPromiseRef.current = buildDestinationIndex(doc);
+					}
+					destIndexRef.current = await destIndexPromiseRef.current;
+				}
+
+				// Find the next entry's Y on the same page
+				const pageYs = destIndexRef.current.get(dest.pageIndex);
+				let nextY: number | undefined;
+				if (pageYs) {
+					for (const y of pageYs) {
+						if (y > dest.targetY + 1) {
+							nextY = y;
+							break;
+						}
+					}
+				}
+
 				const entry = cached ?? { text: null, image: null };
 
 				if (previewMode === "text" && entry.text === null) {
-					entry.text = await extractDestinationText(doc, dest);
+					entry.text = await extractDestinationText(doc, dest, nextY);
 				}
 				if (previewMode === "image" && entry.image === null) {
 					entry.image = await renderDestinationImage(doc, dest);
