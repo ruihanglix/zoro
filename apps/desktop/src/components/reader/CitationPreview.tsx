@@ -3,7 +3,6 @@
 // See LICENSE file in the project root for full license information.
 
 import { useUiStore } from "@/stores/uiStore";
-import type { CitationPreviewMode } from "@/stores/uiStore";
 import type { PDFDocumentProxy } from "pdfjs-dist";
 import { useEffect, useRef, useState } from "react";
 
@@ -31,6 +30,25 @@ const TOOLTIP_IMAGE_MAX_W = 480;
 const IMAGE_RENDER_SCALE = 1.5;
 const IMAGE_CROP_HEIGHT = 200;
 const IMAGE_CROP_PADDING_TOP = 20;
+
+// ─── Link type classification ───
+// Determines whether a destination should use text or image preview in auto mode.
+// Based on hyperref naming conventions used by LaTeX-generated PDFs.
+
+const TEXT_DEST_PATTERNS = [
+	/^cite\b/i,
+	/^bib\b/i,
+	/^footnote\b/i,
+	/^Hfootnote\b/i,
+];
+
+function classifyDestPreviewMode(destHash: string): "text" | "image" {
+	const decoded = decodeURIComponent(destHash);
+	for (const pattern of TEXT_DEST_PATTERNS) {
+		if (pattern.test(decoded)) return "text";
+	}
+	return "image";
+}
 
 // ─── Destination index ───
 // Collects all internal link destination Y coordinates per page so we can
@@ -316,12 +334,12 @@ export function CitationPreview({
 
 		async function resolvePreview(
 			destHash: string,
-			previewMode: CitationPreviewMode,
+			effectiveMode: "text" | "image",
 		): Promise<{ text: string | null; image: string | null } | null> {
 			const cached = cacheRef.current.get(destHash);
 			if (cached) {
-				if (previewMode === "text" && cached.text !== undefined) return cached;
-				if (previewMode === "image" && cached.image !== undefined)
+				if (effectiveMode === "text" && cached.text !== undefined) return cached;
+				if (effectiveMode === "image" && cached.image !== undefined)
 					return cached;
 			}
 
@@ -355,10 +373,10 @@ export function CitationPreview({
 
 				const entry = cached ?? { text: null, image: null };
 
-				if (previewMode === "text" && entry.text === null) {
+				if (effectiveMode === "text" && entry.text === null) {
 					entry.text = await extractDestinationText(doc, dest, nextY);
 				}
-				if (previewMode === "image" && entry.image === null) {
+				if (effectiveMode === "image" && entry.image === null) {
 					entry.image = await renderDestinationImage(doc, dest);
 				}
 
@@ -395,16 +413,24 @@ export function CitationPreview({
 
 			const currentMode = useUiStore.getState().citationPreviewMode;
 
+			// Resolve "auto" to the effective mode based on destination type
+			const effectiveMode: "text" | "image" =
+				currentMode === "auto"
+					? classifyDestPreviewMode(destHash)
+					: currentMode === "off"
+						? "text"
+						: currentMode;
+
 			showTimeoutRef.current = setTimeout(async () => {
-				const result = await resolvePreview(destHash, currentMode);
+				const result = await resolvePreview(destHash, effectiveMode);
 				if (!result || activeDestRef.current !== destHash) return;
 
 				const hasContent =
-					currentMode === "text" ? !!result.text : !!result.image;
+					effectiveMode === "text" ? !!result.text : !!result.image;
 				if (!hasContent) return;
 
 				const maxW =
-					currentMode === "image" ? TOOLTIP_IMAGE_MAX_W : TOOLTIP_TEXT_MAX_W;
+					effectiveMode === "image" ? TOOLTIP_IMAGE_MAX_W : TOOLTIP_TEXT_MAX_W;
 
 				const linkRect = link.getBoundingClientRect();
 				let x = linkRect.left;
@@ -415,7 +441,7 @@ export function CitationPreview({
 				}
 				if (x < 4) x = 4;
 
-				const tooltipEstHeight = currentMode === "image" ? 320 : 150;
+				const tooltipEstHeight = effectiveMode === "image" ? 320 : 150;
 				const above = y + tooltipEstHeight > window.innerHeight;
 				if (above) {
 					y = linkRect.top - 6;
@@ -425,8 +451,8 @@ export function CitationPreview({
 					x,
 					y,
 					above,
-					text: currentMode === "text" ? result.text : null,
-					imageDataUrl: currentMode === "image" ? result.image : null,
+					text: effectiveMode === "text" ? result.text : null,
+					imageDataUrl: effectiveMode === "image" ? result.image : null,
 				});
 			}, SHOW_DELAY);
 		};

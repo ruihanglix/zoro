@@ -1988,6 +1988,7 @@ export function Settings() {
 											}
 											className="mt-1 h-8 w-full max-w-xs rounded-md border bg-transparent px-2 text-sm"
 										>
+											<option value="auto">{t("settings.autoMode")}</option>
 											<option value="text">{t("settings.textMode")}</option>
 											<option value="image">{t("settings.imageMode")}</option>
 											<option value="off">{t("settings.offMode")}</option>
