@@ -36,6 +36,7 @@ import {
 } from "@/components/ui/resizable";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
+import { useKeybindings } from "@/hooks/useKeybindings";
 import { useLocalAnnotations } from "@/hooks/useLocalAnnotations";
 import * as commands from "@/lib/commands";
 import type {
@@ -337,6 +338,7 @@ export function Reader({
 				isFeedReaderMode={isFeedReaderMode}
 				readerMode={readerMode}
 				pdfFilename={pdfFilename}
+				isActive={isActive}
 				isOpeningTranslation={isOpeningTranslation}
 				onToggleMode={handleToggleMode}
 				onHtmlChanged={handleHtmlChanged}
@@ -640,6 +642,7 @@ function ReaderToolbar({
 	isFeedReaderMode,
 	readerMode,
 	pdfFilename,
+	isActive,
 	isOpeningTranslation,
 	onToggleMode,
 	onHtmlChanged,
@@ -658,6 +661,7 @@ function ReaderToolbar({
 	isFeedReaderMode: boolean;
 	readerMode: "pdf" | "html";
 	pdfFilename?: string;
+	isActive: boolean;
 	isOpeningTranslation: boolean;
 	onToggleMode: (mode: "pdf" | "html") => void;
 	onHtmlChanged: () => void;
@@ -695,17 +699,16 @@ function ReaderToolbar({
 		(s) => s.resetHtmlReaderTypography,
 	);
 
-	// Ctrl+F / Cmd+F to open search
-	useEffect(() => {
-		const handleKeyDown = (e: KeyboardEvent) => {
-			if ((e.metaKey || e.ctrlKey) && e.key === "f") {
-				e.preventDefault();
+	// Ctrl+F / Cmd+F to open search (scope-aware, only fires in active tab)
+	const readerSearchHandlers = useMemo(
+		() => ({
+			"reader.openSearch": () => {
 				setShowSearch(true);
-			}
-		};
-		window.addEventListener("keydown", handleKeyDown);
-		return () => window.removeEventListener("keydown", handleKeyDown);
-	}, []);
+			},
+		}),
+		[],
+	);
+	useKeybindings("reader", readerSearchHandlers, { enabled: isActive });
 
 	const toolButtons: {
 		tool: ReaderTool;

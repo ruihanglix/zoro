@@ -3,6 +3,7 @@
 // See LICENSE file in the project root for full license information.
 
 import { ZoteroImportDialog } from "@/components/library/ZoteroImportDialog";
+import { KeyboardShortcutsSettings } from "@/components/KeyboardShortcutsSettings";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -54,6 +55,7 @@ import {
 	GraduationCap,
 	HardDrive,
 	Info,
+	Keyboard,
 	Languages,
 	Loader2,
 	MessageCircle,
@@ -88,6 +90,7 @@ type SettingsSection =
 	| "ai-cli"
 	| "ai-lab"
 	| "general"
+	| "keybindings"
 	| "connector"
 	| "subscriptions"
 	| "storage"
@@ -128,6 +131,11 @@ const NAV_GROUPS: NavGroup[] = [
 				id: "general",
 				labelKey: "settings.navGeneral",
 				icon: SlidersHorizontal,
+			},
+			{
+				id: "keybindings",
+				labelKey: "settings.navKeyboardShortcuts",
+				icon: Keyboard,
 			},
 			{
 				id: "connector",
@@ -2539,6 +2547,10 @@ export function Settings() {
 									</Button>
 								</div>
 							</div>
+						)}
+
+						{section === "keybindings" && (
+							<KeyboardShortcutsSettings />
 						)}
 
 						{section === "ai-general" && (
