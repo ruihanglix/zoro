@@ -1602,7 +1602,7 @@ function AgentMessageBubble({
 				<div
 					className={cn(
 						"prose prose-sm dark:prose-invert max-w-none break-words",
-						"prose-p:my-1.5 prose-headings:my-2 prose-li:my-0.5",
+						"prose-p:my-1.5 prose-headings:my-2 prose-li:my-0.5 prose-hr:my-3",
 						"prose-pre:rounded-md prose-pre:bg-black/20 [&_pre]:overflow-x-auto [&_pre]:max-w-full",
 						"prose-code:bg-black/20 prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-code:text-[0.85em] prose-code:before:content-none prose-code:after:content-none",
 						"prose-blockquote:border-primary/40",
