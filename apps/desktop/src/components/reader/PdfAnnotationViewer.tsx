@@ -800,6 +800,8 @@ export function PdfAnnotationViewer({
 		// Guard: prevent subscribe callback from double-setting currentScale
 		// when commitZoom updates the store internally.
 		let isCommitting = false;
+		// Handle for the delayed scale-reset suppression timer
+		let scaleResetSuppressTimer = 0;
 		// Handle for the deferred CSS-transform cleanup after commit
 		let cleanupRafId = 0;
 
@@ -820,8 +822,29 @@ export function PdfAnnotationViewer({
 				unknown
 			> | null;
 			return hlRef?.viewer as
-				| { currentScale: number; currentScaleValue: string | number }
+				| {
+						currentScale: number;
+						currentScaleValue: string | number;
+						_currentScale: number;
+						_currentScaleValue: string | number;
+						refresh: (noUpdate?: boolean, updateArgs?: { scale?: number; drawingDelay?: number }) => void;
+				  }
 				| undefined;
+		};
+
+		// Cancel any pending debounced handleScaleValue in react-pdf-highlighter.
+		// Without this, its ResizeObserver / window-resize handler resets
+		// currentScaleValue="auto" ~500ms after our commit, triggering
+		// scrollPageIntoView and undoing the scroll anchor we just set.
+		const cancelDebouncedScaleReset = () => {
+			const hlRef = pdfHighlighterRef.current as unknown as Record<
+				string,
+				unknown
+			> | null;
+			const fn = hlRef?.debouncedScaleValue as
+				| { cancel?: (reason?: unknown) => void }
+				| undefined;
+			fn?.cancel?.();
 		};
 
 		const clampZoom = (z: number) => Math.max(0.25, Math.min(5, z));
@@ -871,58 +894,104 @@ export function PdfAnnotationViewer({
 			const base = baseScaleRef.current || 1;
 			const pdfViewer = getPdfJsViewer();
 
-			// ── 1. Compute scroll anchor ──
-			// The transform origin is at the pointer's content-space position,
-			// which is a fixed point of the CSS scale transform — its content-space
-			// coordinate equals (viewportOffset + scrollOffset) regardless of scale.
+			// ── 1. Compute scroll anchor (page-relative) ──
+			// Inter-page gaps (margins + borders) are fixed-pixel and don't scale,
+			// so a naïve "contentPos / oldScale * newScale" drifts by
+			// (N-1) * gapPerPage * (1 - ratio). Instead we anchor to a specific
+			// page element: the page's offsetTop accounts for fixed gaps, and
+			// the within-page offset scales proportionally.
 			let vpX = 0;
 			let vpY = 0;
+			// Page-relative anchor (scale-independent fraction within the page)
+			let anchorPage: HTMLElement | null = null;
+			let anchorFracX = 0; // fraction [0,1] within page width
+			let anchorFracY = 0; // fraction [0,1] within page height
+			// Fallback for X which has no page structure concern
 			let anchorContentX = 0;
-			let anchorContentY = 0;
+			const oldAbsScale = base * committedZoom;
+
 			if (scrollContainer) {
 				const rect = scrollContainer.getBoundingClientRect();
 				vpX = pointerClientX - rect.left;
 				vpY = pointerClientY - rect.top;
 				anchorContentX = vpX + scrollContainer.scrollLeft;
-				anchorContentY = vpY + scrollContainer.scrollTop;
-			}
-			// Normalise to scale-independent "document" coordinates
-			const oldAbsScale = base * committedZoom;
-			const anchorDocX = anchorContentX / oldAbsScale;
-			const anchorDocY = anchorContentY / oldAbsScale;
+				const anchorContentY = vpY + scrollContainer.scrollTop;
 
-			// ── 2. Set pdf.js scale FIRST ──
-			// This synchronously resizes page containers (via CSS --scale-factor)
-			// and queues async canvas re-renders. We do this BEFORE clearing the
-			// CSS transform so there is no intermediate frame at the old layout size.
-			if (pdfViewer) {
-				pdfViewer.currentScale = base * targetZoom;
+				// Find the page element the anchor falls on
+				const pages = viewerEl
+					? viewerEl.querySelectorAll<HTMLElement>('.page[data-page-number]')
+					: [];
+				for (const page of pages) {
+					if (page.offsetTop + page.offsetHeight > anchorContentY) {
+						anchorPage = page;
+						break;
+					}
+				}
+				if (anchorPage) {
+					const withinPageY = anchorContentY - anchorPage.offsetTop;
+					const withinPageX = anchorContentX - anchorPage.offsetLeft;
+					// Convert to fractions of page size (which scales proportionally)
+					anchorFracY = anchorPage.offsetHeight > 0
+						? withinPageY / anchorPage.offsetHeight : 0;
+					anchorFracX = anchorPage.offsetWidth > 0
+						? withinPageX / anchorPage.offsetWidth : 0;
+				}
+			}
+
+			// ── 1b. Disable content-visibility: auto ──
+			// Prevents scrollHeight instability during async canvas re-renders.
+			if (viewerEl) {
+				viewerEl.classList.add('zoom-transitioning');
+			}
+
+			// ── 1c. Cancel react-pdf-highlighter's pending scale reset ──
+			// Its ResizeObserver / window-resize handler debounces 500ms then
+			// sets currentScaleValue="auto", which triggers scrollPageIntoView.
+			cancelDebouncedScaleReset();
+			// The ResizeObserver may fire again after we change --scale-factor,
+			// re-queuing the debounce. Schedule another cancel after the 500ms
+			// debounce window to catch any late re-queues.
+			if (scaleResetSuppressTimer) clearTimeout(scaleResetSuppressTimer);
+			scaleResetSuppressTimer = setTimeout(() => {
+				scaleResetSuppressTimer = 0;
+				cancelDebouncedScaleReset();
+			}, 600) as unknown as number;
+
+			// ── 2. Set pdf.js scale (bypass internal scroll) ──
+			// Instead of `pdfViewer.currentScale = ...` which triggers
+			// scrollPageIntoView, we manipulate the internal state directly.
+			const newAbsScale = base * targetZoom;
+			const PDF_TO_CSS = 96 / 72;
+			if (pdfViewer && viewerEl) {
+				viewerEl.style.setProperty('--scale-factor', String(newAbsScale * PDF_TO_CSS));
+				(pdfViewer as Record<string, unknown>)._currentScaleValue = String(newAbsScale);
+				if (typeof pdfViewer.refresh === 'function') {
+					(pdfViewer as any).refresh(true, { scale: newAbsScale });
+				}
+				(pdfViewer as Record<string, unknown>)._currentScale = newAbsScale;
 			}
 
 			// ── 3. Compensating CSS transform ──
-			// Right now the visual = (new pdf.js layout) × (old CSS scale).
-			// Replace with a compensating transform that keeps the visual identical
-			// to what the user was seeing, then remove it after pdf.js paints.
-			// compensate = targetZoom / (targetZoom / committedZoom * committedZoom ... )
-			//
-			// Simpler: new layout is (base * targetZoom), old visual was
-			// (base * committedZoom) × scale(targetZoom/committedZoom) = (base * targetZoom).
-			// After setting new currentScale the layout is already (base * targetZoom),
-			// so the correct CSS transform to maintain the same visual is scale(1).
-			// We keep it momentarily as scale(1) and defer the actual removal
-			// so the browser can composite the stale canvases at the correct size
-			// while pdf.js re-renders them in the background.
 			if (viewerEl) {
 				viewerEl.style.transform = "scale(1)";
-				// transformOrigin doesn't matter at scale(1), but clean it up
 				viewerEl.style.transformOrigin = "";
 			}
 
 			// ── 4. Adjust scroll so pointer stays over the same content ──
+			// After scale change, page elements have new sizes but their
+			// offsetTop already incorporates the fixed inter-page gaps correctly.
 			if (scrollContainer) {
-				const newAbsScale = base * targetZoom;
-				scrollContainer.scrollLeft = anchorDocX * newAbsScale - vpX;
-				scrollContainer.scrollTop = anchorDocY * newAbsScale - vpY;
+				if (anchorPage) {
+					const newPageTop = anchorPage.offsetTop;
+					const newPageH = anchorPage.offsetHeight;
+					const newPageW = anchorPage.offsetWidth;
+					scrollContainer.scrollTop = newPageTop + anchorFracY * newPageH - vpY;
+					scrollContainer.scrollLeft = anchorPage.offsetLeft + anchorFracX * newPageW - vpX;
+				} else {
+					// Fallback: simple linear scaling (no page found)
+					const anchorDocX = anchorContentX / oldAbsScale;
+					scrollContainer.scrollLeft = anchorDocX * newAbsScale - vpX;
+				}
 			}
 
 			// ── 5. Update store (for UI, e.g. ZoomControls percentage) ──
@@ -932,17 +1001,21 @@ export function PdfAnnotationViewer({
 			isCommitting = false;
 
 			// ── 6. Deferred cleanup: remove the scale(1) transform ──
-			// Wait two animation frames so pdf.js has a chance to paint updated
-			// canvases for the visible pages. This avoids the "flash to blank
-			// canvas" that occurs if we remove the transform in the same frame.
+			// Wait three animation frames so pdf.js has enough time to paint
+			// updated canvases for the visible pages.
 			cleanupRafId = requestAnimationFrame(() => {
 				cleanupRafId = requestAnimationFrame(() => {
-					cleanupRafId = 0;
-					const v = getPdfViewerEl();
-					if (v) {
-						v.style.transform = "";
-						v.style.transformOrigin = "";
-					}
+					cleanupRafId = requestAnimationFrame(() => {
+						cleanupRafId = 0;
+						// Cancel again in case ResizeObserver re-queued during the 3 frames
+						cancelDebouncedScaleReset();
+						const v = getPdfViewerEl();
+						if (v) {
+							v.style.transform = "";
+							v.style.transformOrigin = "";
+							v.classList.remove('zoom-transitioning');
+						}
+					});
 				});
 			});
 		};
@@ -1020,6 +1093,7 @@ export function PdfAnnotationViewer({
 			if (commitTimer) clearTimeout(commitTimer);
 			if (baseScaleTimer) clearTimeout(baseScaleTimer);
 			if (cleanupRafId) cancelAnimationFrame(cleanupRafId);
+			if (scaleResetSuppressTimer) clearTimeout(scaleResetSuppressTimer);
 			unsubZoom();
 			el.removeEventListener("pointermove", handlePointerMove);
 			el.removeEventListener("wheel", handleWheel);
@@ -1688,6 +1762,11 @@ export function PdfAnnotationViewer({
           contain: layout style paint;
           content-visibility: auto;
           contain-intrinsic-size: auto 800px;
+        }
+        /* During zoom commit, disable content-visibility so all pages use real
+           sizes and scrollHeight stays stable (prevents scroll anchor drift). */
+        .pdfViewer.zoom-transitioning .page {
+          content-visibility: visible;
         }
         .page canvas {
           will-change: transform;
