@@ -2734,13 +2734,27 @@ function HtmlReader({
 
   var inGesture = false;
   var pzoom = 1;
+  var lockedWidth = 0;
+  var anchorCx = 0, anchorCy = 0;
+  var ptrX = 0, ptrY = 0;
   var _bilingualLayout = 'interleaved';
-  function applyVisualZoom(z) {
-    pzoom = Math.max(0.5, Math.min(5, z));
-    document.body.style.transformOrigin = '0 0';
-    document.body.style.transform = 'scale(' + pzoom + ')';
-    document.body.style.width = (100 / pzoom) + '%';
+
+  function applyPinchZoom() {
+    var b = document.body;
+    if (pzoom === 1) {
+      b.style.transform = '';
+      b.style.transformOrigin = '';
+      if (lockedWidth) { b.style.width = ''; lockedWidth = 0; }
+      return;
+    }
+    if (!lockedWidth) {
+      lockedWidth = b.offsetWidth;
+      b.style.width = lockedWidth + 'px';
+    }
+    b.style.transformOrigin = '0 0';
+    b.style.transform = 'scale(' + pzoom + ')';
   }
+
   document.addEventListener('wheel', function(e) {
     if (!e.ctrlKey && !e.metaKey) return;
     e.preventDefault();
@@ -2749,11 +2763,22 @@ function HtmlReader({
   }, { passive: false });
   var gBase = 1;
   document.addEventListener('gesturestart', function(e) {
-    e.preventDefault(); inGesture = true; gBase = pzoom;
+    e.preventDefault();
+    inGesture = true;
+    gBase = pzoom;
+    ptrX = e.clientX || 0;
+    ptrY = e.clientY || 0;
+    anchorCx = (ptrX + window.scrollX) / (pzoom || 1);
+    anchorCy = (ptrY + window.scrollY) / (pzoom || 1);
   }, { passive: false });
   document.addEventListener('gesturechange', function(e) {
     e.preventDefault();
-    applyVisualZoom(gBase * e.scale);
+    if (e.clientX != null) { ptrX = e.clientX; ptrY = e.clientY; }
+    pzoom = Math.max(0.25, Math.min(5, gBase * e.scale));
+    applyPinchZoom();
+    if (pzoom !== 1) {
+      window.scrollTo(anchorCx * pzoom - ptrX, anchorCy * pzoom - ptrY);
+    }
   }, { passive: false });
   document.addEventListener('gestureend', function(e) {
     e.preventDefault();
