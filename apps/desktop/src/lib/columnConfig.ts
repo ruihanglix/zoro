@@ -26,6 +26,13 @@ export interface ColumnDef {
 /** All available columns in their default order */
 export const COLUMN_DEFS: ColumnDef[] = [
 	{
+		id: "shortTitle",
+		label: "Short Title",
+		defaultVisible: true,
+		defaultWidth: 120,
+		minWidth: 60,
+	},
+	{
 		id: "title",
 		label: "Title",
 		defaultVisible: true,
@@ -33,13 +40,6 @@ export const COLUMN_DEFS: ColumnDef[] = [
 		minWidth: 120,
 		sortField: "title",
 		pinned: true,
-	},
-	{
-		id: "shortTitle",
-		label: "Short Title",
-		defaultVisible: false,
-		defaultWidth: 120,
-		minWidth: 60,
 	},
 	{
 		id: "authors",
@@ -52,7 +52,7 @@ export const COLUMN_DEFS: ColumnDef[] = [
 	{
 		id: "year",
 		label: "Year",
-		defaultVisible: true,
+		defaultVisible: false,
 		defaultWidth: 60,
 		minWidth: 40,
 		sortField: "published_date",
@@ -60,14 +60,14 @@ export const COLUMN_DEFS: ColumnDef[] = [
 	{
 		id: "source",
 		label: "Source",
-		defaultVisible: true,
+		defaultVisible: false,
 		defaultWidth: 80,
 		minWidth: 50,
 	},
 	{
 		id: "readStatus",
 		label: "Status",
-		defaultVisible: true,
+		defaultVisible: false,
 		defaultWidth: 70,
 		minWidth: 50,
 	},
@@ -167,7 +167,7 @@ export const COLUMN_DEFS: ColumnDef[] = [
 	{
 		id: "pdfStatus",
 		label: "PDF",
-		defaultVisible: true,
+		defaultVisible: false,
 		defaultWidth: 32,
 		minWidth: 28,
 	},
