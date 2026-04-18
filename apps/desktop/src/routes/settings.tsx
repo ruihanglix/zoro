@@ -1814,17 +1814,15 @@ export function Settings() {
 										>
 											{t("settings.uiScale")}
 										</label>
-										<div className="flex items-center gap-3 mt-1">
-											<input
-												id="ui-scale"
-												type="range"
-												min="0.5"
-												max="2"
-												step="0.05"
-												value={uiScale}
-												onChange={(e) => setUiScale(Number(e.target.value))}
-												className="w-full max-w-xs accent-primary"
-											/>
+										<div className="flex items-center gap-2 mt-1">
+											<button
+												type="button"
+												className="flex items-center justify-center size-7 rounded-md border text-sm hover:bg-accent transition-colors disabled:opacity-40"
+												onClick={() => setUiScale(Math.max(0.5, Math.round((uiScale - 0.05) * 20) / 20))}
+												disabled={uiScale <= 0.5}
+											>
+												−
+											</button>
 											<button
 												type="button"
 												className="min-w-[3.5rem] rounded-md border px-2 py-0.5 text-xs text-center tabular-nums hover:bg-accent transition-colors"
@@ -1832,6 +1830,14 @@ export function Settings() {
 												title={t("settings.resetUiScale")}
 											>
 												{Math.round(uiScale * 100)}%
+											</button>
+											<button
+												type="button"
+												className="flex items-center justify-center size-7 rounded-md border text-sm hover:bg-accent transition-colors disabled:opacity-40"
+												onClick={() => setUiScale(Math.min(2, Math.round((uiScale + 0.05) * 20) / 20))}
+												disabled={uiScale >= 2}
+											>
+												+
 											</button>
 										</div>
 										<p className="text-[11px] text-muted-foreground mt-1">
