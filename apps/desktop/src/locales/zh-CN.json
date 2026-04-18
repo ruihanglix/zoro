@@ -498,6 +498,8 @@
 		"showUncategorized": "在侧边栏显示「未分类」节点",
 		"reader": "阅读器",
 		"showTerminalTab": "在阅读器侧边栏显示终端选项卡",
+		"terminalFontSize": "终端字体大小",
+		"terminalFontSizeDesc": "调整内嵌终端的字体大小（聚焦终端时可用 Ctrl/Cmd +/- 快捷调节）。",
 		"htmlTypography": "HTML 阅读器排版",
 		"htmlTypographyDesc": "自定义 HTML 阅读器的字体和排版设置。这些设置仅适用于 HTML 模式。",
 		"fontFamily": "字体",

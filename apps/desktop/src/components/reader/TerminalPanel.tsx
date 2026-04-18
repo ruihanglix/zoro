@@ -3,6 +3,7 @@
 // See LICENSE file in the project root for full license information.
 
 import * as commands from "@/lib/commands";
+import { useUiStore } from "@/stores/uiStore";
 import { listen } from "@tauri-apps/api/event";
 import { FitAddon } from "@xterm/addon-fit";
 import { Terminal } from "@xterm/xterm";
@@ -22,6 +23,9 @@ export function TerminalPanel({ paperId, visible = true }: TerminalPanelProps) {
 	const terminalIdRef = useRef<string | null>(null);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
+
+	const terminalFontSize = useUiStore((s) => s.terminalFontSize);
+	const setTerminalFontSize = useUiStore((s) => s.setTerminalFontSize);
 
 	const doFit = useCallback(() => {
 		const fitAddon = fitAddonRef.current;
@@ -45,11 +49,47 @@ export function TerminalPanel({ paperId, visible = true }: TerminalPanelProps) {
 		}
 	}, [visible, doFit]);
 
+	// Sync font size from store into the live Terminal instance
+	useEffect(() => {
+		const term = termRef.current;
+		if (!term) return;
+		term.options.fontSize = terminalFontSize;
+		requestAnimationFrame(() => doFit());
+	}, [terminalFontSize, doFit]);
+
+	// Keyboard shortcuts: Ctrl/Cmd +/- to resize font (only when terminal focused)
+	useEffect(() => {
+		const container = containerRef.current;
+		if (!container) return;
+
+		const handler = (e: KeyboardEvent) => {
+			const mod = e.metaKey || e.ctrlKey;
+			if (!mod) return;
+
+			if (e.key === "=" || e.key === "+") {
+				e.preventDefault();
+				e.stopPropagation();
+				setTerminalFontSize(useUiStore.getState().terminalFontSize + 1);
+			} else if (e.key === "-") {
+				e.preventDefault();
+				e.stopPropagation();
+				setTerminalFontSize(useUiStore.getState().terminalFontSize - 1);
+			} else if (e.key === "0") {
+				e.preventDefault();
+				e.stopPropagation();
+				setTerminalFontSize(13);
+			}
+		};
+
+		container.addEventListener("keydown", handler);
+		return () => container.removeEventListener("keydown", handler);
+	}, [setTerminalFontSize]);
+
 	useEffect(() => {
 		if (!containerRef.current) return;
 
 		const term = new Terminal({
-			fontSize: 13,
+			fontSize: useUiStore.getState().terminalFontSize,
 			fontFamily: "'SF Mono', 'Menlo', 'Monaco', 'Courier New', monospace",
 			cursorBlink: true,
 			theme: {
@@ -152,7 +192,7 @@ export function TerminalPanel({ paperId, visible = true }: TerminalPanelProps) {
 					<Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
 				</div>
 			)}
-			<div ref={containerRef} className="h-full w-full" />
+			<div ref={containerRef} className="h-full w-full bg-[#1e1e1e]" />
 		</div>
 	);
 }

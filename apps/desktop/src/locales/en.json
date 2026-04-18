@@ -498,6 +498,8 @@
 		"showUncategorized": "Show \"Uncategorized\" node in sidebar",
 		"reader": "Reader",
 		"showTerminalTab": "Show Terminal tab in reader sidebar",
+		"terminalFontSize": "Terminal Font Size",
+		"terminalFontSizeDesc": "Adjust the font size of the embedded terminal (Ctrl/Cmd +/- when focused).",
 		"htmlTypography": "HTML Reader Typography",
 		"htmlTypographyDesc": "Customize font and layout for the HTML reader. These settings only apply to HTML mode.",
 		"fontFamily": "Font Family",
