@@ -121,15 +121,10 @@ export function PaperCardGrid() {
 										title: paper.title,
 									});
 								} else {
-									// Find the primary PDF: first local PDF attachment
-									const primaryPdf = paper.attachments.find(
-										(a) => a.file_type === "pdf" && a.is_local,
-									);
 									openTab({
 										type: "reader",
 										paperId: paper.id,
 										readerMode: paper.has_pdf ? "pdf" : "html",
-										pdfFilename: primaryPdf?.filename,
 										title: paper.title,
 									});
 								}
