@@ -323,3 +323,58 @@ pub async fn update_proxy_config(
 
     Ok(())
 }
+
+/// Response for the proxy connection test.
+#[derive(Debug, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ProxyTestResult {
+    pub success: bool,
+    pub status: Option<u16>,
+    pub latency_ms: u64,
+    pub error: Option<String>,
+}
+
+/// Test the proxy connection by sending a request through the configured proxy.
+/// Uses the provided (unsaved) proxy settings so the user can test before committing.
+#[tauri::command]
+pub async fn test_proxy_connection(
+    url: String,
+    proxy_url: String,
+    no_proxy: String,
+) -> Result<ProxyTestResult, String> {
+    use zoro_core::models::ProxyConfig;
+
+    let proxy_cfg = ProxyConfig {
+        enabled: true,
+        url: proxy_url,
+        no_proxy,
+    };
+
+    let client = zoro_core::http_client::build_http_client(&proxy_cfg)
+        .timeout(std::time::Duration::from_secs(10))
+        .build()
+        .map_err(|e| format!("Failed to build proxy client: {}", e))?;
+
+    let start = std::time::Instant::now();
+    match client.get(&url).send().await {
+        Ok(resp) => {
+            let latency_ms = start.elapsed().as_millis() as u64;
+            let status = resp.status().as_u16();
+            Ok(ProxyTestResult {
+                success: resp.status().is_success() || resp.status().is_redirection(),
+                status: Some(status),
+                latency_ms,
+                error: None,
+            })
+        }
+        Err(e) => {
+            let latency_ms = start.elapsed().as_millis() as u64;
+            Ok(ProxyTestResult {
+                success: false,
+                status: None,
+                latency_ms,
+                error: Some(e.to_string()),
+            })
+        }
+    }
+}

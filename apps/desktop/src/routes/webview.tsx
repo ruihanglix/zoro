@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import type { FeedItemResponse } from "@/lib/commands";
 import * as commands from "@/lib/commands";
 import { useTabStore } from "@/stores/tabStore";
+import { useIsDarkMode } from "@/stores/uiStore";
 import { listen } from "@tauri-apps/api/event";
 import { open } from "@tauri-apps/plugin-shell";
 import {
@@ -28,6 +29,7 @@ interface WebviewProps {
 
 export function Webview({ url, feedItem, isActive }: WebviewProps) {
 	const { t } = useTranslation();
+	const isDark = useIsDarkMode();
 	const openTab = useTabStore((s) => s.openTab);
 	const containerRef = useRef<HTMLDivElement>(null);
 	const labelRef = useRef(`browser-${++webviewCounter}`);
@@ -36,6 +38,11 @@ export function Webview({ url, feedItem, isActive }: WebviewProps) {
 	isActiveRef.current = isActive;
 	const [currentUrl, setCurrentUrl] = useState(url);
 	const [createError, setCreateError] = useState<string | null>(null);
+
+	// Sync dark mode to browser webviews
+	useEffect(() => {
+		commands.browserSetDarkMode(isDark).catch(() => {});
+	}, [isDark]);
 
 	// Create native webview on mount, destroy on unmount
 	useEffect(() => {

@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import * as commands from "@/lib/commands";
 import { cn } from "@/lib/utils";
 import { loadSetting, saveSetting } from "@/stores/uiStore";
+import { useIsDarkMode } from "@/stores/uiStore";
 import { listen } from "@tauri-apps/api/event";
 import { open } from "@tauri-apps/plugin-shell";
 import {
@@ -43,6 +44,7 @@ interface BrowserPanelProps {
 
 export function BrowserPanel({ storageKey, isActive, paperId }: BrowserPanelProps) {
 	const { t } = useTranslation();
+	const isDark = useIsDarkMode();
 	const lsKey = `zoro-browser-tabs-${storageKey}`;
 
 	// Load persisted state
@@ -82,6 +84,11 @@ export function BrowserPanel({ storageKey, isActive, paperId }: BrowserPanelProp
 	useEffect(() => {
 		saveSetting(lsKey, { tabs, activeTabId });
 	}, [tabs, activeTabId, lsKey]);
+
+	// Sync dark mode to browser webviews
+	useEffect(() => {
+		commands.browserSetDarkMode(isDark).catch(() => {});
+	}, [isDark]);
 
 	// Update URL bar when active tab changes
 	useEffect(() => {

@@ -651,6 +651,14 @@ export function Settings() {
 	const [proxyConfigLoaded, setProxyConfigLoaded] = useState(false);
 	const proxyUrlTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 	const noProxyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+	const [proxyTestUrl, setProxyTestUrl] = useState("https://www.google.com");
+	const [proxyTesting, setProxyTesting] = useState(false);
+	const [proxyTestResult, setProxyTestResult] = useState<{
+		success: boolean;
+		status: number | null;
+		latencyMs: number;
+		error: string | null;
+	} | null>(null);
 
 	// HTML fetch config
 	const [autoFetchArxivHtml, setAutoFetchArxivHtml] = useState(false);
@@ -1257,6 +1265,28 @@ export function Settings() {
 				logger.error("settings", "Failed to update no-proxy list", err);
 			}
 		}, 500);
+	};
+
+	const handleTestProxyConnection = async () => {
+		setProxyTesting(true);
+		setProxyTestResult(null);
+		try {
+			const result = await commands.testProxyConnection(
+				proxyTestUrl,
+				proxyUrl,
+				proxyNoProxy,
+			);
+			setProxyTestResult(result);
+		} catch (err) {
+			setProxyTestResult({
+				success: false,
+				status: null,
+				latencyMs: 0,
+				error: String(err),
+			});
+		} finally {
+			setProxyTesting(false);
+		}
 	};
 
 	const handleAutoFetchToggle = async (enabled: boolean) => {
@@ -2537,6 +2567,56 @@ export function Settings() {
 											<p className="ml-5 text-[11px] text-muted-foreground">
 												{t("settings.proxyRestartHint")}
 											</p>
+											<div className="ml-5 space-y-1.5 pt-1">
+												<label className="text-xs text-muted-foreground">
+													{t("settings.testConnectionUrl")}
+												</label>
+												<div className="flex items-center gap-2">
+													<input
+														type="text"
+														value={proxyTestUrl}
+														onChange={(e) => setProxyTestUrl(e.target.value)}
+														placeholder="https://www.google.com"
+														className="flex-1 rounded border bg-background px-2 py-1 text-xs"
+													/>
+													<Button
+														variant="outline"
+														size="sm"
+														className="h-7 text-xs"
+														disabled={proxyTesting || !proxyUrl}
+														onClick={handleTestProxyConnection}
+													>
+														{proxyTesting ? (
+															<>
+																<Loader2 className="mr-1 h-3 w-3 animate-spin" />
+																{t("settings.testConnectionTesting")}
+															</>
+														) : (
+															t("settings.testConnection")
+														)}
+													</Button>
+												</div>
+												{proxyTestResult && (
+													<p
+														className={cn(
+															"text-[11px]",
+															proxyTestResult.success
+																? "text-green-600 dark:text-green-400"
+																: "text-red-600 dark:text-red-400",
+														)}
+													>
+														{proxyTestResult.success
+															? t("settings.testConnectionSuccess", {
+																	status: proxyTestResult.status,
+																	latency: proxyTestResult.latencyMs,
+																})
+															: t("settings.testConnectionFailed", {
+																	error:
+																		proxyTestResult.error ?? "Unknown error",
+																})}
+													</p>
+												)}
+											</div>
 										</>
 									)}
 								</div>

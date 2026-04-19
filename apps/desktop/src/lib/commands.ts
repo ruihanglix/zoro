@@ -557,6 +557,24 @@ export const updateProxyConfig = (
 		noProxy: noProxy ?? null,
 	});
 
+export interface ProxyTestResult {
+	success: boolean;
+	status: number | null;
+	latencyMs: number;
+	error: string | null;
+}
+
+export const testProxyConnection = (
+	url: string,
+	proxyUrl: string,
+	noProxy: string,
+) =>
+	invoke<ProxyTestResult>("test_proxy_connection", {
+		url,
+		proxyUrl,
+		noProxy,
+	});
+
 // Citation
 export const enrichPaperMetadata = (paperId: string) =>
 	invoke<PaperResponse>("enrich_paper_metadata", { paperId });
@@ -1288,6 +1306,9 @@ export const browserReload = (label: string) =>
 
 export const browserGetUrl = (label: string) =>
 	invoke<string>("browser_get_url", { label });
+
+export const browserSetDarkMode = (dark: boolean) =>
+	invoke<void>("browser_set_dark_mode", { dark });
 
 // ── ACP Agent ──────────────────────────────────────────────────────────────
 

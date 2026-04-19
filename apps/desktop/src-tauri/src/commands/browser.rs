@@ -2,8 +2,43 @@
 // Licensed under the AGPL-3.0 license.
 // See LICENSE file in the project root for full license information.
 
+use std::sync::atomic::{AtomicBool, Ordering};
+
 use serde::Serialize;
 use tauri::{Emitter, LogicalPosition, LogicalSize, Manager, WebviewUrl};
+
+/// Global dark mode state shared between the `browser_set_dark_mode` command
+/// and the `on_page_load` callback so that newly loaded pages also receive
+/// the dark-mode CSS injection.
+static DARK_MODE: AtomicBool = AtomicBool::new(false);
+
+/// JS snippet that injects (or removes) the dark-mode `<style>` element.
+///
+/// Uses `filter: invert() hue-rotate()` which preserves the page's own design
+/// while inverting lightness.  Images / videos / canvases are inverted back so
+/// they look normal.  This is the same technique used by Dark Reader's "filter"
+/// mode and works reliably across arbitrary external websites.
+fn dark_mode_js(dark: bool) -> String {
+    if dark {
+        r#"(function(){
+var s=document.getElementById('zoro-dark-mode');
+if(!s){s=document.createElement('style');s.id='zoro-dark-mode';(document.head||document.documentElement).appendChild(s);}
+s.textContent="\
+html{filter:invert(.88) hue-rotate(180deg)!important;-webkit-filter:invert(.88) hue-rotate(180deg)!important;background:#fff!important}\
+img,video,canvas,picture,iframe,[style*=\"background-image\"],svg:not(.MathJax_SVG):not(mjx-container svg){filter:invert(1) hue-rotate(180deg)!important;-webkit-filter:invert(1) hue-rotate(180deg)!important}\
+html{color-scheme:dark!important;scrollbar-color:#555 #2a2a2e}\
+::-webkit-scrollbar{background:#2a2a2e;width:8px}\
+::-webkit-scrollbar-thumb{background:#555;border-radius:4px}\
+::-webkit-scrollbar-thumb:hover{background:#666}\
+";
+})();"#.to_string()
+    } else {
+        r#"(function(){
+var s=document.getElementById('zoro-dark-mode');
+if(s){s.textContent='';}
+})();"#.to_string()
+    }
+}
 
 #[derive(Debug, Clone, Serialize)]
 struct BrowserNavEvent {
@@ -190,6 +225,11 @@ pub async fn create_browser_webview(
                         }).observe(document.head||document.documentElement,{childList:true});
                     })();"#,
                 );
+
+                // Inject dark-mode CSS if globally enabled
+                if DARK_MODE.load(Ordering::Relaxed) {
+                    let _ = webview.eval(&dark_mode_js(true));
+                }
             }
         });
 
@@ -318,4 +358,19 @@ pub async fn browser_get_url(app: tauri::AppHandle, label: String) -> Result<Str
     } else {
         Ok(String::new())
     }
+}
+
+/// Set dark mode for all browser webviews (everything except the main webview).
+/// Also stores the value globally so that newly-loaded pages inherit it.
+#[tauri::command]
+pub async fn browser_set_dark_mode(app: tauri::AppHandle, dark: bool) -> Result<(), String> {
+    DARK_MODE.store(dark, Ordering::Relaxed);
+    let js = dark_mode_js(dark);
+    for (label, wv) in app.webviews() {
+        if label == "main" {
+            continue;
+        }
+        let _ = wv.eval(&js);
+    }
+    Ok(())
 }
