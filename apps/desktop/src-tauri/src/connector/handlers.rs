@@ -653,6 +653,7 @@ pub async fn fetch_arxiv_html_background(
 
 /// Enqueue a semaphore-gated arXiv HTML fetch for a single paper.
 /// Does NOT check the config enabled flag — the caller is responsible for that.
+#[allow(clippy::too_many_arguments)]
 pub fn enqueue_html_fetch(
     app: &tauri::AppHandle,
     semaphore: Arc<tokio::sync::Semaphore>,
