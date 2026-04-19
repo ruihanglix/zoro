@@ -13,6 +13,7 @@ import { MetadataSearchDialog } from "@/components/library/MetadataSearchDialog"
 import * as commands from "@/lib/commands";
 import { useKeybindings } from "@/hooks/useKeybindings";
 import { useMenuEvents } from "@/hooks/useMenuEvents";
+import i18n from "@/lib/i18n";
 import { injectPluginSharedDeps } from "@/plugins/PluginSharedDeps";
 import { usePluginStore } from "@/plugins/pluginStore";
 import { Feed } from "@/routes/feed";
@@ -63,7 +64,7 @@ export default function App() {
 				useTabStore.getState().openTab({
 					id: "settings",
 					type: "settings",
-					title: t("common.settings"),
+					title: i18n.t("common.settings"),
 				});
 			},
 			"global.toggleSidebar": () => {
@@ -147,7 +148,8 @@ export default function App() {
 				]),
 			),
 		}),
-		[t],
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+		[],
 	);
 	useKeybindings("global", globalHandlers);
 

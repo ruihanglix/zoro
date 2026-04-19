@@ -370,14 +370,12 @@ export function PdfAnnotationViewer({
 		[annotations, highlightBump],
 	);
 
-	// --- DEBUG: log highlight counts for each viewer ---
-	useEffect(() => {
-		console.log(
-			`[PDFViewer:${sourceFile}] annotations=${annotations.length}, ` +
-				`highlightsForViewer=${highlightsForViewer.length}, ` +
-				`isolated=${!!isolated}, bump=${highlightBump}`,
-		);
-	}, [annotations, highlightsForViewer, isolated, highlightBump, sourceFile]);
+	// Pre-filter annotations for AnnotationColorStyles so the reference is
+	// stable across re-renders that don't change annotations.
+	const colorStyleAnnotations = useMemo(
+		() => annotations.filter((a) => a.type !== "ink" && a.type !== "note"),
+		[annotations],
+	);
 
 	// Register a DOM-based scroll-to-highlight function.
 	useEffect(() => {
@@ -547,6 +545,10 @@ export function PdfAnnotationViewer({
 					if (dist < closestDist) {
 						closestDist = dist;
 						closestPage = Number(page.dataset.pageNumber) || 1;
+					} else {
+						// Pages are in document order; once distance starts
+						// increasing we've passed the closest page.
+						break;
 					}
 				}
 
@@ -616,23 +618,15 @@ export function PdfAnnotationViewer({
 				let data: Uint8Array;
 				if (hasPdfUrl) {
 					const tempPath = await commands.fetchRemotePdf(pdfUrl!);
-					console.log("[PdfViewer] Loading remote PDF:", tempPath);
 					data = await readFile(tempPath);
 				} else if (pdfFilename) {
 					const filePath = await commands.getPaperFilePath(
 						paperId!,
 						pdfFilename,
 					);
-					console.log(
-						"[PdfViewer] Loading PDF by filename:",
-						pdfFilename,
-						"->",
-						filePath,
-					);
 					data = await readFile(filePath);
 				} else {
 					const pdfPath = await commands.getPaperPdfPath(paperId!);
-					console.log("[PdfViewer] Loading default PDF:", pdfPath);
 					data = await readFile(pdfPath);
 				}
 				if (!cancelled) {
@@ -1586,15 +1580,6 @@ export function PdfAnnotationViewer({
 								const annotationType =
 									(highlight as ZoroHighlight).type || "highlight";
 
-								// --- DEBUG ---
-								if (index === 0) {
-									console.log(
-										`[PDFViewer:${sourceFile}] highlightTransform called, ` +
-											`total highlights on this page, first id=${highlight.id}, ` +
-											`type=${annotationType}`,
-									);
-								}
-
 								const makeCiteHandler = () => {
 									const h = highlight as unknown as ZoroHighlight;
 									useNoteStore.getState().setCitationClipboard({
@@ -1678,24 +1663,13 @@ export function PdfAnnotationViewer({
 										className={isGhostHighlight ? "ghost-highlight" : undefined}
 										style={{ cursor: "pointer" }}
 										onPointerDown={(e) => {
-											console.log(
-												`[PDFViewer:${sourceFile}] onPointerDown id=${highlight.id}`,
-											);
 											e.stopPropagation();
 										}}
 										onMouseDown={(e) => {
-											console.log(
-												`[PDFViewer:${sourceFile}] onMouseDown id=${highlight.id}`,
-											);
 											e.stopPropagation();
 											e.preventDefault();
 										}}
 										onClick={() => {
-											console.log(
-												`[PDFViewer:${sourceFile}] onClick id=${highlight.id}, ` +
-													`type=${annotationType}, hasRef=${!!pdfHighlighterRef.current}`,
-											);
-
 											const popupContent = (
 												<HighlightPopup
 													highlight={highlight as unknown as ZoroHighlight}
@@ -1714,18 +1688,6 @@ export function PdfAnnotationViewer({
 
 											const h = pdfHighlighterRef.current;
 											if (h) {
-												const state = (
-													h as unknown as {
-														state: Record<string, unknown>;
-													}
-												).state;
-												console.log(
-													`[PDFViewer:${sourceFile}] PdfHighlighter state: ` +
-														`tipPos=${!!state.tipPosition}, ` +
-														`isCollapsed=${state.isCollapsed}, ` +
-														`ghost=${!!state.ghostHighlight}, ` +
-														`areaSel=${state.isAreaSelectionInProgress}`,
-												);
 												(
 													h as unknown as {
 														setState: (s: object) => void;
@@ -1734,13 +1696,8 @@ export function PdfAnnotationViewer({
 													tipPosition: highlight.position,
 													tipChildren: popupContent,
 												});
-												console.log(
-													`[PDFViewer:${sourceFile}] force-set tip via ref OK`,
-												);
-											} else {
-												console.warn(`[PDFViewer:${sourceFile}] ref is NULL`);
-											}
-										}}
+										}
+									}}
 									>
 										{component}
 									</div>
@@ -1828,9 +1785,7 @@ export function PdfAnnotationViewer({
       `}</style>
 			{/* Apply per-annotation colors via dynamic CSS */}
 			<AnnotationColorStyles
-				annotations={annotations.filter(
-					(a) => a.type !== "ink" && a.type !== "note",
-				)}
+				annotations={colorStyleAnnotations}
 				containerEl={containerRef.current}
 			/>
 			{/* Ink drawing canvas overlay */}
