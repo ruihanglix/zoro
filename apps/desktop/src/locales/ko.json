@@ -388,7 +388,8 @@
 		"inkSize": "크기",
 		"citationPreview": "인용 미리보기",
 		"cached": "캐시됨",
-		"fetched": "가져옴"
+		"fetched": "가져옴",
+		"browser": "브라우저"
 	},
 	"agent": {
 		"showHistory": "기록 보기",
@@ -433,7 +434,8 @@
 		"input": "입력",
 		"output": "출력",
 		"noPresetsConfigured": "구성된 프리셋 없음",
-		"startingSession": "세션 시작 중, 잠시 기다려 주세요"
+		"startingSession": "세션 시작 중, 잠시 기다려 주세요",
+		"browser": "브라우저"
 	},
 	"noteEditor": {
 		"startWriting": "작성 시작...",
@@ -1160,5 +1162,17 @@
 		"pdf": "PDF",
 		"abstract": "초록",
 		"url": "URL"
+	},
+	"browser": {
+		"newTab": "새 탭",
+		"addressPlaceholder": "URL 입력...",
+		"addBookmark": "북마크 추가",
+		"editBookmark": "북마크 편집",
+		"deleteBookmark": "북마크 삭제",
+		"bookmarkName": "이름",
+		"bookmarkUrl": "URL",
+		"closeTab": "탭 닫기",
+		"resetBookmarks": "북마크 초기화",
+		"copyPaperPdf": "논문 PDF를 클립보드에 복사"
 	}
 }

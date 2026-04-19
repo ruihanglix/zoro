@@ -3,6 +3,7 @@
 // See LICENSE file in the project root for full license information.
 
 import { Button } from "@/components/ui/button";
+import { BrowserPanel } from "@/components/browser/BrowserPanel";
 import {
 	DropdownMenu,
 	DropdownMenuContent,
@@ -37,6 +38,7 @@ import {
 	FileText,
 	FolderClosed,
 	FolderOpen,
+	Globe,
 	History,
 	Image,
 	Loader2,
@@ -116,6 +118,7 @@ export function AgentPanel({ cwd, paperId }: AgentPanelProps) {
 	const [attachedImages, setAttachedImages] = useState<ImageInput[]>([]);
 	const [showAgentPicker, setShowAgentPicker] = useState(false);
 	const [sidebarOpen, setSidebarOpen] = useState(isGlobal);
+	const [browserMode, setBrowserMode] = useState(false);
 	const [historyPopoverOpen, setHistoryPopoverOpen] = useState(false);
 	const historyBtnRef = useRef<HTMLButtonElement>(null);
 	const historyPopoverRef = useRef<HTMLDivElement>(null);
@@ -764,14 +767,28 @@ export function AgentPanel({ cwd, paperId }: AgentPanelProps) {
 				<ChatSidebar
 					sessions={chatSessions}
 					activeChatId={activeChatId}
-					onNewChat={newChat}
-					onSwitchChat={switchChat}
+					onNewChat={() => {
+						setBrowserMode(false);
+						newChat();
+					}}
+					onSwitchChat={(id) => {
+						setBrowserMode(false);
+						switchChat(id);
+					}}
 					onDeleteChat={deleteChat}
 					onCollapse={() => setSidebarOpen(false)}
 					papers={papers}
+					browserMode={browserMode}
+					onSwitchToBrowser={() => setBrowserMode(true)}
 				/>
 			)}
-			{chatArea}
+			{browserMode ? (
+				<div className="flex-1 min-w-0 overflow-hidden">
+					<BrowserPanel storageKey="global" isActive={true} />
+				</div>
+			) : (
+				chatArea
+			)}
 		</div>
 	);
 }
@@ -1123,6 +1140,8 @@ function ChatSidebar({
 	onDeleteChat,
 	onCollapse,
 	papers,
+	browserMode,
+	onSwitchToBrowser,
 }: {
 	sessions: SessionMeta[];
 	activeChatId: string | null;
@@ -1131,6 +1150,8 @@ function ChatSidebar({
 	onDeleteChat: (id: string) => void;
 	onCollapse: () => void;
 	papers: { slug: string; title: string; short_title: string | null }[];
+	browserMode?: boolean;
+	onSwitchToBrowser?: () => void;
 }) {
 	const { t } = useTranslation();
 	const [paperFolderOpen, setPaperFolderOpen] = useState(false);
@@ -1320,6 +1341,25 @@ function ChatSidebar({
 					)}
 				</div>
 			</ScrollArea>
+
+			{/* Browser entry */}
+			{onSwitchToBrowser && (
+				<div className="border-t px-2 py-2">
+					<button
+						type="button"
+						className={cn(
+							"flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-xs transition-colors",
+							browserMode
+								? "bg-accent text-foreground font-medium"
+								: "text-muted-foreground hover:bg-accent/50 hover:text-foreground",
+						)}
+						onClick={onSwitchToBrowser}
+					>
+						<Globe className="h-3.5 w-3.5" />
+						{t("agent.browser")}
+					</button>
+				</div>
+			)}
 		</div>
 	);
 }

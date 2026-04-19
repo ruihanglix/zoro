@@ -1977,6 +1977,82 @@ pub async fn get_paper_pdf_path(
 }
 
 #[tauri::command]
+pub async fn copy_paper_pdf_to_clipboard(
+    state: State<'_, AppState>,
+    paper_id: String,
+) -> Result<(), String> {
+    let path = get_paper_pdf_path(state, paper_id).await?;
+    copy_file_to_clipboard(&path)
+}
+
+fn copy_file_to_clipboard(path: &str) -> Result<(), String> {
+    #[cfg(target_os = "macos")]
+    {
+        let status = std::process::Command::new("osascript")
+            .arg("-e")
+            .arg(format!(
+                "set the clipboard to (POSIX file \"{}\")",
+                path.replace('\\', "\\\\").replace('"', "\\\"")
+            ))
+            .status()
+            .map_err(|e| format!("Failed to run osascript: {}", e))?;
+        if !status.success() {
+            return Err("Failed to copy file to clipboard".to_string());
+        }
+        Ok(())
+    }
+
+    #[cfg(target_os = "windows")]
+    {
+        let script = format!(
+            "Add-Type -AssemblyName System.Windows.Forms; \
+             $list = [System.Collections.Specialized.StringCollection]::new(); \
+             $list.Add('{}'); \
+             [System.Windows.Forms.Clipboard]::SetFileDropList($list)",
+            path.replace('\'', "''")
+        );
+        let status = std::process::Command::new("powershell")
+            .args(["-NoProfile", "-Command", &script])
+            .status()
+            .map_err(|e| format!("Failed to run powershell: {}", e))?;
+        if !status.success() {
+            return Err("Failed to copy file to clipboard".to_string());
+        }
+        Ok(())
+    }
+
+    #[cfg(target_os = "linux")]
+    {
+        // xclip with x-special/gnome-copied-files mime type
+        // This is supported by most Linux file managers and apps
+        let content = format!("copy\nfile://{}", path);
+        let mut child = std::process::Command::new("xclip")
+            .args([
+                "-selection",
+                "clipboard",
+                "-t",
+                "x-special/gnome-copied-files",
+            ])
+            .stdin(std::process::Stdio::piped())
+            .spawn()
+            .map_err(|e| format!("Failed to run xclip (is it installed?): {}", e))?;
+        if let Some(mut stdin) = child.stdin.take() {
+            use std::io::Write;
+            stdin
+                .write_all(content.as_bytes())
+                .map_err(|e| format!("Failed to write to xclip: {}", e))?;
+        }
+        let status = child
+            .wait()
+            .map_err(|e| format!("Failed to wait for xclip: {}", e))?;
+        if !status.success() {
+            return Err("Failed to copy file to clipboard".to_string());
+        }
+        Ok(())
+    }
+}
+
+#[tauri::command]
 pub async fn get_paper_html_path(
     state: State<'_, AppState>,
     paper_id: String,

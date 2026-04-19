@@ -388,7 +388,8 @@
 		"inkSize": "Größe",
 		"citationPreview": "Zitiervorschau",
 		"cached": "Zwischengespeichert",
-		"fetched": "Abgerufen"
+		"fetched": "Abgerufen",
+		"browser": "Browser"
 	},
 	"agent": {
 		"showHistory": "Verlauf anzeigen",
@@ -433,7 +434,8 @@
 		"input": "Eingabe",
 		"output": "Ausgabe",
 		"noPresetsConfigured": "Keine Voreinstellungen konfiguriert",
-		"startingSession": "Sitzung wird gestartet, bitte warten"
+		"startingSession": "Sitzung wird gestartet, bitte warten",
+		"browser": "Browser"
 	},
 	"noteEditor": {
 		"startWriting": "Beginnen Sie zu schreiben...",
@@ -1160,5 +1162,17 @@
 		"pdf": "PDF",
 		"abstract": "Zusammenfassung",
 		"url": "URL"
+	},
+	"browser": {
+		"newTab": "Neuer Tab",
+		"addressPlaceholder": "URL eingeben...",
+		"addBookmark": "Lesezeichen hinzufügen",
+		"editBookmark": "Lesezeichen bearbeiten",
+		"deleteBookmark": "Lesezeichen löschen",
+		"bookmarkName": "Name",
+		"bookmarkUrl": "URL",
+		"closeTab": "Tab schließen",
+		"resetBookmarks": "Lesezeichen zurücksetzen",
+		"copyPaperPdf": "Paper-PDF in die Zwischenablage kopieren"
 	}
 }

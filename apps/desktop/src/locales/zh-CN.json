@@ -388,7 +388,8 @@
 		"inkSize": "大小",
 		"citationPreview": "引文预览",
 		"cached": "已缓存",
-		"fetched": "已获取"
+		"fetched": "已获取",
+		"browser": "浏览器"
 	},
 	"agent": {
 		"showHistory": "显示历史",
@@ -433,7 +434,8 @@
 		"input": "输入",
 		"output": "输出",
 		"noPresetsConfigured": "暂无预设配置",
-		"startingSession": "正在启动会话，请稍候"
+		"startingSession": "正在启动会话，请稍候",
+		"browser": "浏览器"
 	},
 	"noteEditor": {
 		"startWriting": "开始写作...",
@@ -1160,5 +1162,17 @@
 		"pdf": "PDF",
 		"abstract": "摘要",
 		"url": "URL"
+	},
+	"browser": {
+		"newTab": "新标签页",
+		"addressPlaceholder": "输入网址...",
+		"addBookmark": "添加书签",
+		"editBookmark": "编辑书签",
+		"deleteBookmark": "删除书签",
+		"bookmarkName": "名称",
+		"bookmarkUrl": "网址",
+		"closeTab": "关闭标签页",
+		"resetBookmarks": "恢复默认书签",
+		"copyPaperPdf": "复制论文 PDF 到剪贴板"
 	}
 }

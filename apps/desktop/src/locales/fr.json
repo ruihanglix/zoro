@@ -388,7 +388,8 @@
 		"inkSize": "Taille",
 		"citationPreview": "Aperçu de citation",
 		"cached": "En cache",
-		"fetched": "Récupéré"
+		"fetched": "Récupéré",
+		"browser": "Navigateur"
 	},
 	"agent": {
 		"showHistory": "Afficher l'historique",
@@ -433,7 +434,8 @@
 		"input": "Entrée",
 		"output": "Sortie",
 		"noPresetsConfigured": "Aucun préréglage configuré",
-		"startingSession": "Démarrage de la session, veuillez patienter"
+		"startingSession": "Démarrage de la session, veuillez patienter",
+		"browser": "Navigateur"
 	},
 	"noteEditor": {
 		"startWriting": "Commencez à écrire...",
@@ -1160,5 +1162,17 @@
 		"pdf": "PDF",
 		"abstract": "Résumé",
 		"url": "URL"
+	},
+	"browser": {
+		"newTab": "Nouvel onglet",
+		"addressPlaceholder": "Saisir l'URL...",
+		"addBookmark": "Ajouter un signet",
+		"editBookmark": "Modifier le signet",
+		"deleteBookmark": "Supprimer le signet",
+		"bookmarkName": "Nom",
+		"bookmarkUrl": "URL",
+		"closeTab": "Fermer l'onglet",
+		"resetBookmarks": "Réinitialiser les signets",
+		"copyPaperPdf": "Copier le PDF de l'article dans le presse-papiers"
 	}
 }

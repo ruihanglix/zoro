@@ -32,6 +32,8 @@ export function Webview({ url, feedItem, isActive }: WebviewProps) {
 	const containerRef = useRef<HTMLDivElement>(null);
 	const labelRef = useRef(`browser-${++webviewCounter}`);
 	const createdRef = useRef(false);
+	const isActiveRef = useRef(isActive);
+	isActiveRef.current = isActive;
 	const [currentUrl, setCurrentUrl] = useState(url);
 	const [createError, setCreateError] = useState<string | null>(null);
 
@@ -59,6 +61,14 @@ export function Webview({ url, feedItem, isActive }: WebviewProps) {
 					rect.width,
 					rect.height,
 				)
+				.then(() => {
+					// After creation, sync visibility with current active state.
+					// The webview is created visible by default, so hide it if
+					// the tab is no longer active (user switched away during async creation).
+					if (!isActiveRef.current) {
+						commands.hideBrowserWebview(label).catch(() => {});
+					}
+				})
 				.catch((e) => {
 					setCreateError(String(e));
 					createdRef.current = false;
@@ -79,7 +89,7 @@ export function Webview({ url, feedItem, isActive }: WebviewProps) {
 		if (!container) return;
 
 		const observer = new ResizeObserver(() => {
-			if (!createdRef.current) return;
+			if (!createdRef.current || !isActiveRef.current) return;
 			const rect = container.getBoundingClientRect();
 			if (rect.width > 0 && rect.height > 0) {
 				commands
@@ -100,26 +110,32 @@ export function Webview({ url, feedItem, isActive }: WebviewProps) {
 
 	// Show/hide native webview based on tab visibility
 	useEffect(() => {
-		if (!createdRef.current) return;
 		const label = labelRef.current;
 		if (isActive) {
-			commands.showBrowserWebview(label).catch(() => {});
-			// Re-sync position when becoming visible
-			const container = containerRef.current;
-			if (container) {
-				const rect = container.getBoundingClientRect();
-				if (rect.width > 0 && rect.height > 0) {
-					commands
-						.resizeBrowserWebview(
-							label,
-							rect.left,
-							rect.top,
-							rect.width,
-							rect.height,
-						)
-						.catch(() => {});
+			if (!createdRef.current) return;
+			// First hide all webviews to ensure a clean slate, then show ours.
+			// This guarantees ordering: hide-all completes before show.
+			commands.hideAllBrowserWebviews().then(() => {
+				// Guard: user might have switched tabs again while awaiting
+				if (!isActiveRef.current) return;
+				commands.showBrowserWebview(label).catch(() => {});
+				// Re-sync position when becoming visible
+				const container = containerRef.current;
+				if (container) {
+					const rect = container.getBoundingClientRect();
+					if (rect.width > 0 && rect.height > 0) {
+						commands
+							.resizeBrowserWebview(
+								label,
+								rect.left,
+								rect.top,
+								rect.width,
+								rect.height,
+							)
+							.catch(() => {});
+					}
 				}
-			}
+			}).catch(() => {});
 		} else {
 			commands.hideBrowserWebview(label).catch(() => {});
 		}

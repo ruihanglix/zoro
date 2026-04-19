@@ -388,7 +388,8 @@
 		"inkSize": "サイズ",
 		"citationPreview": "引用プレビュー",
 		"cached": "キャッシュ済み",
-		"fetched": "取得済み"
+		"fetched": "取得済み",
+		"browser": "ブラウザ"
 	},
 	"agent": {
 		"showHistory": "履歴を表示",
@@ -433,7 +434,8 @@
 		"input": "入力",
 		"output": "出力",
 		"noPresetsConfigured": "プリセットが設定されていません",
-		"startingSession": "セッションを開始中、お待ちください"
+		"startingSession": "セッションを開始中、お待ちください",
+		"browser": "ブラウザ"
 	},
 	"noteEditor": {
 		"startWriting": "書き始める...",
@@ -1160,5 +1162,17 @@
 		"pdf": "PDF",
 		"abstract": "要旨",
 		"url": "URL"
+	},
+	"browser": {
+		"newTab": "新しいタブ",
+		"addressPlaceholder": "URLを入力...",
+		"addBookmark": "ブックマークを追加",
+		"editBookmark": "ブックマークを編集",
+		"deleteBookmark": "ブックマークを削除",
+		"bookmarkName": "名前",
+		"bookmarkUrl": "URL",
+		"closeTab": "タブを閉じる",
+		"resetBookmarks": "ブックマークをリセット",
+		"copyPaperPdf": "論文PDFをクリップボードにコピー"
 	}
 }
