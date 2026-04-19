@@ -125,6 +125,13 @@ export function BilingualPdfViewer({
 			const onRightWheel = () => setActiveSide("right");
 			const onLeftTouchStart = () => setActiveSide("left");
 			const onRightTouchStart = () => setActiveSide("right");
+			// gesturestart/gesturechange fire on macOS trackpad pinch — without
+			// this, activeSide stays null during pinch-zoom and scroll sync
+			// bounces between both sides causing page-number jumps.
+			// gesturechange is included to keep refreshing activeSide throughout
+			// a long pinch gesture (activeSideTimer expires after 200ms).
+			const onLeftGesture = () => setActiveSide("left");
+			const onRightGesture = () => setActiveSide("right");
 
 			// ── Page layout cache ──
 			// Cache page offsetTop/height to avoid DOM reads during scroll sync.
@@ -392,6 +399,10 @@ export function BilingualPdfViewer({
 			r.addEventListener("wheel", onRightWheel, { passive: true });
 			l.addEventListener("touchstart", onLeftTouchStart, { passive: true });
 			r.addEventListener("touchstart", onRightTouchStart, { passive: true });
+			l.addEventListener("gesturestart", onLeftGesture);
+			r.addEventListener("gesturestart", onRightGesture);
+			l.addEventListener("gesturechange", onLeftGesture, { passive: true });
+			r.addEventListener("gesturechange", onRightGesture, { passive: true });
 			l.addEventListener("scroll", onLeftScroll, { passive: true });
 			r.addEventListener("scroll", onRightScroll, { passive: true });
 
@@ -402,6 +413,10 @@ export function BilingualPdfViewer({
 				r.removeEventListener("wheel", onRightWheel);
 				l.removeEventListener("touchstart", onLeftTouchStart);
 				r.removeEventListener("touchstart", onRightTouchStart);
+				l.removeEventListener("gesturestart", onLeftGesture);
+				r.removeEventListener("gesturestart", onRightGesture);
+				l.removeEventListener("gesturechange", onLeftGesture);
+				r.removeEventListener("gesturechange", onRightGesture);
 				l.removeEventListener("scroll", onLeftScroll);
 				r.removeEventListener("scroll", onRightScroll);
 				if (activeSideTimer) clearTimeout(activeSideTimer);
