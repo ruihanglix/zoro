@@ -1294,6 +1294,8 @@ function ReaderMetadataPanel({
 	readerMode: "pdf" | "html";
 }) {
 	const showReaderTerminal = useUiStore((s) => s.showReaderTerminal);
+	const topLevelActiveTabId = useTabStore((s) => s.activeTabId);
+	const isReaderTabActive = topLevelActiveTabId === tabId;
 	const { t } = useTranslation();
 	const [activeTab, setActiveTab] = useState<string>("agent");
 	const [terminalMounted, setTerminalMounted] = useState(false);
@@ -1533,7 +1535,7 @@ function ReaderMetadataPanel({
 				{browserMounted && (
 					<BrowserPanel
 						storageKey={paper.id}
-						isActive={activeTab === "browser"}
+						isActive={activeTab === "browser" && isReaderTabActive}
 					/>
 				)}
 			</div>
