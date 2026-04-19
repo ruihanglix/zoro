@@ -718,6 +718,9 @@ export const addAttachmentFiles = (paperId: string, filePaths: string[]) =>
 export const getPaperPdfPath = (paperId: string) =>
 	invoke<string>("get_paper_pdf_path", { paperId });
 
+export const copyPaperPdfToClipboard = (paperId: string) =>
+	invoke<void>("copy_paper_pdf_to_clipboard", { paperId });
+
 export const getPaperHtmlPath = (paperId: string) =>
 	invoke<string>("get_paper_html_path", { paperId });
 

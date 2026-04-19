@@ -404,6 +404,7 @@ pub fn run() {
             commands::library::update_paper_authors,
             commands::library::add_attachment_files,
             commands::library::get_paper_pdf_path,
+            commands::library::copy_paper_pdf_to_clipboard,
             commands::library::get_paper_html_path,
             commands::library::get_paper_file_path,
             commands::library::import_local_files,

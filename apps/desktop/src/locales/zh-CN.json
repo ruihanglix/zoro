@@ -1172,6 +1172,7 @@
 		"bookmarkName": "名称",
 		"bookmarkUrl": "网址",
 		"closeTab": "关闭标签页",
-		"resetBookmarks": "恢复默认书签"
+		"resetBookmarks": "恢复默认书签",
+		"copyPaperPdf": "复制论文 PDF 到剪贴板"
 	}
 }

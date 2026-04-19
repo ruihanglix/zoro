@@ -1172,6 +1172,7 @@
 		"bookmarkName": "이름",
 		"bookmarkUrl": "URL",
 		"closeTab": "탭 닫기",
-		"resetBookmarks": "북마크 초기화"
+		"resetBookmarks": "북마크 초기화",
+		"copyPaperPdf": "논문 PDF를 클립보드에 복사"
 	}
 }

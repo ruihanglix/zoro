@@ -1172,6 +1172,7 @@
 		"bookmarkName": "Name",
 		"bookmarkUrl": "URL",
 		"closeTab": "Close Tab",
-		"resetBookmarks": "Reset Bookmarks"
+		"resetBookmarks": "Reset Bookmarks",
+		"copyPaperPdf": "Copy paper PDF to clipboard"
 	}
 }

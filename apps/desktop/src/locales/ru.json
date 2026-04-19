@@ -1172,6 +1172,7 @@
 		"bookmarkName": "Название",
 		"bookmarkUrl": "URL",
 		"closeTab": "Закрыть вкладку",
-		"resetBookmarks": "Сбросить закладки"
+		"resetBookmarks": "Сбросить закладки",
+		"copyPaperPdf": "Скопировать PDF статьи в буфер обмена"
 	}
 }

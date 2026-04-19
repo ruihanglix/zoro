@@ -1172,6 +1172,7 @@
 		"bookmarkName": "Nome",
 		"bookmarkUrl": "URL",
 		"closeTab": "Fechar aba",
-		"resetBookmarks": "Redefinir favoritos"
+		"resetBookmarks": "Redefinir favoritos",
+		"copyPaperPdf": "Copiar PDF do artigo para a área de transferência"
 	}
 }

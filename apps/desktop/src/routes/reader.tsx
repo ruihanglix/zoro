@@ -1536,6 +1536,7 @@ function ReaderMetadataPanel({
 					<BrowserPanel
 						storageKey={paper.id}
 						isActive={activeTab === "browser" && isReaderTabActive}
+						paperId={paper.id}
 					/>
 				)}
 			</div>

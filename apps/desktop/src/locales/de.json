@@ -1172,6 +1172,7 @@
 		"bookmarkName": "Name",
 		"bookmarkUrl": "URL",
 		"closeTab": "Tab schließen",
-		"resetBookmarks": "Lesezeichen zurücksetzen"
+		"resetBookmarks": "Lesezeichen zurücksetzen",
+		"copyPaperPdf": "Paper-PDF in die Zwischenablage kopieren"
 	}
 }

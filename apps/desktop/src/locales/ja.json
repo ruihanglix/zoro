@@ -1172,6 +1172,7 @@
 		"bookmarkName": "名前",
 		"bookmarkUrl": "URL",
 		"closeTab": "タブを閉じる",
-		"resetBookmarks": "ブックマークをリセット"
+		"resetBookmarks": "ブックマークをリセット",
+		"copyPaperPdf": "論文PDFをクリップボードにコピー"
 	}
 }

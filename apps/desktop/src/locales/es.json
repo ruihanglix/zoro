@@ -1172,6 +1172,7 @@
 		"bookmarkName": "Nombre",
 		"bookmarkUrl": "URL",
 		"closeTab": "Cerrar pestaña",
-		"resetBookmarks": "Restablecer marcadores"
+		"resetBookmarks": "Restablecer marcadores",
+		"copyPaperPdf": "Copiar PDF del artículo al portapapeles"
 	}
 }

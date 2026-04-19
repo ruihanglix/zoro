@@ -14,6 +14,8 @@ import {
 	ArrowLeft,
 	ArrowRight,
 	ExternalLink,
+	FileText,
+	Globe,
 	Plus,
 	RefreshCw,
 	X,
@@ -25,6 +27,7 @@ interface BrowserTab {
 	id: string;
 	url: string;
 	title: string;
+	favicon: string;
 }
 
 interface BrowserTabsState {
@@ -35,9 +38,10 @@ interface BrowserTabsState {
 interface BrowserPanelProps {
 	storageKey: string;
 	isActive: boolean;
+	paperId?: string;
 }
 
-export function BrowserPanel({ storageKey, isActive }: BrowserPanelProps) {
+export function BrowserPanel({ storageKey, isActive, paperId }: BrowserPanelProps) {
 	const { t } = useTranslation();
 	const lsKey = `zoro-browser-tabs-${storageKey}`;
 
@@ -97,7 +101,7 @@ export function BrowserPanel({ storageKey, isActive }: BrowserPanelProps) {
 				setTabs((prev) =>
 					prev.map((tab) => {
 						if (getLabel(tab.id) === label) {
-							return { ...tab, url, title: extractTitle(url) };
+							return { ...tab, url };
 						}
 						return tab;
 					}),
@@ -118,6 +122,31 @@ export function BrowserPanel({ storageKey, isActive }: BrowserPanelProps) {
 			unlisten.then((fn) => fn());
 		};
 	}, [getLabel, tabs]);
+
+	// Listen for page info events to update tab title and favicon
+	useEffect(() => {
+		const unlisten = listen<{ label: string; title: string; favicon: string }>(
+			"browser-page-info",
+			(event) => {
+				const { label, title, favicon } = event.payload;
+				setTabs((prev) =>
+					prev.map((tab) => {
+						if (getLabel(tab.id) === label) {
+							return {
+								...tab,
+								...(title ? { title } : {}),
+								...(favicon ? { favicon } : {}),
+							};
+						}
+						return tab;
+					}),
+				);
+			},
+		);
+		return () => {
+			unlisten.then((fn) => fn());
+		};
+	}, [getLabel]);
 
 	// Sync a single webview's position/size to its container
 	const syncWebviewPosition = useCallback(
@@ -286,12 +315,12 @@ export function BrowserPanel({ storageKey, isActive }: BrowserPanelProps) {
 		(url?: string) => {
 			const id = `bt-${Date.now()}`;
 			if (url) {
-				const newTab: BrowserTab = { id, url, title: extractTitle(url) };
+				const newTab: BrowserTab = { id, url, title: extractTitle(url), favicon: "" };
 				setTabs((prev) => [...prev, newTab]);
 				setActiveTabId(id);
 			} else {
 				// Show new tab page (no URL)
-				const newTab: BrowserTab = { id, url: "", title: t("browser.newTab") };
+				const newTab: BrowserTab = { id, url: "", title: t("browser.newTab"), favicon: "" };
 				setTabs((prev) => [...prev, newTab]);
 				setActiveTabId(id);
 			}
@@ -308,7 +337,7 @@ export function BrowserPanel({ storageKey, isActive }: BrowserPanelProps) {
 			setTabs((prev) =>
 				prev.map((tab) =>
 					tab.id === activeTabId
-						? { ...tab, url, title: extractTitle(url) }
+						? { ...tab, url, title: extractTitle(url), favicon: "" }
 						: tab,
 				),
 			);
@@ -418,18 +447,33 @@ export function BrowserPanel({ storageKey, isActive }: BrowserPanelProps) {
 		}
 	}, [activeTabId, isActive, tabs, getLabel, createWebviewForTab]);
 
+	const tabScrollRef = useRef<HTMLDivElement>(null);
+
+	// Convert vertical scroll to horizontal scroll on the tab bar
+	const handleTabWheel = useCallback((e: React.WheelEvent) => {
+		if (!tabScrollRef.current) return;
+		if (e.deltaY !== 0) {
+			e.preventDefault();
+			tabScrollRef.current.scrollLeft += e.deltaY;
+		}
+	}, []);
+
 	const showNewTabPage = !activeTab || !activeTab.url;
 
 	return (
 		<div ref={panelRef} className="flex h-full w-full flex-col overflow-hidden">
 			{/* Tab bar */}
 			<div className="flex items-center border-b bg-muted/30 shrink-0">
-				<div className="flex flex-1 items-center overflow-x-auto min-w-0">
+				<div
+					ref={tabScrollRef}
+					className="flex flex-1 items-center overflow-x-auto scrollbar-none min-w-0"
+					onWheel={handleTabWheel}
+				>
 					{tabs.map((tab) => (
 						<div
 							key={tab.id}
 							className={cn(
-								"group flex items-center gap-1 border-r px-2 py-1.5 text-xs cursor-pointer shrink-0 max-w-[160px]",
+								"group flex items-center gap-1.5 border-r px-2 py-1.5 text-xs cursor-pointer shrink-0 max-w-[160px]",
 								tab.id === activeTabId
 									? "bg-background text-foreground"
 									: "text-muted-foreground hover:bg-accent/30",
@@ -439,6 +483,7 @@ export function BrowserPanel({ storageKey, isActive }: BrowserPanelProps) {
 								if (e.key === "Enter") switchTab(tab.id);
 							}}
 						>
+							<TabFavicon url={tab.favicon} />
 							<span className="truncate min-w-0">
 								{tab.title || t("browser.newTab")}
 							</span>
@@ -464,6 +509,22 @@ export function BrowserPanel({ storageKey, isActive }: BrowserPanelProps) {
 				>
 					<Plus className="h-3.5 w-3.5" />
 				</button>
+				{paperId && !showNewTabPage && (
+					<button
+						type="button"
+						className="shrink-0 p-1.5 text-muted-foreground hover:text-foreground hover:bg-accent/30 transition-colors"
+						onClick={async () => {
+							try {
+								await commands.copyPaperPdfToClipboard(paperId);
+							} catch {
+								// PDF not available
+							}
+						}}
+						title={t("browser.copyPaperPdf")}
+					>
+						<FileText className="h-3.5 w-3.5" />
+					</button>
+				)}
 			</div>
 
 			{/* Address bar + navigation (only when a tab is active with a URL) */}
@@ -566,4 +627,26 @@ function extractTitle(url: string): string {
 	} catch {
 		return url;
 	}
+}
+
+function TabFavicon({ url }: { url: string }) {
+	const [failed, setFailed] = useState(false);
+
+	// Reset failed state when url changes
+	useEffect(() => {
+		setFailed(false);
+	}, [url]);
+
+	if (!url || failed) {
+		return <Globe className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />;
+	}
+
+	return (
+		<img
+			src={url}
+			alt=""
+			className="h-3.5 w-3.5 shrink-0 rounded-sm"
+			onError={() => setFailed(true)}
+		/>
+	);
 }

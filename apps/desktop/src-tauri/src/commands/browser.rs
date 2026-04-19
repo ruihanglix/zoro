@@ -11,6 +11,13 @@ struct BrowserNavEvent {
     url: String,
 }
 
+#[derive(Debug, Clone, Serialize)]
+struct BrowserPageInfoEvent {
+    label: String,
+    title: String,
+    favicon: String,
+}
+
 #[tauri::command]
 pub async fn create_browser_webview(
     app: tauri::AppHandle,
@@ -34,6 +41,9 @@ pub async fn create_browser_webview(
     let label_for_event = label.clone();
     let app_for_event = app.clone();
 
+    let label_for_pageinfo = label.clone();
+    let app_for_pageinfo = app.clone();
+
     let label_for_nav = label.clone();
     let app_for_nav = app.clone();
 
@@ -50,6 +60,28 @@ pub async fn create_browser_webview(
                         },
                     );
                 }
+                return false; // Block the fake navigation
+            }
+            // Intercept page info notifications (title + favicon)
+            if url.scheme() == "zoro-page-info" {
+                let title = url
+                    .query_pairs()
+                    .find(|(k, _)| k == "title")
+                    .map(|(_, v)| v.to_string())
+                    .unwrap_or_default();
+                let favicon = url
+                    .query_pairs()
+                    .find(|(k, _)| k == "favicon")
+                    .map(|(_, v)| v.to_string())
+                    .unwrap_or_default();
+                let _ = app_for_pageinfo.emit(
+                    "browser-page-info",
+                    BrowserPageInfoEvent {
+                        label: label_for_pageinfo.clone(),
+                        title,
+                        favicon,
+                    },
+                );
                 return false; // Block the fake navigation
             }
             true
@@ -92,6 +124,44 @@ pub async fn create_browser_webview(
                             notify();
                         };
                         window.addEventListener('popstate',function(){notify()});
+                    })();"#,
+                );
+
+                // Inject script to extract page title and favicon, with MutationObserver for dynamic title changes
+                let _ = webview.eval(
+                    r#"(function(){
+                        if(window.__zoro_pageinfo_monitor__)return;
+                        window.__zoro_pageinfo_monitor__=true;
+                        function getFavicon(){
+                            var icons=document.querySelectorAll('link[rel~="icon"],link[rel="shortcut icon"],link[rel="apple-touch-icon"]');
+                            for(var i=icons.length-1;i>=0;i--){
+                                var href=icons[i].getAttribute('href');
+                                if(href){
+                                    try{return new URL(href,location.href).href}catch(e){}
+                                }
+                            }
+                            return location.origin+'/favicon.ico';
+                        }
+                        function send(){
+                            var a=document.createElement('a');
+                            a.href='zoro-page-info://notify?title='+encodeURIComponent(document.title||'')+'&favicon='+encodeURIComponent(getFavicon());
+                            a.click();
+                        }
+                        send();
+                        var titleEl=document.querySelector('title');
+                        if(titleEl){
+                            new MutationObserver(function(){send()}).observe(titleEl,{childList:true,characterData:true,subtree:true});
+                        } else {
+                            new MutationObserver(function(m,obs){
+                                var t=document.querySelector('title');
+                                if(t){
+                                    obs.disconnect();
+                                    send();
+                                    new MutationObserver(function(){send()}).observe(t,{childList:true,characterData:true,subtree:true});
+                                }
+                            }).observe(document.head||document.documentElement,{childList:true,subtree:true});
+                        }
+                        new MutationObserver(function(){send()}).observe(document.head||document.documentElement,{childList:true,subtree:true});
                     })();"#,
                 );
             }
