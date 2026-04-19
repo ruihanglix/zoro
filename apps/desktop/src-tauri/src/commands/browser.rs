@@ -34,7 +34,26 @@ pub async fn create_browser_webview(
     let label_for_event = label.clone();
     let app_for_event = app.clone();
 
+    let label_for_nav = label.clone();
+    let app_for_nav = app.clone();
+
     let builder = tauri::webview::WebviewBuilder::new(&label, WebviewUrl::External(parsed_url))
+        .on_navigation(move |url| {
+            // Intercept SPA URL change notifications from injected JS
+            if url.scheme() == "zoro-url-change" {
+                if let Some((_, real_url)) = url.query_pairs().find(|(k, _)| k == "url") {
+                    let _ = app_for_nav.emit(
+                        "browser-navigation",
+                        BrowserNavEvent {
+                            label: label_for_nav.clone(),
+                            url: real_url.to_string(),
+                        },
+                    );
+                }
+                return false; // Block the fake navigation
+            }
+            true
+        })
         .on_page_load(move |webview, payload| {
             if matches!(payload.event(), tauri::webview::PageLoadEvent::Finished) {
                 if let Ok(current_url) = webview.url() {
@@ -46,6 +65,35 @@ pub async fn create_browser_webview(
                         },
                     );
                 }
+
+                // Inject script to monitor SPA URL changes (pushState/replaceState)
+                let _ = webview.eval(
+                    r#"(function(){
+                        if(window.__zoro_url_monitor__)return;
+                        window.__zoro_url_monitor__=true;
+                        var last=location.href;
+                        function notify(){
+                            var cur=location.href;
+                            if(cur!==last){
+                                last=cur;
+                                var a=document.createElement('a');
+                                a.href='zoro-url-change://notify?url='+encodeURIComponent(cur);
+                                a.click();
+                            }
+                        }
+                        var origPush=history.pushState;
+                        history.pushState=function(){
+                            origPush.apply(this,arguments);
+                            notify();
+                        };
+                        var origReplace=history.replaceState;
+                        history.replaceState=function(){
+                            origReplace.apply(this,arguments);
+                            notify();
+                        };
+                        window.addEventListener('popstate',function(){notify()});
+                    })();"#,
+                );
             }
         });
 

@@ -1528,7 +1528,7 @@ function ReaderMetadataPanel({
 			{/* Browser — lazy-mounted, stays alive once opened */}
 			<div
 				className={cn(
-					"overflow-hidden",
+					"overflow-hidden min-h-0",
 					activeTab === "browser" ? "flex-1" : "hidden",
 				)}
 			>

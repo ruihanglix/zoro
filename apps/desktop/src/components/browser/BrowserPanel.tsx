@@ -65,6 +65,7 @@ export function BrowserPanel({ storageKey, isActive }: BrowserPanelProps) {
 	const createdWebviews = useRef<Set<string>>(new Set());
 	const containerRefs = useRef<Map<string, HTMLDivElement>>(new Map());
 	const resizeObservers = useRef<Map<string, ResizeObserver>>(new Map());
+	const panelRef = useRef<HTMLDivElement>(null);
 
 	const activeTab = tabs.find((tab) => tab.id === activeTabId) ?? null;
 
@@ -118,34 +119,79 @@ export function BrowserPanel({ storageKey, isActive }: BrowserPanelProps) {
 		};
 	}, [getLabel, tabs]);
 
+	// Sync a single webview's position/size to its container
+	const syncWebviewPosition = useCallback(
+		(tabId: string) => {
+			const label = getLabel(tabId);
+			if (!createdWebviews.current.has(label)) return;
+			const container = containerRefs.current.get(tabId);
+			if (!container) return;
+			const rect = container.getBoundingClientRect();
+			if (rect.width > 0 && rect.height > 0) {
+				commands
+					.resizeBrowserWebview(
+						label,
+						rect.left,
+						rect.top,
+						rect.width,
+						rect.height,
+					)
+					.catch(() => {});
+			}
+		},
+		[getLabel],
+	);
+
 	// Show/hide all webviews based on panel visibility
 	useEffect(() => {
 		for (const tab of tabs) {
 			const label = getLabel(tab.id);
 			if (!createdWebviews.current.has(label)) continue;
 			if (isActive && tab.id === activeTabId) {
-				commands.showBrowserWebview(label).catch(() => {});
-				// Re-sync position
 				const container = containerRefs.current.get(tab.id);
-				if (container) {
-					const rect = container.getBoundingClientRect();
-					if (rect.width > 0 && rect.height > 0) {
-						commands
-							.resizeBrowserWebview(
-								label,
-								rect.left,
-								rect.top,
-								rect.width,
-								rect.height,
-							)
-							.catch(() => {});
-					}
+				const rect = container?.getBoundingClientRect();
+				// Only show if container has real dimensions (panel is not collapsed)
+				if (rect && rect.width > 0 && rect.height > 0) {
+					commands.showBrowserWebview(label).catch(() => {});
+					commands
+						.resizeBrowserWebview(
+							label,
+							rect.left,
+							rect.top,
+							rect.width,
+							rect.height,
+						)
+						.catch(() => {});
+				} else {
+					commands.hideBrowserWebview(label).catch(() => {});
 				}
 			} else {
 				commands.hideBrowserWebview(label).catch(() => {});
 			}
 		}
 	}, [isActive, activeTabId, tabs, getLabel]);
+
+	// Re-sync webview position on window resize (ResizeObserver misses position-only changes)
+	useEffect(() => {
+		if (!isActive || !activeTabId) return;
+		const handleResize = () => {
+			syncWebviewPosition(activeTabId);
+		};
+		window.addEventListener("resize", handleResize);
+		return () => window.removeEventListener("resize", handleResize);
+	}, [isActive, activeTabId, syncWebviewPosition]);
+
+	// Observe the outer panel for size changes (catches sidebar panel resizing)
+	useEffect(() => {
+		if (!isActive || !activeTabId) return;
+		const panel = panelRef.current;
+		if (!panel) return;
+		const observer = new ResizeObserver(() => {
+			syncWebviewPosition(activeTabId);
+		});
+		observer.observe(panel);
+		return () => observer.disconnect();
+	}, [isActive, activeTabId, syncWebviewPosition]);
 
 	// Cleanup all webviews on unmount
 	useEffect(() => {
@@ -375,7 +421,7 @@ export function BrowserPanel({ storageKey, isActive }: BrowserPanelProps) {
 	const showNewTabPage = !activeTab || !activeTab.url;
 
 	return (
-		<div className="flex h-full w-full flex-col overflow-hidden">
+		<div ref={panelRef} className="flex h-full w-full flex-col overflow-hidden">
 			{/* Tab bar */}
 			<div className="flex items-center border-b bg-muted/30 shrink-0">
 				<div className="flex flex-1 items-center overflow-x-auto min-w-0">
