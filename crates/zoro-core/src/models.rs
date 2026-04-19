@@ -232,6 +232,15 @@ pub struct GeneralConfig {
     /// Number of days to retain log files. 0 = keep forever.
     #[serde(default = "default_log_retention_days")]
     pub log_retention_days: u32,
+    /// Whether to auto-download arXiv HTML when importing papers via BibTeX/RIS.
+    #[serde(default)]
+    pub auto_fetch_arxiv_html: bool,
+    /// Max concurrent arXiv HTML fetch tasks.
+    #[serde(default = "default_html_fetch_concurrency")]
+    pub html_fetch_concurrency: u32,
+    /// Delay in seconds between starting each HTML fetch task.
+    #[serde(default = "default_html_fetch_delay_secs")]
+    pub html_fetch_delay_secs: u32,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -254,6 +263,14 @@ fn default_zotero_compat_port() -> u16 {
 
 fn default_log_retention_days() -> u32 {
     7
+}
+
+fn default_html_fetch_concurrency() -> u32 {
+    2
+}
+
+fn default_html_fetch_delay_secs() -> u32 {
+    3
 }
 
 fn default_feed_cache_retention_days() -> i32 {
@@ -645,6 +662,9 @@ impl Default for AppConfig {
                 native_lang: String::new(),
                 log_to_file: false,
                 log_retention_days: default_log_retention_days(),
+                auto_fetch_arxiv_html: false,
+                html_fetch_concurrency: default_html_fetch_concurrency(),
+                html_fetch_delay_secs: default_html_fetch_delay_secs(),
             },
             connector: ConnectorConfig {
                 port: 23120,

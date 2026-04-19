@@ -7,6 +7,8 @@ import { MultiSelectContextMenu } from "@/components/library/MultiSelectContextM
 import { PaperContextMenu } from "@/components/library/PaperContextMenu";
 import { Badge } from "@/components/ui/badge";
 
+import { useKeybindings } from "@/hooks/useKeybindings";
+
 import {
 	ContextMenu,
 	ContextMenuCheckboxItem,
@@ -76,27 +78,29 @@ export function PaperTable() {
 
 	const hasSelection = selectedPaperIds.size > 0;
 
-	// Keyboard shortcut: Ctrl/Cmd+A to select all
+	// Keyboard shortcut: Ctrl/Cmd+A to select all (via keybinding system)
 	const tableRef = useRef<HTMLDivElement>(null);
+	const activeTabId = useTabStore((s) => s.activeTabId);
+	const librarySelectHandlers = useMemo(
+		() => ({
+			"library.selectAll": () => {
+				selectAllPapers();
+			},
+		}),
+		[selectAllPapers],
+	);
+	useKeybindings("library", librarySelectHandlers, { enabled: activeTabId === "home" });
+
+	// Escape to clear selection (not a configurable shortcut)
 	useEffect(() => {
 		const handler = (e: KeyboardEvent) => {
-			if ((e.metaKey || e.ctrlKey) && e.key === "a") {
-				// Only handle when focus is within the table
-				if (
-					tableRef.current?.contains(document.activeElement) ||
-					tableRef.current?.contains(e.target as Node)
-				) {
-					e.preventDefault();
-					selectAllPapers();
-				}
-			}
 			if (e.key === "Escape" && hasSelection) {
 				clearSelection();
 			}
 		};
 		document.addEventListener("keydown", handler);
 		return () => document.removeEventListener("keydown", handler);
-	}, [selectAllPapers, clearSelection, hasSelection]);
+	}, [clearSelection, hasSelection]);
 
 	// Row click handler with multi-select support
 	const handleRowClick = useCallback(
@@ -113,6 +117,7 @@ export function PaperTable() {
 				}
 				setSelectedPaper(paper);
 			}
+			tableRef.current?.focus();
 		},
 		[
 			setSelectedPaper,
@@ -374,7 +379,7 @@ export function PaperTable() {
 											}}
 											onPointerDown={(e) => handleColumnDragStart(e, col.id)}
 										>
-											<span className="truncate">{def.label}</span>
+											<span className="truncate">{t(def.label)}</span>
 											{isSortable && def.sortField && (
 												<SortIcon
 													field={def.sortField}
@@ -414,7 +419,7 @@ export function PaperTable() {
 										onCheckedChange={() => toggleColumnVisibility(def.id)}
 										onSelect={(e) => e.preventDefault()}
 									>
-										{def.label}
+										{t(def.label)}
 									</ContextMenuCheckboxItem>
 								);
 							})}

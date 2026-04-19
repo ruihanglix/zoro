@@ -36,6 +36,7 @@ import {
 } from "@/components/ui/resizable";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
+import { useKeybindings } from "@/hooks/useKeybindings";
 import { useLocalAnnotations } from "@/hooks/useLocalAnnotations";
 import * as commands from "@/lib/commands";
 import type {
@@ -337,6 +338,7 @@ export function Reader({
 				isFeedReaderMode={isFeedReaderMode}
 				readerMode={readerMode}
 				pdfFilename={pdfFilename}
+				isActive={isActive}
 				isOpeningTranslation={isOpeningTranslation}
 				onToggleMode={handleToggleMode}
 				onHtmlChanged={handleHtmlChanged}
@@ -640,6 +642,7 @@ function ReaderToolbar({
 	isFeedReaderMode,
 	readerMode,
 	pdfFilename,
+	isActive,
 	isOpeningTranslation,
 	onToggleMode,
 	onHtmlChanged,
@@ -658,6 +661,7 @@ function ReaderToolbar({
 	isFeedReaderMode: boolean;
 	readerMode: "pdf" | "html";
 	pdfFilename?: string;
+	isActive: boolean;
 	isOpeningTranslation: boolean;
 	onToggleMode: (mode: "pdf" | "html") => void;
 	onHtmlChanged: () => void;
@@ -695,17 +699,16 @@ function ReaderToolbar({
 		(s) => s.resetHtmlReaderTypography,
 	);
 
-	// Ctrl+F / Cmd+F to open search
-	useEffect(() => {
-		const handleKeyDown = (e: KeyboardEvent) => {
-			if ((e.metaKey || e.ctrlKey) && e.key === "f") {
-				e.preventDefault();
+	// Ctrl+F / Cmd+F to open search (scope-aware, only fires in active tab)
+	const readerSearchHandlers = useMemo(
+		() => ({
+			"reader.openSearch": () => {
 				setShowSearch(true);
-			}
-		};
-		window.addEventListener("keydown", handleKeyDown);
-		return () => window.removeEventListener("keydown", handleKeyDown);
-	}, []);
+			},
+		}),
+		[],
+	);
+	useKeybindings("reader", readerSearchHandlers, { enabled: isActive });
 
 	const toolButtons: {
 		tool: ReaderTool;
@@ -886,7 +889,7 @@ function ReaderToolbar({
 												<path d="M22 21H7" />
 												<path d="m5 11 9 9" />
 											</svg>
-											<span>Eraser</span>
+											<span>{t("reader.eraser")}</span>
 										</button>
 
 										<Separator className="my-1.5" />
@@ -894,7 +897,7 @@ function ReaderToolbar({
 										{/* Stroke size */}
 										<div className="flex items-center gap-2 px-2 py-1">
 											<span className="text-[10px] text-muted-foreground whitespace-nowrap">
-												Size:
+												{t("reader.inkSize")}:
 											</span>
 											<input
 												type="range"
@@ -2099,6 +2102,7 @@ function HtmlReader({
 	const localHtmlHeadingsRef = useRef<unknown[]>([]);
 	const isDark = useIsDarkMode();
 	const htmlReaderTypography = useUiStore((s) => s.htmlReaderTypography);
+	const bilingualLayout = useUiStore((s) => s.bilingualLayout);
 	const zoomLevel = useAnnotationStore((s) => s.zoomLevel);
 	const annotations = useAnnotationStore((s) => s.annotations);
 	const activeTool = useAnnotationStore((s) => s.activeTool);
@@ -2268,6 +2272,12 @@ function HtmlReader({
 		if (!iframeReadyRef.current) return;
 		postToIframe({ type: "zr-html-set-display-mode", mode: displayMode });
 	}, [displayMode, postToIframe]);
+
+	// Sync bilingual layout (interleaved / side-by-side) to iframe
+	useEffect(() => {
+		if (!iframeReadyRef.current) return;
+		postToIframe({ type: "zr-html-set-bilingual-layout", layout: bilingualLayout });
+	}, [bilingualLayout, postToIframe]);
 
 	// Send annotations to iframe whenever they change
 	useEffect(() => {
@@ -2477,6 +2487,11 @@ function HtmlReader({
 					postToIframe({
 						type: "zr-html-set-display-mode",
 						mode: useTranslationStore.getState().displayMode,
+					});
+					// Send current bilingual layout
+					postToIframe({
+						type: "zr-html-set-bilingual-layout",
+						layout: useUiStore.getState().bilingualLayout,
 					});
 					break;
 				}
@@ -2719,12 +2734,27 @@ function HtmlReader({
 
   var inGesture = false;
   var pzoom = 1;
-  function applyVisualZoom(z) {
-    pzoom = Math.max(0.5, Math.min(5, z));
-    document.body.style.transformOrigin = '0 0';
-    document.body.style.transform = 'scale(' + pzoom + ')';
-    document.body.style.width = (100 / pzoom) + '%';
+  var lockedWidth = 0;
+  var anchorCx = 0, anchorCy = 0;
+  var ptrX = 0, ptrY = 0;
+  var _bilingualLayout = 'interleaved';
+
+  function applyPinchZoom() {
+    var b = document.body;
+    if (pzoom === 1) {
+      b.style.transform = '';
+      b.style.transformOrigin = '';
+      if (lockedWidth) { b.style.width = ''; lockedWidth = 0; }
+      return;
+    }
+    if (!lockedWidth) {
+      lockedWidth = b.offsetWidth;
+      b.style.width = lockedWidth + 'px';
+    }
+    b.style.transformOrigin = '0 0';
+    b.style.transform = 'scale(' + pzoom + ')';
   }
+
   document.addEventListener('wheel', function(e) {
     if (!e.ctrlKey && !e.metaKey) return;
     e.preventDefault();
@@ -2733,11 +2763,22 @@ function HtmlReader({
   }, { passive: false });
   var gBase = 1;
   document.addEventListener('gesturestart', function(e) {
-    e.preventDefault(); inGesture = true; gBase = pzoom;
+    e.preventDefault();
+    inGesture = true;
+    gBase = pzoom;
+    ptrX = e.clientX || 0;
+    ptrY = e.clientY || 0;
+    anchorCx = (ptrX + window.scrollX) / (pzoom || 1);
+    anchorCy = (ptrY + window.scrollY) / (pzoom || 1);
   }, { passive: false });
   document.addEventListener('gesturechange', function(e) {
     e.preventDefault();
-    applyVisualZoom(gBase * e.scale);
+    if (e.clientX != null) { ptrX = e.clientX; ptrY = e.clientY; }
+    pzoom = Math.max(0.25, Math.min(5, gBase * e.scale));
+    applyPinchZoom();
+    if (pzoom !== 1) {
+      window.scrollTo(anchorCx * pzoom - ptrX, anchorCy * pzoom - ptrY);
+    }
   }, { passive: false });
   document.addEventListener('gestureend', function(e) {
     e.preventDefault();
@@ -2791,8 +2832,63 @@ function HtmlReader({
       var newEl = temp.firstElementChild;
       if (newEl && el.parentNode) {
         el.parentNode.insertBefore(newEl, el.nextSibling);
+        if (_bilingualLayout === 'side-by-side') {
+          _wrapPair(el, newEl);
+        }
       }
       break;
+    }
+  });
+
+  // Helper: wrap an original+translation pair in a flex container
+  function _wrapPair(origEl, transEl) {
+    if (origEl.parentNode && origEl.parentNode.classList && origEl.parentNode.classList.contains('zr-bilingual-pair')) return;
+    var wrapper = document.createElement('div');
+    wrapper.className = 'zr-bilingual-pair';
+    origEl.parentNode.insertBefore(wrapper, origEl);
+    wrapper.appendChild(origEl);
+    wrapper.appendChild(transEl);
+  }
+
+  // Bilingual layout: side-by-side vs interleaved
+  window.addEventListener('message', function(e) {
+    var data = e.data;
+    if (!data || data.type !== 'zr-html-set-bilingual-layout') return;
+    var layout = data.layout;
+    _bilingualLayout = layout;
+
+    var styleId = 'zr-bilingual-layout-style';
+    var style = document.getElementById(styleId);
+    if (!style) {
+      style = document.createElement('style');
+      style.id = styleId;
+      (document.head || document.documentElement).appendChild(style);
+    }
+
+    if (layout === 'side-by-side') {
+      style.textContent = '.zr-bilingual-pair { display: flex; gap: 16px; align-items: flex-start; } .zr-bilingual-pair > * { flex: 1; min-width: 0; } .zr-bilingual-pair .zr-translation-block { margin-top: 0; }';
+      // Wrap existing pairs
+      var originals = document.querySelectorAll('[data-zotero-translation="true"]:not(.zr-translation-block)');
+      for (var i = 0; i < originals.length; i++) {
+        var orig = originals[i];
+        if (orig.parentNode && orig.parentNode.classList && orig.parentNode.classList.contains('zr-bilingual-pair')) continue;
+        var trans = orig.nextElementSibling;
+        if (trans && trans.classList.contains('zr-translation-block')) {
+          _wrapPair(orig, trans);
+        }
+      }
+    } else {
+      style.textContent = '';
+      // Unwrap all pairs
+      var pairs = document.querySelectorAll('.zr-bilingual-pair');
+      for (var j = 0; j < pairs.length; j++) {
+        var pair = pairs[j];
+        var parent = pair.parentNode;
+        while (pair.firstChild) {
+          parent.insertBefore(pair.firstChild, pair);
+        }
+        parent.removeChild(pair);
+      }
     }
   });
 

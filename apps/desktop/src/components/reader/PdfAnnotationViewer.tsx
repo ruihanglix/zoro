@@ -233,6 +233,11 @@ export function PdfAnnotationViewer({
 	const blobUrlRef = useRef<string | null>(null);
 	const containerRef = useRef<HTMLDivElement>(null);
 	const pdfHighlighterRef = useRef<PdfHighlighter<ZoroHighlight>>(null);
+	// The pdf.js scale value when pdfScaleValue="auto" is applied (i.e. "fit width").
+	// We treat zoomLevel=1 as this base scale, so actual pdf.js currentScale = baseScale * zoomLevel.
+	const baseScaleRef = useRef<number>(0);
+	// Suppress page-number computation during zoom transitions to avoid flickering.
+	const isZoomingRef = useRef(false);
 
 	const sourceFile = pdfFilename || "paper.pdf";
 
@@ -251,7 +256,6 @@ export function PdfAnnotationViewer({
 	const storeSetCurrentPage = useAnnotationStore((s) => s.setCurrentPage);
 	const storeFetchReaderState = useAnnotationStore((s) => s.fetchReaderState);
 	const storeSaveReaderState = useAnnotationStore((s) => s.saveReaderState);
-	const zoomLevel = useAnnotationStore((s) => s.zoomLevel);
 	const storePdfDocument = useAnnotationStore((s) => s.pdfDocument);
 
 	const isDark = useIsDarkMode();
@@ -366,14 +370,12 @@ export function PdfAnnotationViewer({
 		[annotations, highlightBump],
 	);
 
-	// --- DEBUG: log highlight counts for each viewer ---
-	useEffect(() => {
-		console.log(
-			`[PDFViewer:${sourceFile}] annotations=${annotations.length}, ` +
-				`highlightsForViewer=${highlightsForViewer.length}, ` +
-				`isolated=${!!isolated}, bump=${highlightBump}`,
-		);
-	}, [annotations, highlightsForViewer, isolated, highlightBump, sourceFile]);
+	// Pre-filter annotations for AnnotationColorStyles so the reference is
+	// stable across re-renders that don't change annotations.
+	const colorStyleAnnotations = useMemo(
+		() => annotations.filter((a) => a.type !== "ink" && a.type !== "note"),
+		[annotations],
+	);
 
 	// Register a DOM-based scroll-to-highlight function.
 	useEffect(() => {
@@ -543,6 +545,10 @@ export function PdfAnnotationViewer({
 					if (dist < closestDist) {
 						closestDist = dist;
 						closestPage = Number(page.dataset.pageNumber) || 1;
+					} else {
+						// Pages are in document order; once distance starts
+						// increasing we've passed the closest page.
+						break;
 					}
 				}
 
@@ -552,6 +558,9 @@ export function PdfAnnotationViewer({
 			};
 
 			const handlePageScroll = () => {
+				// Skip during zoom transitions — layout is unstable and scroll
+				// changes are from zoom commit, not user scrolling.
+				if (isZoomingRef.current) return;
 				if (scrollThrottleTimer === null) {
 					scrollThrottleTimer = setTimeout(computeCurrentPage, 200);
 				}
@@ -609,23 +618,15 @@ export function PdfAnnotationViewer({
 				let data: Uint8Array;
 				if (hasPdfUrl) {
 					const tempPath = await commands.fetchRemotePdf(pdfUrl!);
-					console.log("[PdfViewer] Loading remote PDF:", tempPath);
 					data = await readFile(tempPath);
 				} else if (pdfFilename) {
 					const filePath = await commands.getPaperFilePath(
 						paperId!,
 						pdfFilename,
 					);
-					console.log(
-						"[PdfViewer] Loading PDF by filename:",
-						pdfFilename,
-						"->",
-						filePath,
-					);
 					data = await readFile(filePath);
 				} else {
 					const pdfPath = await commands.getPaperPdfPath(paperId!);
-					console.log("[PdfViewer] Loading default PDF:", pdfPath);
 					data = await readFile(pdfPath);
 				}
 				if (!cancelled) {
@@ -777,37 +778,259 @@ export function PdfAnnotationViewer({
 	// Pinch-to-zoom (trackpad) and Ctrl/Cmd+wheel zoom.
 	// Two-phase approach for smooth performance:
 	//   1. Visual phase: apply GPU-composited transform: scale() during gesture
-	//   2. Commit phase: apply CSS zoom via store update when gesture ends
+	//   2. Commit phase: set pdf.js currentScale so it re-renders canvas at the
+	//      new resolution (sharp text instead of blurry CSS zoom)
+	//
+	// zoomLevel in the store is a *relative* multiplier (1 = fit-to-width).
+	// Actual pdf.js scale = baseScaleRef.current * zoomLevel.
+	// Zoom is centred on the pointer position for a natural feel.
 	useEffect(() => {
 		const el = containerRef.current;
 		if (!el) return;
 
-		let targetZoom = useAnnotationStore.getState().zoomLevel;
-		let commitTimer: ReturnType<typeof setTimeout> | null = null;
+		// New PDF loaded — reset baseScale so it's recaptured from pdf.js "auto"
+		baseScaleRef.current = 0;
 
-		const getPdfViewer = () =>
+		// Isolated viewers (e.g. right pane in bilingual mode) use local zoom
+		// state so zooming one side doesn't affect the other.
+		let targetZoom = isolated ? 1 : useAnnotationStore.getState().zoomLevel;
+		let commitTimer: ReturnType<typeof setTimeout> | null = null;
+		// Track the last zoomLevel we committed so visual phase computes
+		// the correct relative transform.
+		let committedZoom = targetZoom;
+		// Guard: prevent subscribe callback from double-setting currentScale
+		// when commitZoom updates the store internally.
+		let isCommitting = false;
+		// Handle for the delayed scale-reset suppression timer
+		let scaleResetSuppressTimer = 0;
+		// Handle for the deferred CSS-transform cleanup after commit
+		let cleanupRafId = 0;
+
+		// Pointer position for anchor-based zoom (relative to scroll container viewport)
+		let pointerClientX = 0;
+		let pointerClientY = 0;
+
+		const getPdfViewerEl = () =>
 			el.querySelector(".pdfViewer") as HTMLElement | null;
+
+		// The scroll container is the react-pdf-highlighter ._container_ div
+		const getScrollContainer = () =>
+			el.querySelector("[class*='_container_']") as HTMLElement | null;
+
+		const getPdfJsViewer = () => {
+			const hlRef = pdfHighlighterRef.current as unknown as Record<
+				string,
+				unknown
+			> | null;
+			return hlRef?.viewer as
+				| {
+						currentScale: number;
+						currentScaleValue: string | number;
+						_currentScale: number;
+						_currentScaleValue: string | number;
+						refresh: (noUpdate?: boolean, updateArgs?: { scale?: number; drawingDelay?: number }) => void;
+				  }
+				| undefined;
+		};
+
+		// Cancel any pending debounced handleScaleValue in react-pdf-highlighter.
+		// Without this, its ResizeObserver / window-resize handler resets
+		// currentScaleValue="auto" ~500ms after our commit, triggering
+		// scrollPageIntoView and undoing the scroll anchor we just set.
+		const cancelDebouncedScaleReset = () => {
+			const hlRef = pdfHighlighterRef.current as unknown as Record<
+				string,
+				unknown
+			> | null;
+			const fn = hlRef?.debouncedScaleValue as
+				| { cancel?: (reason?: unknown) => void }
+				| undefined;
+			fn?.cancel?.();
+		};
 
 		const clampZoom = (z: number) => Math.max(0.25, Math.min(5, z));
 
+		// Capture baseScale once pdf.js has initialised with "auto".
+		// We poll briefly because pagesinit may fire after this effect mounts.
+		let baseScaleTimer: ReturnType<typeof setTimeout> | null = null;
+		const captureBaseScale = () => {
+			if (baseScaleRef.current > 0) return; // already captured
+			const pdfViewer = getPdfJsViewer();
+			if (pdfViewer && pdfViewer.currentScale > 0) {
+				baseScaleRef.current = pdfViewer.currentScale;
+			} else {
+				baseScaleTimer = setTimeout(captureBaseScale, 150);
+			}
+		};
+		captureBaseScale();
+
 		const applyVisualZoom = (newTarget: number) => {
 			targetZoom = clampZoom(newTarget);
-			const viewer = getPdfViewer();
-			if (!viewer) return;
-			const storeZoom = useAnnotationStore.getState().zoomLevel;
-			const scaleFactor = targetZoom / storeZoom;
-			viewer.style.transformOrigin = "0 0";
-			viewer.style.transform = `scale(${scaleFactor})`;
+			const viewerEl = getPdfViewerEl();
+			const scrollContainer = getScrollContainer();
+			if (!viewerEl || !scrollContainer) return;
+
+			// Suppress page-number updates while zoom is in progress
+			isZoomingRef.current = true;
+
+			const scaleFactor = targetZoom / committedZoom;
+
+			// Compute transform-origin so the pointer position stays fixed.
+			// Origin must be in .pdfViewer coordinates (which is the transformed element).
+			const containerRect = scrollContainer.getBoundingClientRect();
+			const originX = pointerClientX - containerRect.left + scrollContainer.scrollLeft;
+			const originY = pointerClientY - containerRect.top + scrollContainer.scrollTop;
+
+			viewerEl.style.transformOrigin = `${originX}px ${originY}px`;
+			viewerEl.style.transform = `scale(${scaleFactor})`;
 		};
 
 		const commitZoom = () => {
 			commitTimer = null;
-			const viewer = getPdfViewer();
-			if (viewer) {
-				viewer.style.transform = "";
-				viewer.style.transformOrigin = "";
+			if (cleanupRafId) {
+				cancelAnimationFrame(cleanupRafId);
+				cleanupRafId = 0;
 			}
-			useAnnotationStore.getState().setZoomLevel(targetZoom);
+			isCommitting = true;
+
+			const viewerEl = getPdfViewerEl();
+			const scrollContainer = getScrollContainer();
+			const base = baseScaleRef.current || 1;
+			const pdfViewer = getPdfJsViewer();
+
+			// ── 1. Compute scroll anchor (page-relative) ──
+			// Inter-page gaps (margins + borders) are fixed-pixel and don't scale,
+			// so a naïve "contentPos / oldScale * newScale" drifts by
+			// (N-1) * gapPerPage * (1 - ratio). Instead we anchor to a specific
+			// page element: the page's offsetTop accounts for fixed gaps, and
+			// the within-page offset scales proportionally.
+			let vpX = 0;
+			let vpY = 0;
+			// Page-relative anchor (scale-independent fraction within the page)
+			let anchorPage: HTMLElement | null = null;
+			let anchorFracX = 0; // fraction [0,1] within page width
+			let anchorFracY = 0; // fraction [0,1] within page height
+			// Fallback for X which has no page structure concern
+			let anchorContentX = 0;
+			const oldAbsScale = base * committedZoom;
+
+			if (scrollContainer) {
+				const rect = scrollContainer.getBoundingClientRect();
+				vpX = pointerClientX - rect.left;
+				vpY = pointerClientY - rect.top;
+				anchorContentX = vpX + scrollContainer.scrollLeft;
+				const anchorContentY = vpY + scrollContainer.scrollTop;
+
+				// Find the page element the anchor falls on
+				const pages = viewerEl
+					? viewerEl.querySelectorAll<HTMLElement>('.page[data-page-number]')
+					: [];
+				for (const page of pages) {
+					if (page.offsetTop + page.offsetHeight > anchorContentY) {
+						anchorPage = page;
+						break;
+					}
+				}
+				if (anchorPage) {
+					const withinPageY = anchorContentY - anchorPage.offsetTop;
+					const withinPageX = anchorContentX - anchorPage.offsetLeft;
+					// Convert to fractions of page size (which scales proportionally)
+					anchorFracY = anchorPage.offsetHeight > 0
+						? withinPageY / anchorPage.offsetHeight : 0;
+					anchorFracX = anchorPage.offsetWidth > 0
+						? withinPageX / anchorPage.offsetWidth : 0;
+				}
+			}
+
+			// ── 1b. Disable content-visibility: auto ──
+			// Prevents scrollHeight instability during async canvas re-renders.
+			if (viewerEl) {
+				viewerEl.classList.add('zoom-transitioning');
+			}
+
+			// ── 1c. Cancel react-pdf-highlighter's pending scale reset ──
+			// Its ResizeObserver / window-resize handler debounces 500ms then
+			// sets currentScaleValue="auto", which triggers scrollPageIntoView.
+			cancelDebouncedScaleReset();
+			// The ResizeObserver may fire again after we change --scale-factor,
+			// re-queuing the debounce. Schedule another cancel after the 500ms
+			// debounce window to catch any late re-queues.
+			if (scaleResetSuppressTimer) clearTimeout(scaleResetSuppressTimer);
+			scaleResetSuppressTimer = setTimeout(() => {
+				scaleResetSuppressTimer = 0;
+				cancelDebouncedScaleReset();
+			}, 600) as unknown as number;
+
+			// ── 2. Set pdf.js scale (bypass internal scroll) ──
+			// Instead of `pdfViewer.currentScale = ...` which triggers
+			// scrollPageIntoView, we manipulate the internal state directly.
+			const newAbsScale = base * targetZoom;
+			const PDF_TO_CSS = 96 / 72;
+			if (pdfViewer && viewerEl) {
+				viewerEl.style.setProperty('--scale-factor', String(newAbsScale * PDF_TO_CSS));
+				(pdfViewer as Record<string, unknown>)._currentScaleValue = String(newAbsScale);
+				if (typeof pdfViewer.refresh === 'function') {
+					(pdfViewer as any).refresh(true, { scale: newAbsScale });
+				}
+				(pdfViewer as Record<string, unknown>)._currentScale = newAbsScale;
+			}
+
+			// ── 3. Compensating CSS transform ──
+			if (viewerEl) {
+				viewerEl.style.transform = "scale(1)";
+				viewerEl.style.transformOrigin = "";
+			}
+
+			// ── 4. Adjust scroll so pointer stays over the same content ──
+			// After scale change, page elements have new sizes but their
+			// offsetTop already incorporates the fixed inter-page gaps correctly.
+			if (scrollContainer) {
+				if (anchorPage) {
+					const newPageTop = anchorPage.offsetTop;
+					const newPageH = anchorPage.offsetHeight;
+					const newPageW = anchorPage.offsetWidth;
+					scrollContainer.scrollTop = newPageTop + anchorFracY * newPageH - vpY;
+					scrollContainer.scrollLeft = anchorPage.offsetLeft + anchorFracX * newPageW - vpX;
+				} else {
+					// Fallback: simple linear scaling (no page found)
+					const anchorDocX = anchorContentX / oldAbsScale;
+					scrollContainer.scrollLeft = anchorDocX * newAbsScale - vpX;
+				}
+			}
+
+			// ── 5. Update store (for UI, e.g. ZoomControls percentage) ──
+			// Isolated viewers skip the global store to avoid cross-pane zoom coupling.
+			if (!isolated) {
+				useAnnotationStore.getState().setZoomLevel(targetZoom);
+			}
+
+			committedZoom = targetZoom;
+			isCommitting = false;
+
+			// ── 6. Deferred cleanup: remove the scale(1) transform ──
+			// Wait three animation frames so pdf.js has enough time to paint
+			// updated canvases for the visible pages.
+			cleanupRafId = requestAnimationFrame(() => {
+				cleanupRafId = requestAnimationFrame(() => {
+					cleanupRafId = requestAnimationFrame(() => {
+						cleanupRafId = 0;
+						// Cancel again in case ResizeObserver re-queued during the 3 frames
+						cancelDebouncedScaleReset();
+						const v = getPdfViewerEl();
+						if (v) {
+							v.style.transform = "";
+							v.style.transformOrigin = "";
+							v.classList.remove('zoom-transitioning');
+						}
+						// Re-enable page-number tracking after a short delay so any
+						// remaining scroll sync bounces from BilingualPdfViewer have
+						// settled before we allow computeCurrentPage to fire again.
+						setTimeout(() => {
+							isZoomingRef.current = false;
+						}, 300);
+					});
+				});
+			});
 		};
 
 		const scheduleCommit = () => {
@@ -818,6 +1041,8 @@ export function PdfAnnotationViewer({
 		const handleWheel = (e: WheelEvent) => {
 			if (!e.ctrlKey && !e.metaKey) return;
 			e.preventDefault();
+			pointerClientX = e.clientX;
+			pointerClientY = e.clientY;
 			applyVisualZoom(targetZoom * (1 - e.deltaY * 0.01));
 			scheduleCommit();
 		};
@@ -832,8 +1057,12 @@ export function PdfAnnotationViewer({
 
 		const handleGestureChange = (e: Event) => {
 			e.preventDefault();
-			const s = (e as unknown as { scale: number }).scale;
-			applyVisualZoom(gestureBaseZoom * s);
+			const ge = e as unknown as { scale: number; clientX?: number; clientY?: number };
+			if (ge.clientX != null && ge.clientY != null) {
+				pointerClientX = ge.clientX;
+				pointerClientY = ge.clientY;
+			}
+			applyVisualZoom(gestureBaseZoom * ge.scale);
 		};
 
 		const handleGestureEnd = (e: Event) => {
@@ -841,6 +1070,13 @@ export function PdfAnnotationViewer({
 			commitZoom();
 		};
 
+		// Track pointer position continuously so we always have a fresh anchor
+		const handlePointerMove = (e: PointerEvent) => {
+			pointerClientX = e.clientX;
+			pointerClientY = e.clientY;
+		};
+
+		el.addEventListener("pointermove", handlePointerMove, { passive: true });
 		el.addEventListener("wheel", handleWheel, { passive: false });
 		el.addEventListener("gesturestart", handleGestureStart, { passive: false });
 		el.addEventListener("gesturechange", handleGestureChange, {
@@ -848,8 +1084,33 @@ export function PdfAnnotationViewer({
 		});
 		el.addEventListener("gestureend", handleGestureEnd, { passive: false });
 
+		// Sync if zoomLevel changes externally (e.g. ZoomControls +/- buttons).
+		// Isolated viewers have independent zoom, so skip global store sync.
+		const unsubZoom = isolated ? () => {} : useAnnotationStore.subscribe((state, prevState) => {
+			if (isCommitting) return; // skip internal updates from commitZoom
+			if (state.zoomLevel !== prevState.zoomLevel) {
+				const newZoom = state.zoomLevel;
+				targetZoom = newZoom;
+				committedZoom = newZoom;
+				const base = baseScaleRef.current || 1;
+				const pdfViewer = getPdfJsViewer();
+				if (
+					pdfViewer &&
+					Math.abs(pdfViewer.currentScale - base * newZoom) > 0.001
+				) {
+					pdfViewer.currentScale = base * newZoom;
+				}
+			}
+		});
+
 		return () => {
 			if (commitTimer) clearTimeout(commitTimer);
+			if (baseScaleTimer) clearTimeout(baseScaleTimer);
+			if (cleanupRafId) cancelAnimationFrame(cleanupRafId);
+			if (scaleResetSuppressTimer) clearTimeout(scaleResetSuppressTimer);
+			isZoomingRef.current = false;
+			unsubZoom();
+			el.removeEventListener("pointermove", handlePointerMove);
 			el.removeEventListener("wheel", handleWheel);
 			el.removeEventListener("gesturestart", handleGestureStart);
 			el.removeEventListener("gesturechange", handleGestureChange);
@@ -1319,15 +1580,6 @@ export function PdfAnnotationViewer({
 								const annotationType =
 									(highlight as ZoroHighlight).type || "highlight";
 
-								// --- DEBUG ---
-								if (index === 0) {
-									console.log(
-										`[PDFViewer:${sourceFile}] highlightTransform called, ` +
-											`total highlights on this page, first id=${highlight.id}, ` +
-											`type=${annotationType}`,
-									);
-								}
-
 								const makeCiteHandler = () => {
 									const h = highlight as unknown as ZoroHighlight;
 									useNoteStore.getState().setCitationClipboard({
@@ -1411,24 +1663,13 @@ export function PdfAnnotationViewer({
 										className={isGhostHighlight ? "ghost-highlight" : undefined}
 										style={{ cursor: "pointer" }}
 										onPointerDown={(e) => {
-											console.log(
-												`[PDFViewer:${sourceFile}] onPointerDown id=${highlight.id}`,
-											);
 											e.stopPropagation();
 										}}
 										onMouseDown={(e) => {
-											console.log(
-												`[PDFViewer:${sourceFile}] onMouseDown id=${highlight.id}`,
-											);
 											e.stopPropagation();
 											e.preventDefault();
 										}}
 										onClick={() => {
-											console.log(
-												`[PDFViewer:${sourceFile}] onClick id=${highlight.id}, ` +
-													`type=${annotationType}, hasRef=${!!pdfHighlighterRef.current}`,
-											);
-
 											const popupContent = (
 												<HighlightPopup
 													highlight={highlight as unknown as ZoroHighlight}
@@ -1447,18 +1688,6 @@ export function PdfAnnotationViewer({
 
 											const h = pdfHighlighterRef.current;
 											if (h) {
-												const state = (
-													h as unknown as {
-														state: Record<string, unknown>;
-													}
-												).state;
-												console.log(
-													`[PDFViewer:${sourceFile}] PdfHighlighter state: ` +
-														`tipPos=${!!state.tipPosition}, ` +
-														`isCollapsed=${state.isCollapsed}, ` +
-														`ghost=${!!state.ghostHighlight}, ` +
-														`areaSel=${state.isAreaSelectionInProgress}`,
-												);
 												(
 													h as unknown as {
 														setState: (s: object) => void;
@@ -1467,13 +1696,8 @@ export function PdfAnnotationViewer({
 													tipPosition: highlight.position,
 													tipChildren: popupContent,
 												});
-												console.log(
-													`[PDFViewer:${sourceFile}] force-set tip via ref OK`,
-												);
-											} else {
-												console.warn(`[PDFViewer:${sourceFile}] ref is NULL`);
-											}
-										}}
+										}
+									}}
 									>
 										{component}
 									</div>
@@ -1483,11 +1707,8 @@ export function PdfAnnotationViewer({
 					);
 				}}
 			</PdfLoader>
-			{/* Custom styles for zoom, annotation colors, underlines, and ghost highlights */}
+			{/* Custom styles for annotation colors, underlines, and ghost highlights */}
 			<style>{`
-        .pdfViewer {
-          zoom: ${zoomLevel};
-        }
         ${
 					activeTool === "note"
 						? `
@@ -1519,6 +1740,11 @@ export function PdfAnnotationViewer({
           contain: layout style paint;
           content-visibility: auto;
           contain-intrinsic-size: auto 800px;
+        }
+        /* During zoom commit, disable content-visibility so all pages use real
+           sizes and scrollHeight stays stable (prevents scroll anchor drift). */
+        .pdfViewer.zoom-transitioning .page {
+          content-visibility: visible;
         }
         .page canvas {
           will-change: transform;
@@ -1559,9 +1785,7 @@ export function PdfAnnotationViewer({
       `}</style>
 			{/* Apply per-annotation colors via dynamic CSS */}
 			<AnnotationColorStyles
-				annotations={annotations.filter(
-					(a) => a.type !== "ink" && a.type !== "note",
-				)}
+				annotations={colorStyleAnnotations}
 				containerEl={containerRef.current}
 			/>
 			{/* Ink drawing canvas overlay */}

@@ -50,16 +50,11 @@ export function TopBar() {
 		inputRef.current?.focus();
 	}, [searchPapers]);
 
-	// Cmd+Shift+F to focus the library search bar
+	// Listen for global keybinding event to focus the library search bar
 	useEffect(() => {
-		const handleKeyDown = (e: KeyboardEvent) => {
-			if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key === "f") {
-				e.preventDefault();
-				inputRef.current?.focus();
-			}
-		};
-		window.addEventListener("keydown", handleKeyDown);
-		return () => window.removeEventListener("keydown", handleKeyDown);
+		const handler = () => inputRef.current?.focus();
+		window.addEventListener("zoro-focus-library-search", handler);
+		return () => window.removeEventListener("zoro-focus-library-search", handler);
 	}, []);
 
 	return (

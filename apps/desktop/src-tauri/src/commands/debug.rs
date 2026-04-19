@@ -140,3 +140,127 @@ pub async fn update_log_config(
 
     Ok(())
 }
+
+/// Batch-fetch missing arXiv HTML for all papers that have an arXiv ID but no
+/// downloaded `paper.html`. Returns the number of papers enqueued.
+#[tauri::command]
+pub async fn fetch_all_missing_arxiv_html(
+    app: tauri::AppHandle,
+    state: State<'_, AppState>,
+) -> Result<i32, String> {
+    use zoro_db::queries::papers;
+
+    let (rows, data_dir, semaphore, delay_secs) = {
+        let db = state
+            .db
+            .lock()
+            .map_err(|e| format!("DB lock error: {}", e))?;
+        let filter = papers::PaperFilter {
+            collection_id: None,
+            tag_name: None,
+            read_status: None,
+            search_query: None,
+            uncategorized: None,
+            sort_by: None,
+            sort_order: None,
+            limit: Some(100_000),
+            offset: None,
+        };
+        let rows = papers::list_papers(&db.conn, &filter)
+            .map_err(|e| format!("Failed to list papers: {}", e))?;
+        let delay = state
+            .config
+            .lock()
+            .map(|c| c.general.html_fetch_delay_secs)
+            .unwrap_or(3);
+        (
+            rows,
+            state.data_dir.clone(),
+            state.html_fetch_semaphore.clone(),
+            delay,
+        )
+    };
+
+    let db_path = data_dir.join("library.db");
+    let mut count = 0i32;
+
+    for row in &rows {
+        let arxiv_id = match row.arxiv_id.as_deref() {
+            Some(id) if !id.is_empty() => id,
+            _ => continue,
+        };
+        let paper_dir = data_dir.join("library").join(&row.dir_path);
+        let html_path = paper_dir.join("paper.html");
+        if html_path.exists() {
+            continue;
+        }
+
+        crate::connector::handlers::enqueue_html_fetch(
+            &app,
+            semaphore.clone(),
+            &db_path,
+            delay_secs,
+            &row.id,
+            &row.title,
+            arxiv_id,
+            &paper_dir,
+        );
+        count += 1;
+    }
+
+    Ok(count)
+}
+
+/// Response for the HTML fetch configuration.
+#[derive(Debug, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct HtmlFetchConfigResponse {
+    pub auto_fetch_arxiv_html: bool,
+    pub html_fetch_concurrency: u32,
+    pub html_fetch_delay_secs: u32,
+}
+
+/// Get the current HTML fetch configuration.
+#[tauri::command]
+pub async fn get_html_fetch_config(
+    state: State<'_, AppState>,
+) -> Result<HtmlFetchConfigResponse, String> {
+    let config = state
+        .config
+        .lock()
+        .map_err(|e| format!("Config lock error: {}", e))?;
+    Ok(HtmlFetchConfigResponse {
+        auto_fetch_arxiv_html: config.general.auto_fetch_arxiv_html,
+        html_fetch_concurrency: config.general.html_fetch_concurrency,
+        html_fetch_delay_secs: config.general.html_fetch_delay_secs,
+    })
+}
+
+/// Update the HTML fetch configuration. Concurrency changes require app restart.
+#[tauri::command]
+pub async fn update_html_fetch_config(
+    state: State<'_, AppState>,
+    auto_fetch_arxiv_html: Option<bool>,
+    html_fetch_concurrency: Option<u32>,
+    html_fetch_delay_secs: Option<u32>,
+) -> Result<(), String> {
+    let mut config = state
+        .config
+        .lock()
+        .map_err(|e| format!("Config lock error: {}", e))?;
+
+    if let Some(v) = auto_fetch_arxiv_html {
+        config.general.auto_fetch_arxiv_html = v;
+    }
+    if let Some(v) = html_fetch_concurrency {
+        config.general.html_fetch_concurrency = v;
+    }
+    if let Some(v) = html_fetch_delay_secs {
+        config.general.html_fetch_delay_secs = v;
+    }
+
+    crate::storage::config::save_config(&state.data_dir, &config)
+        .map_err(|e| format!("Failed to save config: {}", e))?;
+
+    Ok(())
+}

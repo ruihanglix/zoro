@@ -11,6 +11,7 @@ import {
 } from "@/lib/columnConfig";
 import i18n from "@/lib/i18n";
 import type { SupportedLanguage } from "@/lib/i18n";
+import { invoke } from "@tauri-apps/api/core";
 import { useEffect, useState } from "react";
 import { create } from "zustand";
 
@@ -19,7 +20,8 @@ const ONBOARDING_KEY = "zoro-onboarding-completed";
 type View = "library" | "feed" | "papers-cool" | "plugins";
 type ListMode = "list" | "card";
 export type Theme = "light" | "dark" | "system";
-export type CitationPreviewMode = "text" | "image" | "off";
+export type CitationPreviewMode = "auto" | "text" | "image" | "off";
+export type BilingualLayout = "interleaved" | "side-by-side";
 
 export type HtmlReaderFontFamily =
 	| "system"
@@ -38,7 +40,7 @@ export interface HtmlReaderTypography {
 }
 
 // localStorage helpers
-function loadSetting<T>(key: string, fallback: T): T {
+export function loadSetting<T>(key: string, fallback: T): T {
 	try {
 		const raw = localStorage.getItem(key);
 		if (raw === null) return fallback;
@@ -48,7 +50,7 @@ function loadSetting<T>(key: string, fallback: T): T {
 	}
 }
 
-function saveSetting<T>(key: string, value: T): void {
+export function saveSetting<T>(key: string, value: T): void {
 	try {
 		localStorage.setItem(key, JSON.stringify(value));
 	} catch {
@@ -138,11 +140,15 @@ interface UiState {
 	defaultSortOrder: string;
 	citationPreviewMode: CitationPreviewMode;
 	showReaderTerminal: boolean;
+	terminalFontSize: number;
 	language: SupportedLanguage;
 	uiScale: number;
 
 	// HTML reader typography
 	htmlReaderTypography: HtmlReaderTypography;
+
+	// Bilingual layout mode
+	bilingualLayout: BilingualLayout;
 
 	// Column configuration (order = array order)
 	columns: ColumnState[];
@@ -175,12 +181,16 @@ interface UiState {
 	setDefaultSortOrder: (order: string) => void;
 	setCitationPreviewMode: (mode: CitationPreviewMode) => void;
 	setShowReaderTerminal: (v: boolean) => void;
+	setTerminalFontSize: (size: number) => void;
 	setLanguage: (lang: SupportedLanguage) => void;
 	setUiScale: (scale: number) => void;
 
 	// HTML reader typography actions
 	setHtmlReaderTypography: (typography: Partial<HtmlReaderTypography>) => void;
 	resetHtmlReaderTypography: () => void;
+
+	// Bilingual layout actions
+	setBilingualLayout: (layout: BilingualLayout) => void;
 
 	// Column actions
 	setColumns: (columns: ColumnState[]) => void;
@@ -235,9 +245,10 @@ export const useUiStore = create<UiState>((set, get) => ({
 	defaultSortOrder: loadSetting<string>("zoro-default-sort-order", "desc"),
 	citationPreviewMode: loadSetting<CitationPreviewMode>(
 		"zoro-citation-preview-mode",
-		"text",
+		"auto",
 	),
 	showReaderTerminal: loadSetting<boolean>("zoro-show-reader-terminal", true),
+	terminalFontSize: loadSetting<number>("zoro-terminal-font-size", 13),
 	language: (localStorage.getItem("zoro-ui-language") ??
 		i18n.language ??
 		"en") as SupportedLanguage,
@@ -246,6 +257,11 @@ export const useUiStore = create<UiState>((set, get) => ({
 	htmlReaderTypography: loadSetting<HtmlReaderTypography>(
 		"zoro-html-reader-typography",
 		DEFAULT_HTML_READER_TYPOGRAPHY,
+	),
+
+	bilingualLayout: loadSetting<BilingualLayout>(
+		"zoro-bilingual-layout",
+		"interleaved",
 	),
 
 	setView: (view) => set({ view }),
@@ -304,10 +320,16 @@ export const useUiStore = create<UiState>((set, get) => ({
 		saveSetting("zoro-show-reader-terminal", v);
 		set({ showReaderTerminal: v });
 	},
+	setTerminalFontSize: (size) => {
+		const clamped = Math.max(10, Math.min(24, size));
+		saveSetting("zoro-terminal-font-size", clamped);
+		set({ terminalFontSize: clamped });
+	},
 	setLanguage: (lang) => {
 		localStorage.setItem("zoro-ui-language", lang);
 		i18n.changeLanguage(lang);
 		set({ language: lang });
+		invoke("set_menu_language", { lang }).catch(() => {});
 	},
 	setUiScale: (scale) => {
 		const clamped = Math.max(0.5, Math.min(2, scale));
@@ -325,6 +347,11 @@ export const useUiStore = create<UiState>((set, get) => ({
 	resetHtmlReaderTypography: () => {
 		saveSetting("zoro-html-reader-typography", DEFAULT_HTML_READER_TYPOGRAPHY);
 		set({ htmlReaderTypography: DEFAULT_HTML_READER_TYPOGRAPHY });
+	},
+
+	setBilingualLayout: (layout) => {
+		saveSetting("zoro-bilingual-layout", layout);
+		set({ bilingualLayout: layout });
 	},
 
 	setColumns: (columns) => {

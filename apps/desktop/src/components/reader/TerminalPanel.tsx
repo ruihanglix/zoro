@@ -2,13 +2,15 @@
 // Licensed under the AGPL-3.0 license.
 // See LICENSE file in the project root for full license information.
 
+import { useKeybindings } from "@/hooks/useKeybindings";
 import * as commands from "@/lib/commands";
+import { useUiStore } from "@/stores/uiStore";
 import { listen } from "@tauri-apps/api/event";
 import { FitAddon } from "@xterm/addon-fit";
 import { Terminal } from "@xterm/xterm";
 import "@xterm/xterm/css/xterm.css";
 import { Loader2 } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 interface TerminalPanelProps {
 	paperId: string;
@@ -22,6 +24,9 @@ export function TerminalPanel({ paperId, visible = true }: TerminalPanelProps) {
 	const terminalIdRef = useRef<string | null>(null);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
+
+	const terminalFontSize = useUiStore((s) => s.terminalFontSize);
+	const setTerminalFontSize = useUiStore((s) => s.setTerminalFontSize);
 
 	const doFit = useCallback(() => {
 		const fitAddon = fitAddonRef.current;
@@ -45,11 +50,36 @@ export function TerminalPanel({ paperId, visible = true }: TerminalPanelProps) {
 		}
 	}, [visible, doFit]);
 
+	// Sync font size from store into the live Terminal instance
+	useEffect(() => {
+		const term = termRef.current;
+		if (!term) return;
+		term.options.fontSize = terminalFontSize;
+		requestAnimationFrame(() => doFit());
+	}, [terminalFontSize, doFit]);
+
+	// Keyboard shortcuts: Ctrl/Cmd +/- to resize font (via keybinding system)
+	const terminalHandlers = useMemo(
+		() => ({
+			"reader.terminalFontIncrease": () => {
+				setTerminalFontSize(useUiStore.getState().terminalFontSize + 1);
+			},
+			"reader.terminalFontDecrease": () => {
+				setTerminalFontSize(useUiStore.getState().terminalFontSize - 1);
+			},
+			"reader.terminalFontReset": () => {
+				setTerminalFontSize(13);
+			},
+		}),
+		[setTerminalFontSize],
+	);
+	useKeybindings("reader", terminalHandlers, { enabled: visible, target: containerRef });
+
 	useEffect(() => {
 		if (!containerRef.current) return;
 
 		const term = new Terminal({
-			fontSize: 13,
+			fontSize: useUiStore.getState().terminalFontSize,
 			fontFamily: "'SF Mono', 'Menlo', 'Monaco', 'Courier New', monospace",
 			cursorBlink: true,
 			theme: {
@@ -152,7 +182,7 @@ export function TerminalPanel({ paperId, visible = true }: TerminalPanelProps) {
 					<Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
 				</div>
 			)}
-			<div ref={containerRef} className="h-full w-full" />
+			<div ref={containerRef} className="h-full w-full bg-[#1e1e1e]" />
 		</div>
 	);
 }

@@ -513,6 +513,29 @@ export const updateLogConfig = (logToFile?: boolean, logRetentionDays?: number) 
 		logRetentionDays: logRetentionDays ?? null,
 	});
 
+export interface HtmlFetchConfigResponse {
+	autoFetchArxivHtml: boolean;
+	htmlFetchConcurrency: number;
+	htmlFetchDelaySecs: number;
+}
+
+export const getHtmlFetchConfig = () =>
+	invoke<HtmlFetchConfigResponse>("get_html_fetch_config");
+
+export const updateHtmlFetchConfig = (
+	autoFetchArxivHtml?: boolean,
+	htmlFetchConcurrency?: number,
+	htmlFetchDelaySecs?: number,
+) =>
+	invoke<void>("update_html_fetch_config", {
+		autoFetchArxivHtml: autoFetchArxivHtml ?? null,
+		htmlFetchConcurrency: htmlFetchConcurrency ?? null,
+		htmlFetchDelaySecs: htmlFetchDelaySecs ?? null,
+	});
+
+export const fetchAllMissingArxivHtml = () =>
+	invoke<number>("fetch_all_missing_arxiv_html");
+
 // Citation
 export const enrichPaperMetadata = (paperId: string) =>
 	invoke<PaperResponse>("enrich_paper_metadata", { paperId });
@@ -1609,3 +1632,7 @@ export const updateUpdaterConfig = (
 		autoCheck: autoCheck ?? null,
 		skippedVersion: skippedVersion ?? null,
 	});
+
+// Menu
+export const setMenuLanguage = (lang: string) =>
+	invoke<void>("set_menu_language", { lang });

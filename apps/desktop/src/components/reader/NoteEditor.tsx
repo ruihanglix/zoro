@@ -5,9 +5,11 @@
 import * as commands from "@/lib/commands";
 import type { PaperResponse } from "@/lib/commands";
 import { Citation } from "@/lib/tiptapCitation";
+import { ZoroKeymap } from "@/lib/tiptapKeybindings";
 import { PaperLink } from "@/lib/tiptapPaperLink";
 import type { PaperLinkAttributes } from "@/lib/tiptapPaperLink";
 import { cn } from "@/lib/utils";
+import { useKeybindingStore } from "@/stores/keybindingStore";
 import { useNoteStore } from "@/stores/noteStore";
 import Image from "@tiptap/extension-image";
 import Link from "@tiptap/extension-link";
@@ -63,6 +65,7 @@ export function NoteEditor({
 	const citationClipboard = useNoteStore((s) => s.citationClipboard);
 	const setCitationClipboard = useNoteStore((s) => s.setCitationClipboard);
 	const editorContainerRef = useRef<HTMLDivElement>(null);
+	const keybindingVersion = useKeybindingStore((s) => s.version);
 
 	const editor = useEditor(
 		{
@@ -74,6 +77,7 @@ export function NoteEditor({
 				Markdown.configure({ html: true, transformPastedText: true }),
 				Citation,
 				PaperLink,
+				ZoroKeymap,
 			],
 			content: initialContent,
 			editorProps: {
@@ -138,7 +142,7 @@ export function NoteEditor({
 				}, 1000);
 			},
 		},
-		[noteId],
+		[noteId, keybindingVersion],
 	);
 
 	useEffect(() => {
@@ -223,7 +227,7 @@ export function NoteEditor({
 			const selected = await open({
 				multiple: false,
 				filters: [
-					{ name: "Images", extensions: ["png", "jpg", "jpeg", "gif", "webp"] },
+					{ name: t("noteEditor.imagesFilter"), extensions: ["png", "jpg", "jpeg", "gif", "webp"] },
 				],
 			});
 			if (!selected) return;
@@ -286,6 +290,20 @@ export function NoteEditor({
 				.run();
 		}
 	}, [editor]);
+
+	// Listen for ZoroKeymap custom events (insert link / insert image)
+	useEffect(() => {
+		if (!editorContainerRef.current) return;
+		const container = editorContainerRef.current;
+		const linkHandler = () => handleInsertLink();
+		const imageHandler = () => handleInsertImage();
+		container.addEventListener("zoro-insert-link", linkHandler);
+		container.addEventListener("zoro-insert-image", imageHandler);
+		return () => {
+			container.removeEventListener("zoro-insert-link", linkHandler);
+			container.removeEventListener("zoro-insert-image", imageHandler);
+		};
+	}, [handleInsertLink, handleInsertImage]);
 
 	const [headingOpen, setHeadingOpen] = useState(false);
 	const [paperSearchOpen, setPaperSearchOpen] = useState(false);
@@ -499,7 +517,7 @@ export function NoteEditor({
 		for (let i = 1; i <= 6; i++) {
 			if (editor.isActive("heading", { level: i })) return `H${i}`;
 		}
-		return "Text";
+		return t("noteEditor.text");
 	})();
 
 	const headingOptions: { label: string; action: () => void }[] = [
@@ -582,8 +600,8 @@ export function NoteEditor({
 										type="button"
 										className={cn(
 											"w-full text-left px-2 py-1 text-xs hover:bg-muted transition-colors",
-											headingLabel === opt.label.replace("Heading ", "H") ||
-												(opt.label === "Text" && headingLabel === "Text")
+											headingLabel === opt.label.replace(`${t("noteEditor.heading")} `, "H") ||
+												(opt.label === t("noteEditor.text") && headingLabel === t("noteEditor.text"))
 												? "bg-muted font-medium"
 												: "",
 										)}

@@ -3,6 +3,7 @@
 // See LICENSE file in the project root for full license information.
 
 import { ZoteroImportDialog } from "@/components/library/ZoteroImportDialog";
+import { KeyboardShortcutsSettings } from "@/components/KeyboardShortcutsSettings";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -31,6 +32,7 @@ import { useUiStore } from "@/stores/uiStore";
 import type {
 	CitationPreviewMode,
 	HtmlReaderFontFamily,
+	BilingualLayout,
 	Theme,
 } from "@/stores/uiStore";
 import { listen } from "@tauri-apps/api/event";
@@ -53,6 +55,7 @@ import {
 	GraduationCap,
 	HardDrive,
 	Info,
+	Keyboard,
 	Languages,
 	Loader2,
 	MessageCircle,
@@ -87,6 +90,7 @@ type SettingsSection =
 	| "ai-cli"
 	| "ai-lab"
 	| "general"
+	| "keybindings"
 	| "connector"
 	| "subscriptions"
 	| "storage"
@@ -127,6 +131,11 @@ const NAV_GROUPS: NavGroup[] = [
 				id: "general",
 				labelKey: "settings.navGeneral",
 				icon: SlidersHorizontal,
+			},
+			{
+				id: "keybindings",
+				labelKey: "settings.navKeyboardShortcuts",
+				icon: Keyboard,
 			},
 			{
 				id: "connector",
@@ -635,6 +644,14 @@ export function Settings() {
 	const [logRetentionDays, setLogRetentionDays] = useState(7);
 	const [logConfigLoaded, setLogConfigLoaded] = useState(false);
 
+	// HTML fetch config
+	const [autoFetchArxivHtml, setAutoFetchArxivHtml] = useState(false);
+	const [htmlFetchConcurrency, setHtmlFetchConcurrency] = useState(2);
+	const [htmlFetchDelaySecs, setHtmlFetchDelaySecs] = useState(3);
+	const [htmlFetchConfigLoaded, setHtmlFetchConfigLoaded] = useState(false);
+	const [fetchAllMissingLoading, setFetchAllMissingLoading] = useState(false);
+	const [fetchAllMissingResult, setFetchAllMissingResult] = useState<number | null>(null);
+
 	const theme = useUiStore((s) => s.theme);
 	const setTheme = useUiStore((s) => s.setTheme);
 	const confirmBeforeDelete = useUiStore((s) => s.confirmBeforeDelete);
@@ -652,6 +669,8 @@ export function Settings() {
 	const setCitationPreviewMode = useUiStore((s) => s.setCitationPreviewMode);
 	const showReaderTerminal = useUiStore((s) => s.showReaderTerminal);
 	const setShowReaderTerminal = useUiStore((s) => s.setShowReaderTerminal);
+	const terminalFontSize = useUiStore((s) => s.terminalFontSize);
+	const setTerminalFontSize = useUiStore((s) => s.setTerminalFontSize);
 	const language = useUiStore((s) => s.language);
 	const setLanguage = useUiStore((s) => s.setLanguage);
 	const uiScale = useUiStore((s) => s.uiScale);
@@ -661,6 +680,8 @@ export function Settings() {
 	const resetHtmlReaderTypography = useUiStore(
 		(s) => s.resetHtmlReaderTypography,
 	);
+	const bilingualLayout = useUiStore((s) => s.bilingualLayout);
+	const setBilingualLayout = useUiStore((s) => s.setBilingualLayout);
 
 	// Lab store — Free LLM Proxy
 	const labEnabled = useLabStore((s) => s.enabled);
@@ -1006,6 +1027,12 @@ export function Settings() {
 			setLogRetentionDays(cfg.logRetentionDays);
 			setLogConfigLoaded(true);
 		}).catch((e: unknown) => logger.error("settings", "Failed to load log config", e));
+		commands.getHtmlFetchConfig().then((cfg) => {
+			setAutoFetchArxivHtml(cfg.autoFetchArxivHtml);
+			setHtmlFetchConcurrency(cfg.htmlFetchConcurrency);
+			setHtmlFetchDelaySecs(cfg.htmlFetchDelaySecs);
+			setHtmlFetchConfigLoaded(true);
+		}).catch((e: unknown) => logger.error("settings", "Failed to load HTML fetch config", e));
 		fetchSubscriptions();
 		fetchStorageInfo();
 		fetchSyncStatus();
@@ -1182,6 +1209,46 @@ export function Settings() {
 			setLogRetentionDays(days);
 		} catch (err) {
 			logger.error("settings", "Failed to update log retention", err);
+		}
+	};
+
+	const handleAutoFetchToggle = async (enabled: boolean) => {
+		try {
+			await commands.updateHtmlFetchConfig(enabled, undefined, undefined);
+			setAutoFetchArxivHtml(enabled);
+		} catch (err) {
+			logger.error("settings", "Failed to update HTML fetch config", err);
+		}
+	};
+
+	const handleHtmlFetchConcurrencySave = async (value: number) => {
+		try {
+			await commands.updateHtmlFetchConfig(undefined, value, undefined);
+			setHtmlFetchConcurrency(value);
+		} catch (err) {
+			logger.error("settings", "Failed to update HTML fetch concurrency", err);
+		}
+	};
+
+	const handleHtmlFetchDelaySave = async (value: number) => {
+		try {
+			await commands.updateHtmlFetchConfig(undefined, undefined, value);
+			setHtmlFetchDelaySecs(value);
+		} catch (err) {
+			logger.error("settings", "Failed to update HTML fetch delay", err);
+		}
+	};
+
+	const handleFetchAllMissing = async () => {
+		setFetchAllMissingLoading(true);
+		setFetchAllMissingResult(null);
+		try {
+			const count = await commands.fetchAllMissingArxivHtml();
+			setFetchAllMissingResult(count);
+		} catch (err) {
+			logger.error("settings", "Failed to fetch all missing arXiv HTML", err);
+		} finally {
+			setFetchAllMissingLoading(false);
 		}
 	};
 
@@ -1812,17 +1879,15 @@ export function Settings() {
 										>
 											{t("settings.uiScale")}
 										</label>
-										<div className="flex items-center gap-3 mt-1">
-											<input
-												id="ui-scale"
-												type="range"
-												min="0.5"
-												max="2"
-												step="0.05"
-												value={uiScale}
-												onChange={(e) => setUiScale(Number(e.target.value))}
-												className="w-full max-w-xs accent-primary"
-											/>
+										<div className="flex items-center gap-2 mt-1">
+											<button
+												type="button"
+												className="flex items-center justify-center size-7 rounded-md border text-sm hover:bg-accent transition-colors disabled:opacity-40"
+												onClick={() => setUiScale(Math.max(0.5, Math.round((uiScale - 0.05) * 20) / 20))}
+												disabled={uiScale <= 0.5}
+											>
+												−
+											</button>
 											<button
 												type="button"
 												className="min-w-[3.5rem] rounded-md border px-2 py-0.5 text-xs text-center tabular-nums hover:bg-accent transition-colors"
@@ -1830,6 +1895,14 @@ export function Settings() {
 												title={t("settings.resetUiScale")}
 											>
 												{Math.round(uiScale * 100)}%
+											</button>
+											<button
+												type="button"
+												className="flex items-center justify-center size-7 rounded-md border text-sm hover:bg-accent transition-colors disabled:opacity-40"
+												onClick={() => setUiScale(Math.min(2, Math.round((uiScale + 0.05) * 20) / 20))}
+												disabled={uiScale >= 2}
+											>
+												+
 											</button>
 										</div>
 										<p className="text-[11px] text-muted-foreground mt-1">
@@ -1960,6 +2033,92 @@ export function Settings() {
 
 								<Separator />
 
+								{/* Downloads */}
+								<div className="space-y-2">
+									<p className="text-xs font-medium">
+										{t("settings.downloads")}
+									</p>
+									<label className="flex items-center gap-2 text-sm cursor-pointer">
+										<input
+											type="checkbox"
+											checked={autoFetchArxivHtml}
+											onChange={(e) => handleAutoFetchToggle(e.target.checked)}
+											disabled={!htmlFetchConfigLoaded}
+											className="rounded"
+										/>
+										{t("settings.autoFetchArxivHtml")}
+									</label>
+									<p className="text-[11px] text-muted-foreground ml-5">
+										{t("settings.autoFetchArxivHtmlDesc")}
+									</p>
+									{autoFetchArxivHtml && (
+										<div className="ml-5 space-y-2">
+											<div className="flex items-center gap-2">
+												<label className="text-xs text-muted-foreground">
+													{t("settings.htmlFetchConcurrency")}
+												</label>
+												<input
+													type="number"
+													min={1}
+													max={8}
+													value={htmlFetchConcurrency}
+													onChange={(e) => {
+														const v = Number.parseInt(e.target.value, 10);
+														if (v >= 1 && v <= 8) {
+															handleHtmlFetchConcurrencySave(v);
+														}
+													}}
+													className="w-16 rounded border bg-background px-2 py-0.5 text-xs"
+												/>
+											</div>
+											<div className="flex items-center gap-2">
+												<label className="text-xs text-muted-foreground">
+													{t("settings.htmlFetchDelay")}
+												</label>
+												<input
+													type="number"
+													min={0}
+													max={30}
+													value={htmlFetchDelaySecs}
+													onChange={(e) => {
+														const v = Number.parseInt(e.target.value, 10);
+														if (v >= 0 && v <= 30) {
+															handleHtmlFetchDelaySave(v);
+														}
+													}}
+													className="w-16 rounded border bg-background px-2 py-0.5 text-xs"
+												/>
+											</div>
+										</div>
+									)}
+									<div className="flex items-center gap-2 mt-2">
+										<Button
+											variant="outline"
+											size="sm"
+											className="text-xs h-7"
+											disabled={fetchAllMissingLoading}
+											onClick={handleFetchAllMissing}
+										>
+											{fetchAllMissingLoading && (
+												<Loader2 className="w-3 h-3 mr-1 animate-spin" />
+											)}
+											{t("settings.fetchAllMissingHtml")}
+										</Button>
+										{fetchAllMissingResult !== null && (
+											<span className="text-xs text-muted-foreground">
+												{t("settings.fetchAllMissingHtmlEnqueued", {
+													count: fetchAllMissingResult,
+												})}
+											</span>
+										)}
+									</div>
+									<p className="text-[11px] text-muted-foreground">
+										{t("settings.fetchAllMissingHtmlDesc")}
+									</p>
+								</div>
+
+								<Separator />
+
 								{/* Reader */}
 								<div className="space-y-2">
 									<p className="text-xs font-medium">{t("settings.reader")}</p>
@@ -1980,6 +2139,7 @@ export function Settings() {
 											}
 											className="mt-1 h-8 w-full max-w-xs rounded-md border bg-transparent px-2 text-sm"
 										>
+											<option value="auto">{t("settings.autoMode")}</option>
 											<option value="text">{t("settings.textMode")}</option>
 											<option value="image">{t("settings.imageMode")}</option>
 											<option value="off">{t("settings.offMode")}</option>
@@ -1997,6 +2157,29 @@ export function Settings() {
 										/>
 										{t("settings.showTerminalTab")}
 									</label>
+									<div>
+										<label
+											className="text-xs text-muted-foreground"
+											htmlFor="terminal-font-size"
+										>
+											{t("settings.terminalFontSize")}: {terminalFontSize}px
+										</label>
+										<input
+											id="terminal-font-size"
+											type="range"
+											min={10}
+											max={24}
+											step={1}
+											value={terminalFontSize}
+											onChange={(e) =>
+												setTerminalFontSize(Number(e.target.value))
+											}
+											className="mt-1 w-full max-w-xs"
+										/>
+										<p className="text-[11px] text-muted-foreground mt-1">
+											{t("settings.terminalFontSizeDesc")}
+										</p>
+									</div>
 								</div>
 
 								<Separator />
@@ -2199,6 +2382,36 @@ export function Settings() {
 										</div>
 									</div>
 
+									{/* Bilingual Layout */}
+									<div>
+										<label
+											className="text-xs text-muted-foreground"
+											htmlFor="bilingual-layout"
+										>
+											{t("settings.bilingualLayout")}
+										</label>
+										<p className="text-[11px] text-muted-foreground mt-0.5 mb-1">
+											{t("settings.bilingualLayoutDesc")}
+										</p>
+										<select
+											id="bilingual-layout"
+											value={bilingualLayout}
+											onChange={(e) =>
+												setBilingualLayout(
+													e.target.value as BilingualLayout,
+												)
+											}
+											className="h-8 w-full max-w-[280px] rounded-md border bg-transparent px-2 text-sm"
+										>
+											<option value="interleaved">
+												{t("settings.bilingualLayoutInterleaved")}
+											</option>
+											<option value="side-by-side">
+												{t("settings.bilingualLayoutSideBySide")}
+											</option>
+										</select>
+									</div>
+
 									{/* Reset */}
 									<Button
 										variant="outline"
@@ -2334,6 +2547,10 @@ export function Settings() {
 									</Button>
 								</div>
 							</div>
+						)}
+
+						{section === "keybindings" && (
+							<KeyboardShortcutsSettings />
 						)}
 
 						{section === "ai-general" && (

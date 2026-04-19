@@ -94,7 +94,11 @@ fn row_to_core_paper(
 }
 
 #[tauri::command]
-pub async fn import_bibtex(state: State<'_, AppState>, content: String) -> Result<i32, String> {
+pub async fn import_bibtex(
+    state: State<'_, AppState>,
+    app: tauri::AppHandle,
+    content: String,
+) -> Result<i32, String> {
     let parsed = bibtex::parse_bibtex(&content).map_err(|e| format!("{}", e))?;
     let db = state
         .db
@@ -116,6 +120,16 @@ pub async fn import_bibtex(state: State<'_, AppState>, content: String) -> Resul
 
                 let papers_dir = state.data_dir.join("library/papers");
                 let _ = crate::storage::paper_dir::create_paper_dir(&papers_dir, &paper.slug);
+
+                let paper_dir = papers_dir.join(&paper.slug);
+                crate::connector::handlers::maybe_enqueue_html_fetch(
+                    &app,
+                    &state,
+                    &row.id,
+                    &paper.title,
+                    paper.arxiv_id.as_deref(),
+                    &paper_dir,
+                );
 
                 imported += 1;
             }
@@ -167,7 +181,11 @@ pub async fn export_bibtex(
 }
 
 #[tauri::command]
-pub async fn import_ris(state: State<'_, AppState>, content: String) -> Result<i32, String> {
+pub async fn import_ris(
+    state: State<'_, AppState>,
+    app: tauri::AppHandle,
+    content: String,
+) -> Result<i32, String> {
     let parsed = ris::parse_ris(&content).map_err(|e| format!("{}", e))?;
     let db = state
         .db
@@ -189,6 +207,16 @@ pub async fn import_ris(state: State<'_, AppState>, content: String) -> Result<i
 
                 let papers_dir = state.data_dir.join("library/papers");
                 let _ = crate::storage::paper_dir::create_paper_dir(&papers_dir, &paper.slug);
+
+                let paper_dir = papers_dir.join(&paper.slug);
+                crate::connector::handlers::maybe_enqueue_html_fetch(
+                    &app,
+                    &state,
+                    &row.id,
+                    &paper.title,
+                    paper.arxiv_id.as_deref(),
+                    &paper_dir,
+                );
 
                 imported += 1;
             }
@@ -775,7 +803,7 @@ sup.zr-note-ref { font-size: 0.7em; vertical-align: super; margin-left: 1px;
     }
 
     // Sort by start position descending so we can replace from end to start
-    replacements.sort_by(|a, b| b.plain_start.cmp(&a.plain_start));
+    replacements.sort_by_key(|r| std::cmp::Reverse(r.plain_start));
 
     // Build a mapping from plain text offset → HTML offset
     // Walk the HTML to build char-by-char index mapping

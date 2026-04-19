@@ -5,6 +5,7 @@
 import { cn } from "@/lib/utils";
 import { useTranslationStore } from "@/stores/translationStore";
 import { Languages, Loader2 } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 interface BilingualTextProps {
 	original: string;
@@ -30,6 +31,7 @@ export function BilingualText({
 	variant,
 	className,
 }: BilingualTextProps) {
+	const { t } = useTranslation();
 	const displayMode = useTranslationStore((s) => s.displayMode);
 
 	const hasTranslation = translated && translated.trim().length > 0;
@@ -64,7 +66,7 @@ export function BilingualText({
 							type="button"
 							onClick={onRequestTranslation}
 							className="ml-1.5 inline-flex items-center gap-0.5 text-[10px] text-muted-foreground hover:text-foreground opacity-0 group-hover:opacity-100 transition-opacity"
-							title="Translate"
+							title={t("reader.translate")}
 						>
 							<Languages className="h-3 w-3" />
 						</button>

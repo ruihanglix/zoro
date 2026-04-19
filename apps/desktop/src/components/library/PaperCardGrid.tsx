@@ -9,6 +9,7 @@ import { PaperContextMenu } from "@/components/library/PaperContextMenu";
 import { Badge } from "@/components/ui/badge";
 
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { useKeybindings } from "@/hooks/useKeybindings";
 import type { PaperResponse } from "@/lib/commands";
 import { startPaperDrag } from "@/lib/dragState";
 import { cn } from "@/lib/utils";
@@ -19,7 +20,7 @@ import {
 	useTranslationStore,
 } from "@/stores/translationStore";
 import { CloudDownload, FileText, StickyNote } from "lucide-react";
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import { useTranslation } from "react-i18next";
 
 export function PaperCardGrid() {
@@ -39,26 +40,29 @@ export function PaperCardGrid() {
 
 	const hasSelection = selectedPaperIds.size > 0;
 
-	// Keyboard shortcut: Ctrl/Cmd+A to select all, Esc to clear
+	// Keyboard shortcut: Ctrl/Cmd+A to select all (via keybinding system)
 	const gridRef = useRef<HTMLDivElement>(null);
+	const activeTabId = useTabStore((s) => s.activeTabId);
+	const librarySelectHandlers = useMemo(
+		() => ({
+			"library.selectAll": () => {
+				selectAllPapers();
+			},
+		}),
+		[selectAllPapers],
+	);
+	useKeybindings("library", librarySelectHandlers, { enabled: activeTabId === "home" });
+
+	// Escape to clear selection (not a configurable shortcut)
 	useEffect(() => {
 		const handler = (e: KeyboardEvent) => {
-			if ((e.metaKey || e.ctrlKey) && e.key === "a") {
-				if (
-					gridRef.current?.contains(document.activeElement) ||
-					gridRef.current?.contains(e.target as Node)
-				) {
-					e.preventDefault();
-					selectAllPapers();
-				}
-			}
 			if (e.key === "Escape" && hasSelection) {
 				clearSelection();
 			}
 		};
 		document.addEventListener("keydown", handler);
 		return () => document.removeEventListener("keydown", handler);
-	}, [selectAllPapers, clearSelection, hasSelection]);
+	}, [clearSelection, hasSelection]);
 
 	const handleCardClick = useCallback(
 		(paper: PaperResponse, e: React.MouseEvent) => {
@@ -74,6 +78,7 @@ export function PaperCardGrid() {
 				}
 				setSelectedPaper(paper);
 			}
+			gridRef.current?.focus();
 		},
 		[
 			setSelectedPaper,

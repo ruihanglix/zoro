@@ -894,11 +894,11 @@ export function PaperDetail({ paper }: { paper: PaperResponse }) {
 										)}
 										<div>
 											<span className="font-medium">
-												{citationResult.cached ? "Cached" : "Fetched"}:
+												{citationResult.cached ? t("reader.cached") : t("reader.fetched")}:
 											</span>{" "}
 											{citationResult.fetched_date
 												? new Date(citationResult.fetched_date).toLocaleString()
-												: "just now"}
+												: t("common.justNow")}
 										</div>
 									</div>
 

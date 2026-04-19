@@ -11,6 +11,9 @@ import { TabBar } from "@/components/layout/TabBar";
 import { FileDropZone } from "@/components/library/FileDropZone";
 import { MetadataSearchDialog } from "@/components/library/MetadataSearchDialog";
 import * as commands from "@/lib/commands";
+import { useKeybindings } from "@/hooks/useKeybindings";
+import { useMenuEvents } from "@/hooks/useMenuEvents";
+import i18n from "@/lib/i18n";
 import { injectPluginSharedDeps } from "@/plugins/PluginSharedDeps";
 import { usePluginStore } from "@/plugins/pluginStore";
 import { Feed } from "@/routes/feed";
@@ -26,7 +29,8 @@ import { useTabStore } from "@/stores/tabStore";
 import { useTranslationStore } from "@/stores/translationStore";
 import { useUiStore } from "@/stores/uiStore";
 import { listen } from "@tauri-apps/api/event";
-import { useCallback, useEffect, useState } from "react";
+import { invoke } from "@tauri-apps/api/core";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 // Inject shared dependencies for plugins before any plugin loads
@@ -34,6 +38,7 @@ injectPluginSharedDeps();
 
 export default function App() {
 	const { t } = useTranslation();
+	useMenuEvents();
 	const showOnboarding = useUiStore((s) => s.showOnboarding);
 	const setShowOnboarding = useUiStore((s) => s.setShowOnboarding);
 	const view = useUiStore((s) => s.view);
@@ -48,6 +53,105 @@ export default function App() {
 	const tabs = useTabStore((s) => s.tabs);
 	const activeTabId = useTabStore((s) => s.activeTabId);
 	const metadataSearchPaperId = useUiStore((s) => s.metadataSearchPaperId);
+
+	// Global keyboard shortcuts
+	const globalHandlers = useMemo(
+		() => ({
+			"global.focusLibrarySearch": () => {
+				window.dispatchEvent(new CustomEvent("zoro-focus-library-search"));
+			},
+			"global.openSettings": () => {
+				useTabStore.getState().openTab({
+					id: "settings",
+					type: "settings",
+					title: i18n.t("common.settings"),
+				});
+			},
+			"global.toggleSidebar": () => {
+				useUiStore.getState().toggleSidebar();
+			},
+			"global.toggleAgentPanel": () => {
+				const state = useTabStore.getState();
+				if (state.activeTabId === "agent") {
+					// Go back to previous tab (home)
+					state.setActiveTab("home");
+				} else {
+					state.setActiveTab("agent");
+				}
+			},
+			"global.newNote": () => {
+				// Create and open a new standalone note
+				useLibraryStore
+					.getState()
+					.createStandaloneNote()
+					.then((paper) => {
+						if (paper) {
+							useTabStore.getState().openTab({
+								type: "note",
+								paperId: paper.id,
+								title: paper.title,
+							});
+						}
+					});
+			},
+			"global.viewLibrary": () => {
+				useUiStore.getState().setView("library");
+				useTabStore.getState().setActiveTab("home");
+			},
+			"global.viewFeed": () => {
+				useUiStore.getState().setView("feed");
+				useTabStore.getState().setActiveTab("home");
+			},
+			"global.viewPapersCool": () => {
+				useUiStore.getState().setView("papers-cool");
+				useTabStore.getState().setActiveTab("home");
+			},
+			"global.actualSize": () => {
+				useUiStore.getState().setUiScale(1);
+			},
+			"global.closeTab": () => {
+				const state = useTabStore.getState();
+				if (
+					state.activeTabId !== "home" &&
+					state.activeTabId !== "agent"
+				) {
+					state.closeTab(state.activeTabId);
+				}
+			},
+			"global.nextTab": () => {
+				const state = useTabStore.getState();
+				const idx = state.tabs.findIndex(
+					(t) => t.id === state.activeTabId,
+				);
+				if (idx < state.tabs.length - 1) {
+					state.setActiveTab(state.tabs[idx + 1].id);
+				}
+			},
+			"global.prevTab": () => {
+				const state = useTabStore.getState();
+				const idx = state.tabs.findIndex(
+					(t) => t.id === state.activeTabId,
+				);
+				if (idx > 0) {
+					state.setActiveTab(state.tabs[idx - 1].id);
+				}
+			},
+			...Object.fromEntries(
+				Array.from({ length: 9 }, (_, i) => [
+					`global.tab${i + 1}`,
+					() => {
+						const state = useTabStore.getState();
+						if (i < state.tabs.length) {
+							state.setActiveTab(state.tabs[i].id);
+						}
+					},
+				]),
+			),
+		}),
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+		[],
+	);
+	useKeybindings("global", globalHandlers);
 
 	// Update notification state
 	const [updateAvailable, setUpdateAvailable] = useState<{
@@ -112,6 +216,11 @@ export default function App() {
 		fetchPlugins().then(() => loadAllEnabled());
 		if (debugMode) {
 			commands.setDebugMode(true).catch(() => {});
+		}
+		// Sync native menu language with UI language on startup
+		const lang = useUiStore.getState().language;
+		if (lang !== "en") {
+			invoke("set_menu_language", { lang }).catch(() => {});
 		}
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [
