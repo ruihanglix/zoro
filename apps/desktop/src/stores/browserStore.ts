@@ -50,6 +50,12 @@ const DEFAULT_BOOKMARKS: Bookmark[] = [
 		url: "https://yiyan.baidu.com/",
 		isPreset: true,
 	},
+	{
+		id: "preset-doubao",
+		name: "Doubao",
+		url: "https://www.doubao.com/",
+		isPreset: true,
+	},
 ];
 
 const BOOKMARKS_KEY = "zoro-browser-bookmarks";
