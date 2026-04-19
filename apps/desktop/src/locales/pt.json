@@ -388,7 +388,8 @@
 		"inkSize": "Tamanho",
 		"citationPreview": "Pré-visualização de citação",
 		"cached": "Em cache",
-		"fetched": "Obtido"
+		"fetched": "Obtido",
+		"browser": "Navegador"
 	},
 	"agent": {
 		"showHistory": "Mostrar histórico",
@@ -433,7 +434,8 @@
 		"input": "Entrada",
 		"output": "Saída",
 		"noPresetsConfigured": "Nenhuma predefinição configurada",
-		"startingSession": "Iniciando sessão, por favor aguarde"
+		"startingSession": "Iniciando sessão, por favor aguarde",
+		"browser": "Navegador"
 	},
 	"noteEditor": {
 		"startWriting": "Comece a escrever...",
@@ -1160,5 +1162,16 @@
 		"pdf": "PDF",
 		"abstract": "Resumo",
 		"url": "URL"
+	},
+	"browser": {
+		"newTab": "Nova aba",
+		"addressPlaceholder": "Inserir URL...",
+		"addBookmark": "Adicionar favorito",
+		"editBookmark": "Editar favorito",
+		"deleteBookmark": "Excluir favorito",
+		"bookmarkName": "Nome",
+		"bookmarkUrl": "URL",
+		"closeTab": "Fechar aba",
+		"resetBookmarks": "Redefinir favoritos"
 	}
 }

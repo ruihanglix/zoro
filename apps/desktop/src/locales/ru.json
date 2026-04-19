@@ -388,7 +388,8 @@
 		"inkSize": "Размер",
 		"citationPreview": "Предварительный просмотр цитаты",
 		"cached": "Из кэша",
-		"fetched": "Получено"
+		"fetched": "Получено",
+		"browser": "Браузер"
 	},
 	"agent": {
 		"showHistory": "Показать историю",
@@ -433,7 +434,8 @@
 		"input": "Ввод",
 		"output": "Вывод",
 		"noPresetsConfigured": "Нет настроенных пресетов",
-		"startingSession": "Запуск сессии, пожалуйста подождите"
+		"startingSession": "Запуск сессии, пожалуйста подождите",
+		"browser": "Браузер"
 	},
 	"noteEditor": {
 		"startWriting": "Начните писать...",
@@ -1160,5 +1162,16 @@
 		"pdf": "PDF",
 		"abstract": "Аннотация",
 		"url": "URL"
+	},
+	"browser": {
+		"newTab": "Новая вкладка",
+		"addressPlaceholder": "Введите URL...",
+		"addBookmark": "Добавить закладку",
+		"editBookmark": "Редактировать закладку",
+		"deleteBookmark": "Удалить закладку",
+		"bookmarkName": "Название",
+		"bookmarkUrl": "URL",
+		"closeTab": "Закрыть вкладку",
+		"resetBookmarks": "Сбросить закладки"
 	}
 }

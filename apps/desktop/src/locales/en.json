@@ -388,7 +388,8 @@
 		"inkSize": "Size",
 		"citationPreview": "Citation preview",
 		"cached": "Cached",
-		"fetched": "Fetched"
+		"fetched": "Fetched",
+		"browser": "Browser"
 	},
 	"agent": {
 		"showHistory": "Show history",
@@ -433,7 +434,8 @@
 		"input": "Input",
 		"output": "Output",
 		"noPresetsConfigured": "No presets configured",
-		"startingSession": "Starting session, please wait"
+		"startingSession": "Starting session, please wait",
+		"browser": "Browser"
 	},
 	"noteEditor": {
 		"startWriting": "Start writing...",
@@ -1160,5 +1162,16 @@
 		"pdf": "PDF",
 		"abstract": "Abstract",
 		"url": "URL"
+	},
+	"browser": {
+		"newTab": "New Tab",
+		"addressPlaceholder": "Enter URL...",
+		"addBookmark": "Add Bookmark",
+		"editBookmark": "Edit Bookmark",
+		"deleteBookmark": "Delete Bookmark",
+		"bookmarkName": "Name",
+		"bookmarkUrl": "URL",
+		"closeTab": "Close Tab",
+		"resetBookmarks": "Reset Bookmarks"
 	}
 }

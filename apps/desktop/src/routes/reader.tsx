@@ -16,6 +16,7 @@ import { PageNavigation } from "@/components/reader/PageNavigation";
 import { PdfAnnotationViewer } from "@/components/reader/PdfAnnotationViewer";
 import { PdfSearchBar } from "@/components/reader/PdfSearchBar";
 import { TerminalPanel } from "@/components/reader/TerminalPanel";
+import { BrowserPanel } from "@/components/browser/BrowserPanel";
 import { ZoomControls } from "@/components/reader/ZoomControls";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -1296,6 +1297,7 @@ function ReaderMetadataPanel({
 	const { t } = useTranslation();
 	const [activeTab, setActiveTab] = useState<string>("agent");
 	const [terminalMounted, setTerminalMounted] = useState(false);
+	const [browserMounted, setBrowserMounted] = useState(false);
 	const [paperDir, setPaperDir] = useState<string | undefined>();
 
 	// Plugin sidebar tab contributions
@@ -1443,6 +1445,7 @@ function ReaderMetadataPanel({
 						"agent",
 						"notes",
 						"info",
+						"browser",
 						...(showReaderTerminal ? ["terminal" as const] : []),
 					] as const
 				).map((tab) => (
@@ -1457,6 +1460,7 @@ function ReaderMetadataPanel({
 						onClick={() => {
 							setActiveTab(tab);
 							if (tab === "terminal") setTerminalMounted(true);
+							if (tab === "browser") setBrowserMounted(true);
 						}}
 					>
 						{tab === "info"
@@ -1465,7 +1469,9 @@ function ReaderMetadataPanel({
 								? t("reader.notes")
 								: tab === "terminal"
 									? t("reader.terminal")
-									: t("reader.agent")}
+									: tab === "browser"
+										? t("reader.browser")
+										: t("reader.agent")}
 					</button>
 				))}
 
@@ -1513,6 +1519,21 @@ function ReaderMetadataPanel({
 					<TerminalPanel
 						paperId={paper.id}
 						visible={activeTab === "terminal"}
+					/>
+				)}
+			</div>
+
+			{/* Browser — lazy-mounted, stays alive once opened */}
+			<div
+				className={cn(
+					"overflow-hidden",
+					activeTab === "browser" ? "flex-1" : "hidden",
+				)}
+			>
+				{browserMounted && (
+					<BrowserPanel
+						storageKey={paper.id}
+						isActive={activeTab === "browser"}
 					/>
 				)}
 			</div>
