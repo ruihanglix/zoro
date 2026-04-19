@@ -236,6 +236,8 @@ export function PdfAnnotationViewer({
 	// The pdf.js scale value when pdfScaleValue="auto" is applied (i.e. "fit width").
 	// We treat zoomLevel=1 as this base scale, so actual pdf.js currentScale = baseScale * zoomLevel.
 	const baseScaleRef = useRef<number>(0);
+	// Suppress page-number computation during zoom transitions to avoid flickering.
+	const isZoomingRef = useRef(false);
 
 	const sourceFile = pdfFilename || "paper.pdf";
 
@@ -554,6 +556,9 @@ export function PdfAnnotationViewer({
 			};
 
 			const handlePageScroll = () => {
+				// Skip during zoom transitions — layout is unstable and scroll
+				// changes are from zoom commit, not user scrolling.
+				if (isZoomingRef.current) return;
 				if (scrollThrottleTimer === null) {
 					scrollThrottleTimer = setTimeout(computeCurrentPage, 200);
 				}
@@ -792,7 +797,9 @@ export function PdfAnnotationViewer({
 		// New PDF loaded — reset baseScale so it's recaptured from pdf.js "auto"
 		baseScaleRef.current = 0;
 
-		let targetZoom = useAnnotationStore.getState().zoomLevel;
+		// Isolated viewers (e.g. right pane in bilingual mode) use local zoom
+		// state so zooming one side doesn't affect the other.
+		let targetZoom = isolated ? 1 : useAnnotationStore.getState().zoomLevel;
 		let commitTimer: ReturnType<typeof setTimeout> | null = null;
 		// Track the last zoomLevel we committed so visual phase computes
 		// the correct relative transform.
@@ -868,6 +875,9 @@ export function PdfAnnotationViewer({
 			const viewerEl = getPdfViewerEl();
 			const scrollContainer = getScrollContainer();
 			if (!viewerEl || !scrollContainer) return;
+
+			// Suppress page-number updates while zoom is in progress
+			isZoomingRef.current = true;
 
 			const scaleFactor = targetZoom / committedZoom;
 
@@ -995,7 +1005,10 @@ export function PdfAnnotationViewer({
 			}
 
 			// ── 5. Update store (for UI, e.g. ZoomControls percentage) ──
-			useAnnotationStore.getState().setZoomLevel(targetZoom);
+			// Isolated viewers skip the global store to avoid cross-pane zoom coupling.
+			if (!isolated) {
+				useAnnotationStore.getState().setZoomLevel(targetZoom);
+			}
 
 			committedZoom = targetZoom;
 			isCommitting = false;
@@ -1015,6 +1028,12 @@ export function PdfAnnotationViewer({
 							v.style.transformOrigin = "";
 							v.classList.remove('zoom-transitioning');
 						}
+						// Re-enable page-number tracking after a short delay so any
+						// remaining scroll sync bounces from BilingualPdfViewer have
+						// settled before we allow computeCurrentPage to fire again.
+						setTimeout(() => {
+							isZoomingRef.current = false;
+						}, 300);
 					});
 				});
 			});
@@ -1071,8 +1090,9 @@ export function PdfAnnotationViewer({
 		});
 		el.addEventListener("gestureend", handleGestureEnd, { passive: false });
 
-		// Sync if zoomLevel changes externally (e.g. ZoomControls +/- buttons)
-		const unsubZoom = useAnnotationStore.subscribe((state, prevState) => {
+		// Sync if zoomLevel changes externally (e.g. ZoomControls +/- buttons).
+		// Isolated viewers have independent zoom, so skip global store sync.
+		const unsubZoom = isolated ? () => {} : useAnnotationStore.subscribe((state, prevState) => {
 			if (isCommitting) return; // skip internal updates from commitZoom
 			if (state.zoomLevel !== prevState.zoomLevel) {
 				const newZoom = state.zoomLevel;
@@ -1094,6 +1114,7 @@ export function PdfAnnotationViewer({
 			if (baseScaleTimer) clearTimeout(baseScaleTimer);
 			if (cleanupRafId) cancelAnimationFrame(cleanupRafId);
 			if (scaleResetSuppressTimer) clearTimeout(scaleResetSuppressTimer);
+			isZoomingRef.current = false;
 			unsubZoom();
 			el.removeEventListener("pointermove", handlePointerMove);
 			el.removeEventListener("wheel", handleWheel);
