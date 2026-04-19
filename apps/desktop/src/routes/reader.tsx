@@ -112,6 +112,7 @@ import {
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useGroupRef, usePanelRef } from "react-resizable-panels";
+import { useShallow } from "zustand/shallow";
 
 interface ReaderProps {
 	tabId: string;
@@ -131,9 +132,15 @@ export function Reader({
 	const { t } = useTranslation();
 	const updateTab = useTabStore((s) => s.updateTab);
 	const activeTabId = useTabStore((s) => s.activeTabId);
-	const tab = useTabStore((s) => s.tabs.find((t) => t.id === tabId));
+	const tab = useTabStore(
+		useShallow((s) => s.tabs.find((t) => t.id === tabId)),
+	);
 	const isActive = activeTabId === tabId;
-	const papers = useLibraryStore((s) => s.papers);
+	const paper = useLibraryStore(
+		useShallow((s) =>
+			paperId ? (s.papers.find((p) => p.id === paperId) ?? null) : null,
+		),
+	);
 	const fetchPaper = useLibraryStore((s) => s.fetchPaper);
 	const resetReaderState = useAnnotationStore((s) => s.resetReaderState);
 	const setHtmlHeadings = useAnnotationStore((s) => s.setHtmlHeadings);
@@ -179,8 +186,6 @@ export function Reader({
 	}, [rightPanelRef]);
 
 	const isFeedReaderMode = !!feedItem && !paperId;
-
-	const paper = paperId ? (papers.find((p) => p.id === paperId) ?? null) : null;
 
 	const bilingualMode = tab?.bilingualMode ?? false;
 	const bilingualSyncScroll = tab?.bilingualSyncScroll ?? true;
