@@ -44,6 +44,12 @@ const DEFAULT_BOOKMARKS: Bookmark[] = [
 		url: "https://chat.deepseek.com",
 		isPreset: true,
 	},
+	{
+		id: "preset-wenxin",
+		name: "Baidu Ernie",
+		url: "https://yiyan.baidu.com/",
+		isPreset: true,
+	},
 ];
 
 const BOOKMARKS_KEY = "zoro-browser-bookmarks";
