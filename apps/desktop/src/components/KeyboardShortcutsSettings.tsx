@@ -187,30 +187,35 @@ export function KeyboardShortcutsSettings() {
 			)}
 
 			{/* Binding categories */}
-			{[...grouped.entries()].map(([category, items]) => (
-				<div key={category} className="space-y-1">
-					<h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">
-						{t(category)}
-					</h3>
-					<div className="space-y-0.5">
-						{items.map((binding) => (
-							<BindingRow
-								key={binding.id}
-								binding={binding}
-								isRecording={recordingId === binding.id}
-								onStartRecord={() => {
-									setRecordingId(binding.id);
-									setPendingConflict(null);
-								}}
-								onCancelRecord={() => setRecordingId(null)}
-								onRecord={(acc) => handleRecord(binding.id, acc)}
-								onReset={() => resetBinding(binding.id)}
-								allBindings={bindings}
-							/>
-						))}
+			<div className="grid grid-cols-1 lg:grid-cols-2 2xl:grid-cols-3 gap-4 items-start">
+				{[...grouped.entries()].map(([category, items]) => (
+					<div
+						key={category}
+						className="rounded-lg border bg-card/50 p-3 space-y-1"
+					>
+						<h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">
+							{t(category)}
+						</h3>
+						<div className="space-y-0.5">
+							{items.map((binding) => (
+								<BindingRow
+									key={binding.id}
+									binding={binding}
+									isRecording={recordingId === binding.id}
+									onStartRecord={() => {
+										setRecordingId(binding.id);
+										setPendingConflict(null);
+									}}
+									onCancelRecord={() => setRecordingId(null)}
+									onRecord={(acc) => handleRecord(binding.id, acc)}
+									onReset={() => resetBinding(binding.id)}
+									allBindings={bindings}
+								/>
+							))}
+						</div>
 					</div>
-				</div>
-			))}
+				))}
+			</div>
 
 			{grouped.size === 0 && (
 				<p className="text-sm text-muted-foreground text-center py-8">

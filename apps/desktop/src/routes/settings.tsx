@@ -1898,9 +1898,9 @@ export function Settings() {
 				<ScrollArea className="flex-1">
 					<div className="p-6">
 						{section === "general" && (
-							<div className="space-y-5">
+							<div className="grid grid-cols-1 lg:grid-cols-2 2xl:grid-cols-3 gap-4 items-start">
 								{/* Appearance */}
-								<div className="space-y-1.5">
+								<div className="rounded-lg border bg-card/50 p-4 space-y-1.5">
 									<p className="text-xs font-medium">
 										{t("settings.appearance")}
 									</p>
@@ -1988,10 +1988,8 @@ export function Settings() {
 									</div>
 								</div>
 
-								<Separator />
-
 								{/* Startup defaults */}
-								<div className="space-y-3">
+								<div className="rounded-lg border bg-card/50 p-4 space-y-3">
 									<p className="text-xs font-medium">
 										{t("settings.startupDefaults")}
 									</p>
@@ -2081,10 +2079,8 @@ export function Settings() {
 									</p>
 								</div>
 
-								<Separator />
-
 								{/* Behavior */}
-								<div className="space-y-2">
+								<div className="rounded-lg border bg-card/50 p-4 space-y-2">
 									<p className="text-xs font-medium">
 										{t("settings.behavior")}
 									</p>
@@ -2108,10 +2104,8 @@ export function Settings() {
 									</label>
 								</div>
 
-								<Separator />
-
 								{/* Downloads */}
-								<div className="space-y-2">
+								<div className="rounded-lg border bg-card/50 p-4 space-y-2">
 									<p className="text-xs font-medium">
 										{t("settings.downloads")}
 									</p>
@@ -2194,10 +2188,8 @@ export function Settings() {
 									</p>
 								</div>
 
-								<Separator />
-
 								{/* Reader */}
-								<div className="space-y-2">
+								<div className="rounded-lg border bg-card/50 p-4 space-y-2">
 									<p className="text-xs font-medium">{t("settings.reader")}</p>
 									<div>
 										<label
@@ -2259,10 +2251,8 @@ export function Settings() {
 									</div>
 								</div>
 
-								<Separator />
-
 								{/* HTML Reader Typography */}
-								<div className="space-y-3">
+								<div className="rounded-lg border bg-card/50 p-4 space-y-3 lg:col-span-2 2xl:col-span-2">
 									<div>
 										<p className="text-xs font-medium">
 											{t("settings.htmlTypography")}
@@ -2499,10 +2489,8 @@ export function Settings() {
 									</Button>
 								</div>
 
-								<Separator />
-
 								{/* Column layout */}
-								<div className="space-y-2">
+								<div className="rounded-lg border bg-card/50 p-4 space-y-2">
 									<p className="text-xs font-medium">
 										{t("settings.columnLayout")}
 									</p>
@@ -2515,10 +2503,8 @@ export function Settings() {
 									</Button>
 								</div>
 
-								<Separator />
-
 								{/* Network Proxy */}
-								<div className="space-y-2">
+								<div className="rounded-lg border bg-card/50 p-4 space-y-2">
 									<p className="text-xs font-medium">
 										{t("settings.networkProxy")}
 									</p>
@@ -2621,10 +2607,8 @@ export function Settings() {
 									)}
 								</div>
 
-								<Separator />
-
 								{/* Developer */}
-								<div className="space-y-2">
+								<div className="rounded-lg border bg-card/50 p-4 space-y-2">
 									<p className="text-xs font-medium">
 										{t("settings.developer")}
 									</p>
@@ -2710,10 +2694,8 @@ export function Settings() {
 									)}
 								</div>
 
-								<Separator />
-
 								{/* Restart Onboarding */}
-								<div className="space-y-2">
+								<div className="rounded-lg border bg-card/50 p-4 space-y-2">
 									<p className="text-xs font-medium">
 										{t("settings.restartOnboarding")}
 									</p>
