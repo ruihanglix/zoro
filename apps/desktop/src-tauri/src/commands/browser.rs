@@ -5,37 +5,59 @@
 use std::sync::atomic::{AtomicBool, Ordering};
 
 use serde::Serialize;
-use tauri::{Emitter, LogicalPosition, LogicalSize, Manager, WebviewUrl};
+use tauri::{Emitter, LogicalPosition, LogicalSize, Manager, State, WebviewUrl};
+use crate::AppState;
 
 /// Global dark mode state shared between the `browser_set_dark_mode` command
 /// and the `on_page_load` callback so that newly loaded pages also receive
 /// the dark-mode CSS injection.
 static DARK_MODE: AtomicBool = AtomicBool::new(false);
 
-/// JS snippet that injects (or removes) the dark-mode `<style>` element.
+/// JS snippet that enables or disables dark-mode on an external web page.
 ///
-/// Uses `filter: invert() hue-rotate()` which preserves the page's own design
-/// while inverting lightness.  Images / videos / canvases are inverted back so
-/// they look normal.  This is the same technique used by Dark Reader's "filter"
-/// mode and works reliably across arbitrary external websites.
+/// Uses a **luminance-based** approach (similar to Chrome Auto-Dark / Dark
+/// Reader dynamic mode):
+/// 1. Walk the DOM and read each element's `getComputedStyle`.
+/// 2. Only darken elements whose background is actually *light* (luminance
+///    above a threshold).  Already-dark elements are left untouched.
+/// 3. Only lighten text that is actually *dark*.
+/// 4. A `MutationObserver` handles dynamically-added content.
+/// 5. Modified elements are tagged with `data-zd` so we can cleanly undo
+///    everything when the user switches back to light mode.
+///
+/// This avoids the problems of blanket CSS overrides (which destroy sites
+/// that already have dark mode) and filter inversion (which distorts images).
 fn dark_mode_js(dark: bool) -> String {
     if dark {
         r#"(function(){
-var s=document.getElementById('zoro-dark-mode');
-if(!s){s=document.createElement('style');s.id='zoro-dark-mode';(document.head||document.documentElement).appendChild(s);}
-s.textContent="\
-html{filter:invert(.88) hue-rotate(180deg)!important;-webkit-filter:invert(.88) hue-rotate(180deg)!important;background:#fff!important}\
-img,video,canvas,picture,iframe,[style*=\"background-image\"],svg:not(.MathJax_SVG):not(mjx-container svg){filter:invert(1) hue-rotate(180deg)!important;-webkit-filter:invert(1) hue-rotate(180deg)!important}\
-html{color-scheme:dark!important;scrollbar-color:#555 #2a2a2e}\
-::-webkit-scrollbar{background:#2a2a2e;width:8px}\
-::-webkit-scrollbar-thumb{background:#555;border-radius:4px}\
-::-webkit-scrollbar-thumb:hover{background:#666}\
-";
+if(window.__zoro_dark__)return;
+window.__zoro_dark__=true;
+var s=document.createElement('style');s.id='zoro-dark-mode';
+s.textContent=':root{color-scheme:dark!important}html{scrollbar-color:#555 #1b1b1f}::-webkit-scrollbar{background:#1b1b1f;width:8px}::-webkit-scrollbar-thumb{background:#555;border-radius:4px}::-webkit-scrollbar-thumb:hover{background:#666}img,video{opacity:.85}input::placeholder,textarea::placeholder{color:#888!important}';
+(document.head||document.documentElement).appendChild(s);
+var SKIP={IMG:1,VIDEO:1,CANVAS:1,PICTURE:1,SVG:1,IFRAME:1,STYLE:1,SCRIPT:1,LINK:1,NOSCRIPT:1,BR:1};
+function lum(r,g,b){return .299*r+.587*g+.114*b}
+function pc(v){if(!v||v==='transparent'||v==='rgba(0, 0, 0, 0)')return null;var m=v.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/);return m?[+m[1],+m[2],+m[3]]:null}
+function proc(el){if(!el||el.nodeType!==1||SKIP[el.tagName]||el.id==='zoro-dark-mode')return;
+try{var cs=getComputedStyle(el);
+var bg=pc(cs.backgroundColor);if(bg){var bl=lum(bg[0],bg[1],bg[2]);
+if(bl>150){el.style.setProperty('background-color','#1b1b1f','important');el.setAttribute('data-zd','1')}
+else if(bl>100){el.style.setProperty('background-color','#2a2a2e','important');el.setAttribute('data-zd','1')}}
+var fg=pc(cs.color);if(fg&&lum(fg[0],fg[1],fg[2])<100){el.style.setProperty('color','#d4d4d8','important');el.setAttribute('data-zd','1')}
+var bd=pc(cs.borderTopColor);if(bd&&cs.borderTopStyle!=='none'&&cs.borderTopWidth!=='0px'&&lum(bd[0],bd[1],bd[2])>180){el.style.setProperty('border-color','#3f3f46','important');el.setAttribute('data-zd','1')}}catch(e){}}
+function walk(r){proc(r);if(r.querySelectorAll){var a=r.querySelectorAll('*');for(var i=0;i<a.length;i++)proc(a[i])}}
+function run(){proc(document.documentElement);walk(document.body||document.documentElement)}
+requestAnimationFrame(function(){requestAnimationFrame(run)});
+var pend=null;var tgt=document.body||document.documentElement;
+var obs=new MutationObserver(function(ms){if(pend)return;var n=[];for(var i=0;i<ms.length;i++){var a=ms[i].addedNodes;for(var j=0;j<a.length;j++)if(a[j].nodeType===1)n.push(a[j])}if(n.length){pend=requestAnimationFrame(function(){for(var i=0;i<n.length;i++)walk(n[i]);pend=null})}});
+obs.observe(tgt,{childList:true,subtree:true});window.__zoro_dark_obs__=obs;
 })();"#.to_string()
     } else {
         r#"(function(){
-var s=document.getElementById('zoro-dark-mode');
-if(s){s.textContent='';}
+var s=document.getElementById('zoro-dark-mode');if(s)s.remove();
+if(window.__zoro_dark_obs__){window.__zoro_dark_obs__.disconnect();window.__zoro_dark_obs__=null}
+var els=document.querySelectorAll('[data-zd]');for(var i=0;i<els.length;i++){els[i].style.removeProperty('background-color');els[i].style.removeProperty('color');els[i].style.removeProperty('border-color');els[i].removeAttribute('data-zd')}
+window.__zoro_dark__=false;
 })();"#.to_string()
     }
 }
@@ -56,6 +78,7 @@ struct BrowserPageInfoEvent {
 #[tauri::command]
 pub async fn create_browser_webview(
     app: tauri::AppHandle,
+    state: State<'_, AppState>,
     label: String,
     url: String,
     x: f64,
@@ -82,7 +105,7 @@ pub async fn create_browser_webview(
     let label_for_nav = label.clone();
     let app_for_nav = app.clone();
 
-    let builder = tauri::webview::WebviewBuilder::new(&label, WebviewUrl::External(parsed_url))
+    let mut builder = tauri::webview::WebviewBuilder::new(&label, WebviewUrl::External(parsed_url))
         .on_navigation(move |url| {
             // Intercept SPA URL change notifications from injected JS
             if url.scheme() == "zoro-url-change" {
@@ -232,6 +255,19 @@ pub async fn create_browser_webview(
                 }
             }
         });
+
+    // Apply proxy if configured
+    {
+        let config = state
+            .config
+            .lock()
+            .map_err(|e| format!("Config lock error: {}", e))?;
+        if config.proxy.enabled && !config.proxy.url.is_empty() {
+            if let Ok(proxy_url) = config.proxy.url.parse::<url::Url>() {
+                builder = builder.proxy_url(proxy_url);
+            }
+        }
+    }
 
     window
         .add_child(
