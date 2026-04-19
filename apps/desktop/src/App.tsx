@@ -282,6 +282,13 @@ export default function App() {
 	const webviewTabs = tabs.filter((t) => t.type === "webview");
 	const hasSettings = tabs.some((t) => t.type === "settings");
 
+	// On every tab switch, hide ALL native browser webviews first.
+	// Each active component (Webview / BrowserPanel) will then re-show its own.
+	// This guarantees no stale webview stays visible due to timing issues.
+	useEffect(() => {
+		commands.hideAllBrowserWebviews().catch(() => {});
+	}, [activeTabId]);
+
 	return (
 		<div className="flex h-screen flex-col">
 			{/* Tab bar integrated into title bar area */}

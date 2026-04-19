@@ -1242,6 +1242,9 @@ export const showBrowserWebview = (label: string) =>
 export const hideBrowserWebview = (label: string) =>
 	invoke<void>("hide_browser_webview", { label });
 
+export const hideAllBrowserWebviews = () =>
+	invoke<void>("hide_all_browser_webviews");
+
 export const resizeBrowserWebview = (
 	label: string,
 	x: number,

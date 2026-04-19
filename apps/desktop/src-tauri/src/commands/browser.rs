@@ -198,6 +198,27 @@ pub async fn show_browser_webview(app: tauri::AppHandle, label: String) -> Resul
 pub async fn hide_browser_webview(app: tauri::AppHandle, label: String) -> Result<(), String> {
     if let Some(webview) = app.get_webview(&label) {
         webview.hide().map_err(|e| e.to_string())?;
+        // Belt-and-suspenders: also move off-screen in case hide() is unreliable
+        // on some platforms (e.g. macOS child webviews).
+        let _ = webview.set_position(LogicalPosition::new(-10000.0, -10000.0));
+        let _ = webview.set_size(LogicalSize::new(1.0, 1.0));
+    }
+    Ok(())
+}
+
+/// Hide ALL browser child webviews (everything except the main webview).
+/// Called on tab switch to guarantee a clean slate.
+#[tauri::command]
+pub async fn hide_all_browser_webviews(app: tauri::AppHandle) -> Result<(), String> {
+    let webviews = app.webviews();
+    for (label, wv) in webviews {
+        // Skip the main app webview
+        if label == "main" {
+            continue;
+        }
+        let _ = wv.hide();
+        let _ = wv.set_position(LogicalPosition::new(-10000.0, -10000.0));
+        let _ = wv.set_size(LogicalSize::new(1.0, 1.0));
     }
     Ok(())
 }

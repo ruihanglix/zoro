@@ -2027,7 +2027,12 @@ fn copy_file_to_clipboard(path: &str) -> Result<(), String> {
         // This is supported by most Linux file managers and apps
         let content = format!("copy\nfile://{}", path);
         let mut child = std::process::Command::new("xclip")
-            .args(["-selection", "clipboard", "-t", "x-special/gnome-copied-files"])
+            .args([
+                "-selection",
+                "clipboard",
+                "-t",
+                "x-special/gnome-copied-files",
+            ])
             .stdin(std::process::Stdio::piped())
             .spawn()
             .map_err(|e| format!("Failed to run xclip (is it installed?): {}", e))?;

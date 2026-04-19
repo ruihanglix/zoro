@@ -70,6 +70,9 @@ export function BrowserPanel({ storageKey, isActive, paperId }: BrowserPanelProp
 	const containerRefs = useRef<Map<string, HTMLDivElement>>(new Map());
 	const resizeObservers = useRef<Map<string, ResizeObserver>>(new Map());
 	const panelRef = useRef<HTMLDivElement>(null);
+	// Keep a ref to isActive so async callbacks can read the latest value
+	const isActiveRef = useRef(isActive);
+	isActiveRef.current = isActive;
 
 	const activeTab = tabs.find((tab) => tab.id === activeTabId) ?? null;
 
@@ -173,31 +176,40 @@ export function BrowserPanel({ storageKey, isActive, paperId }: BrowserPanelProp
 
 	// Show/hide all webviews based on panel visibility
 	useEffect(() => {
-		for (const tab of tabs) {
-			const label = getLabel(tab.id);
-			if (!createdWebviews.current.has(label)) continue;
-			if (isActive && tab.id === activeTabId) {
-				const container = containerRefs.current.get(tab.id);
-				const rect = container?.getBoundingClientRect();
-				// Only show if container has real dimensions (panel is not collapsed)
-				if (rect && rect.width > 0 && rect.height > 0) {
-					commands.showBrowserWebview(label).catch(() => {});
-					commands
-						.resizeBrowserWebview(
-							label,
-							rect.left,
-							rect.top,
-							rect.width,
-							rect.height,
-						)
-						.catch(() => {});
-				} else {
-					commands.hideBrowserWebview(label).catch(() => {});
-				}
-			} else {
+		if (!isActive) {
+			// Hide all this panel's webviews
+			for (const tab of tabs) {
+				const label = getLabel(tab.id);
 				commands.hideBrowserWebview(label).catch(() => {});
 			}
+			return;
 		}
+
+		// Panel is active — hide all webviews first (clean slate), then show the active one
+		commands.hideAllBrowserWebviews().then(() => {
+			// Guard: panel might have become inactive while awaiting
+			if (!isActiveRef.current) return;
+
+			for (const tab of tabs) {
+				const label = getLabel(tab.id);
+				if (tab.id === activeTabId && createdWebviews.current.has(label)) {
+					const container = containerRefs.current.get(tab.id);
+					const rect = container?.getBoundingClientRect();
+					if (rect && rect.width > 0 && rect.height > 0) {
+						commands.showBrowserWebview(label).catch(() => {});
+						commands
+							.resizeBrowserWebview(
+								label,
+								rect.left,
+								rect.top,
+								rect.width,
+								rect.height,
+							)
+							.catch(() => {});
+					}
+				}
+			}
+		}).catch(() => {});
 	}, [isActive, activeTabId, tabs, getLabel]);
 
 	// Re-sync webview position on window resize (ResizeObserver misses position-only changes)
@@ -264,6 +276,14 @@ export function BrowserPanel({ storageKey, isActive, paperId }: BrowserPanelProp
 						rect.width,
 						rect.height,
 					)
+					.then(() => {
+						// After creation, sync visibility with current panel state.
+						// The webview is created visible by default, so hide it if
+						// the panel is no longer active or this isn't the active tab.
+						if (!isActiveRef.current) {
+							commands.hideBrowserWebview(label).catch(() => {});
+						}
+					})
 					.catch(() => {
 						createdWebviews.current.delete(label);
 					});
@@ -271,6 +291,7 @@ export function BrowserPanel({ storageKey, isActive, paperId }: BrowserPanelProp
 				// Setup resize observer
 				const observer = new ResizeObserver(() => {
 					if (!createdWebviews.current.has(label)) return;
+					if (!isActiveRef.current) return;
 					const r = container.getBoundingClientRect();
 					if (r.width > 0 && r.height > 0) {
 						commands
