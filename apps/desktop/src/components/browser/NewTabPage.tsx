@@ -2,6 +2,7 @@
 // Licensed under the AGPL-3.0 license.
 // See LICENSE file in the project root for full license information.
 
+import { PRESET_ICONS } from "@/components/browser/BrandIcons";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useBrowserStore } from "@/stores/browserStore";
@@ -116,7 +117,9 @@ export function NewTabPage({ onNavigate }: NewTabPageProps) {
 								title={bm.url}
 							>
 								<div className="flex h-10 w-10 items-center justify-center rounded-lg bg-muted text-lg">
-									{bm.icon || <Globe className="h-5 w-5 text-muted-foreground" />}
+									{PRESET_ICONS[bm.id]
+										? (() => { const Icon = PRESET_ICONS[bm.id]; return <Icon size={24} />; })()
+										: bm.icon || <Globe className="h-5 w-5 text-muted-foreground" />}
 								</div>
 								<span className="text-xs text-foreground truncate w-full text-center">
 									{bm.name}
