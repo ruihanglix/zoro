@@ -127,11 +127,12 @@ pub async fn create_browser_webview(
                     })();"#,
                 );
 
-                // Inject script to extract page title and favicon, with MutationObserver for dynamic title changes
+                // Inject script to extract page title and favicon, with targeted MutationObservers
                 let _ = webview.eval(
                     r#"(function(){
                         if(window.__zoro_pageinfo_monitor__)return;
                         window.__zoro_pageinfo_monitor__=true;
+                        var lastTitle='',lastFavicon='';
                         function getFavicon(){
                             var icons=document.querySelectorAll('link[rel~="icon"],link[rel="shortcut icon"],link[rel="apple-touch-icon"]');
                             for(var i=icons.length-1;i>=0;i--){
@@ -143,25 +144,50 @@ pub async fn create_browser_webview(
                             return location.origin+'/favicon.ico';
                         }
                         function send(){
+                            var t=document.title||'';
+                            var f=getFavicon();
+                            if(t===lastTitle&&f===lastFavicon)return;
+                            lastTitle=t;lastFavicon=f;
                             var a=document.createElement('a');
-                            a.href='zoro-page-info://notify?title='+encodeURIComponent(document.title||'')+'&favicon='+encodeURIComponent(getFavicon());
+                            a.href='zoro-page-info://notify?title='+encodeURIComponent(t)+'&favicon='+encodeURIComponent(f);
                             a.click();
                         }
                         send();
+                        function observeTitle(el){
+                            new MutationObserver(function(){send()}).observe(el,{childList:true,characterData:true,subtree:true});
+                        }
                         var titleEl=document.querySelector('title');
                         if(titleEl){
-                            new MutationObserver(function(){send()}).observe(titleEl,{childList:true,characterData:true,subtree:true});
-                        } else {
-                            new MutationObserver(function(m,obs){
-                                var t=document.querySelector('title');
-                                if(t){
-                                    obs.disconnect();
-                                    send();
-                                    new MutationObserver(function(){send()}).observe(t,{childList:true,characterData:true,subtree:true});
-                                }
-                            }).observe(document.head||document.documentElement,{childList:true,subtree:true});
+                            observeTitle(titleEl);
                         }
-                        new MutationObserver(function(){send()}).observe(document.head||document.documentElement,{childList:true,subtree:true});
+                        function observeFaviconLinks(){
+                            document.querySelectorAll('link[rel~="icon"],link[rel="shortcut icon"],link[rel="apple-touch-icon"]').forEach(function(link){
+                                if(!link.__zoro_observed){
+                                    link.__zoro_observed=true;
+                                    new MutationObserver(function(){send()}).observe(link,{attributes:true,attributeFilter:['href']});
+                                }
+                            });
+                        }
+                        observeFaviconLinks();
+                        new MutationObserver(function(mutations){
+                            for(var i=0;i<mutations.length;i++){
+                                for(var j=0;j<mutations[i].addedNodes.length;j++){
+                                    var node=mutations[i].addedNodes[j];
+                                    if(node.nodeName==='TITLE'){
+                                        observeTitle(node);send();
+                                    } else if(node.nodeName==='LINK'){
+                                        var rel=(node.getAttribute('rel')||'').toLowerCase();
+                                        if(rel.indexOf('icon')!==-1){
+                                            if(!node.__zoro_observed){
+                                                node.__zoro_observed=true;
+                                                new MutationObserver(function(){send()}).observe(node,{attributes:true,attributeFilter:['href']});
+                                            }
+                                            send();
+                                        }
+                                    }
+                                }
+                            }
+                        }).observe(document.head||document.documentElement,{childList:true});
                     })();"#,
                 );
             }
