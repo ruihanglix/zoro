@@ -341,18 +341,9 @@ pub fn build_menu(app: &AppHandle, lang: &str) -> Result<tauri::menu::Menu<Wry>,
 
     // --- File menu ---
     let file_menu = SubmenuBuilder::new(app, t(&tr, "file"))
-        .item(
-            &MenuItemBuilder::with_id("add-paper", t(&tr, "add_paper"))
-                .build(app)?,
-        )
-        .item(
-            &MenuItemBuilder::with_id("open-library", t(&tr, "open_library"))
-                .build(app)?,
-        )
-        .item(
-            &MenuItemBuilder::with_id("import", t(&tr, "import"))
-                .build(app)?,
-        )
+        .item(&MenuItemBuilder::with_id("add-paper", t(&tr, "add_paper")).build(app)?)
+        .item(&MenuItemBuilder::with_id("open-library", t(&tr, "open_library")).build(app)?)
+        .item(&MenuItemBuilder::with_id("import", t(&tr, "import")).build(app)?)
         .separator()
         .close_window()
         .build()?;
@@ -369,18 +360,9 @@ pub fn build_menu(app: &AppHandle, lang: &str) -> Result<tauri::menu::Menu<Wry>,
 
     // --- View menu ---
     let theme_submenu = SubmenuBuilder::new(app, t(&tr, "theme"))
-        .item(
-            &MenuItemBuilder::with_id("theme-light", t(&tr, "theme_light"))
-                .build(app)?,
-        )
-        .item(
-            &MenuItemBuilder::with_id("theme-dark", t(&tr, "theme_dark"))
-                .build(app)?,
-        )
-        .item(
-            &MenuItemBuilder::with_id("theme-system", t(&tr, "theme_system"))
-                .build(app)?,
-        )
+        .item(&MenuItemBuilder::with_id("theme-light", t(&tr, "theme_light")).build(app)?)
+        .item(&MenuItemBuilder::with_id("theme-dark", t(&tr, "theme_dark")).build(app)?)
+        .item(&MenuItemBuilder::with_id("theme-system", t(&tr, "theme_system")).build(app)?)
         .build()?;
 
     let view_menu = SubmenuBuilder::new(app, t(&tr, "view"))
@@ -394,10 +376,7 @@ pub fn build_menu(app: &AppHandle, lang: &str) -> Result<tauri::menu::Menu<Wry>,
                 .accelerator("CmdOrCtrl+-")
                 .build(app)?,
         )
-        .item(
-            &MenuItemBuilder::with_id("actual-size", t(&tr, "actual_size"))
-                .build(app)?,
-        )
+        .item(&MenuItemBuilder::with_id("actual-size", t(&tr, "actual_size")).build(app)?)
         .separator()
         .item(
             &MenuItemBuilder::with_id("toggle-sidebar", t(&tr, "toggle_sidebar"))
@@ -405,18 +384,9 @@ pub fn build_menu(app: &AppHandle, lang: &str) -> Result<tauri::menu::Menu<Wry>,
                 .build(app)?,
         )
         .separator()
-        .item(
-            &MenuItemBuilder::with_id("view-library", t(&tr, "library"))
-                .build(app)?,
-        )
-        .item(
-            &MenuItemBuilder::with_id("view-feed", t(&tr, "feed"))
-                .build(app)?,
-        )
-        .item(
-            &MenuItemBuilder::with_id("view-papers-cool", t(&tr, "papers_cool"))
-                .build(app)?,
-        )
+        .item(&MenuItemBuilder::with_id("view-library", t(&tr, "library")).build(app)?)
+        .item(&MenuItemBuilder::with_id("view-feed", t(&tr, "feed")).build(app)?)
+        .item(&MenuItemBuilder::with_id("view-papers-cool", t(&tr, "papers_cool")).build(app)?)
         .separator()
         .item(&theme_submenu)
         .build()?;
@@ -424,39 +394,20 @@ pub fn build_menu(app: &AppHandle, lang: &str) -> Result<tauri::menu::Menu<Wry>,
     // --- Window menu ---
     let window_menu = SubmenuBuilder::new(app, t(&tr, "window"))
         .minimize()
-        .item(
-            &PredefinedMenuItem::maximize(app, None)?,
-        )
+        .item(&PredefinedMenuItem::maximize(app, None)?)
         .separator()
-        .item(
-            &PredefinedMenuItem::fullscreen(app, None)?,
-        )
+        .item(&PredefinedMenuItem::fullscreen(app, None)?)
         .build()?;
 
     // --- Help menu ---
     let help_menu = SubmenuBuilder::new(app, t(&tr, "help"))
-        .item(
-            &MenuItemBuilder::with_id("about", t(&tr, "about"))
-                .build(app)?,
-        )
-        .item(
-            &MenuItemBuilder::with_id("check-updates", t(&tr, "check_updates"))
-                .build(app)?,
-        )
+        .item(&MenuItemBuilder::with_id("about", t(&tr, "about")).build(app)?)
+        .item(&MenuItemBuilder::with_id("check-updates", t(&tr, "check_updates")).build(app)?)
         .separator()
-        .item(
-            &MenuItemBuilder::with_id("github", t(&tr, "github"))
-                .build(app)?,
-        )
-        .item(
-            &MenuItemBuilder::with_id("website", t(&tr, "website"))
-                .build(app)?,
-        )
+        .item(&MenuItemBuilder::with_id("github", t(&tr, "github")).build(app)?)
+        .item(&MenuItemBuilder::with_id("website", t(&tr, "website")).build(app)?)
         .separator()
-        .item(
-            &MenuItemBuilder::with_id("report-issue", t(&tr, "report_issue"))
-                .build(app)?,
-        )
+        .item(&MenuItemBuilder::with_id("report-issue", t(&tr, "report_issue")).build(app)?)
         .build()?;
 
     MenuBuilder::new(app)
@@ -479,13 +430,10 @@ pub fn register_menu_event_handler(app: &AppHandle) {
         // Only forward our custom IDs; predefined items (undo/copy/etc.)
         // are handled natively by macOS.
         match id {
-            "add-paper" | "open-library" | "import" | "settings"
-            | "zoom-in" | "zoom-out" | "actual-size"
-            | "toggle-sidebar"
-            | "view-library" | "view-feed" | "view-papers-cool"
-            | "theme-light" | "theme-dark" | "theme-system"
-            | "about" | "check-updates"
-            | "github" | "website" | "report-issue" => {
+            "add-paper" | "open-library" | "import" | "settings" | "zoom-in" | "zoom-out"
+            | "actual-size" | "toggle-sidebar" | "view-library" | "view-feed"
+            | "view-papers-cool" | "theme-light" | "theme-dark" | "theme-system" | "about"
+            | "check-updates" | "github" | "website" | "report-issue" => {
                 let _ = handle.emit("menu-event", id);
             }
             _ => {}
