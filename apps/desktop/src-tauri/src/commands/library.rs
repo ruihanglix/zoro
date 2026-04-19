@@ -444,7 +444,7 @@ pub async fn add_paper(
         let task_app = app.clone();
         let task_title = paper_title_for_tasks.clone();
         let task_id = format!("pdf-{}", pid);
-        emit_task(
+        let dl_client = state.http_client.clone();        emit_task(
             &app,
             &BackgroundTaskEvent {
                 task_id: task_id.clone(),
@@ -456,7 +456,7 @@ pub async fn add_paper(
             },
         );
         tokio::spawn(async move {
-            match storage::attachments::download_file(&pdf_url_clone, &pdf_path).await {
+            match storage::attachments::download_file(&dl_client, &pdf_url_clone, &pdf_path).await {
                 Ok(()) => {
                     let file_size = storage::attachments::get_file_size(&pdf_path);
                     if let Ok(db) = zoro_db::Database::open(&db_path) {
@@ -505,8 +505,9 @@ pub async fn add_paper(
         let html_url_clone = html_url.clone();
         let pid = row.id.clone();
         let db_path = state.data_dir.join("library.db");
+        let dl_client_html = state.http_client.clone();
         tokio::spawn(async move {
-            if let Ok(()) = storage::attachments::download_file(&html_url_clone, &html_path).await {
+            if let Ok(()) = storage::attachments::download_file(&dl_client_html, &html_url_clone, &html_path).await {
                 let file_size = storage::attachments::get_file_size(&html_path);
                 if let Ok(db) = zoro_db::Database::open(&db_path) {
                     let _ = attachments::insert_attachment(
@@ -535,6 +536,12 @@ pub async fn add_paper(
         let enrich_app = app.clone();
         let enrich_title = paper_title_for_tasks.clone();
         let enrich_task_id = format!("enrich-{}", enrich_paper_id);
+        let enrich_client = state.http_client.clone();
+        let enrich_proxy = state
+            .config
+            .lock()
+            .map(|c| c.proxy.clone())
+            .unwrap_or_default();
         emit_task(
             &app,
             &BackgroundTaskEvent {
@@ -548,6 +555,7 @@ pub async fn add_paper(
         );
         tokio::spawn(async move {
             match zoro_metadata::enrich_paper_with_title(
+                &enrich_client,
                 enrich_doi.as_deref(),
                 enrich_arxiv.as_deref(),
                 Some(&enrich_title),
@@ -600,7 +608,7 @@ pub async fn add_paper(
                                 );
                                 let pdf_path = enrich_paper_dir.join("paper.pdf");
                                 if !pdf_path.exists() {
-                                    match storage::attachments::download_file(pdf_url, &pdf_path)
+                                    match storage::attachments::download_file(&enrich_client, pdf_url, &pdf_path)
                                         .await
                                     {
                                         Ok(()) => {
@@ -659,6 +667,7 @@ pub async fn add_paper(
                             &enrich_title,
                             aid,
                             &enrich_paper_dir,
+                            &enrich_proxy,
                         )
                         .await;
                     }
@@ -948,6 +957,12 @@ pub async fn import_local_files(
             let enrich_app = app.clone();
             let enrich_title = title.clone();
             let enrich_task_id = format!("enrich-{}", enrich_paper_id);
+            let enrich_client = state.http_client.clone();
+            let enrich_proxy = state
+                .config
+                .lock()
+                .map(|c| c.proxy.clone())
+                .unwrap_or_default();
             emit_task(
                 &app,
                 &BackgroundTaskEvent {
@@ -961,6 +976,7 @@ pub async fn import_local_files(
             );
             tokio::spawn(async move {
                 match zoro_metadata::enrich_paper_with_title(
+                    &enrich_client,
                     enrich_doi.as_deref(),
                     enrich_arxiv.as_deref(),
                     Some(&enrich_title),
@@ -1021,7 +1037,7 @@ pub async fn import_local_files(
                                                 },
                                             );
                                             match storage::attachments::download_file(
-                                                pdf_url, &pdf_path,
+                                                &enrich_client, pdf_url, &pdf_path,
                                             )
                                             .await
                                             {
@@ -1085,6 +1101,7 @@ pub async fn import_local_files(
                                 &enrich_title,
                                 aid,
                                 &enrich_paper_dir,
+                                &enrich_proxy,
                             )
                             .await;
                         }

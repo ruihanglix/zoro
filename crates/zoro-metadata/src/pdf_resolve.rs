@@ -11,7 +11,7 @@ use crate::{openalex, semantic_scholar, unpaywall};
 /// 2. Semantic Scholar — `openAccessPdf` field
 /// 3. Unpaywall — `best_oa_location.url_for_pdf` (DOI required)
 /// 4. OpenAlex — `best_oa_location.pdf_url` (DOI required)
-pub async fn resolve_pdf_url(doi: Option<&str>, arxiv_id: Option<&str>) -> Option<String> {
+pub async fn resolve_pdf_url(client: &reqwest::Client, doi: Option<&str>, arxiv_id: Option<&str>) -> Option<String> {
     // 1. ArXiv: trivial derivation, no network needed
     if let Some(id) = arxiv_id {
         let id = id.trim();
@@ -27,7 +27,7 @@ pub async fn resolve_pdf_url(doi: Option<&str>, arxiv_id: Option<&str>) -> Optio
         .or_else(|| arxiv_id.map(|a| format!("ArXiv:{}", a)));
 
     if let Some(ref id) = s2_id {
-        match semantic_scholar::fetch_semantic_scholar(id).await {
+        match semantic_scholar::fetch_semantic_scholar(client, id).await {
             Ok(paper) => {
                 if let Some(ref oa) = paper.open_access_pdf {
                     if let Some(ref url) = oa.url {
@@ -46,7 +46,7 @@ pub async fn resolve_pdf_url(doi: Option<&str>, arxiv_id: Option<&str>) -> Optio
     let doi = doi?;
 
     // 3. Unpaywall
-    match unpaywall::fetch_unpaywall(doi).await {
+    match unpaywall::fetch_unpaywall(client, doi).await {
         Ok(resp) => {
             if let Some(url) = resp.pdf_url() {
                 tracing::info!(url = %url, "PDF resolved via Unpaywall");
@@ -59,7 +59,7 @@ pub async fn resolve_pdf_url(doi: Option<&str>, arxiv_id: Option<&str>) -> Optio
     }
 
     // 4. OpenAlex
-    match openalex::fetch_openalex(doi).await {
+    match openalex::fetch_openalex(client, doi).await {
         Ok(work) => {
             if let Some(url) = work.oa_pdf_url() {
                 tracing::info!(url = %url, "PDF resolved via OpenAlex");

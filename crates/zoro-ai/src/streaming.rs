@@ -72,9 +72,9 @@ pub struct StreamingClient {
 }
 
 impl StreamingClient {
-    pub fn new(base_url: &str, api_key: &str, model: &str) -> Self {
+    pub fn new(client: reqwest::Client, base_url: &str, api_key: &str, model: &str) -> Self {
         Self {
-            http: reqwest::Client::new(),
+            http: client,
             base_url: base_url.trim_end_matches('/').to_string(),
             api_key: api_key.to_string(),
             model: model.to_string(),

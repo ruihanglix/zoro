@@ -272,8 +272,15 @@ pub async fn save_items(
             },
         );
 
+        let enrich_client = app_state.http_client.clone();
+        let enrich_proxy = app_state
+            .config
+            .lock()
+            .map(|c| c.proxy.clone())
+            .unwrap_or_default();
         tokio::spawn(async move {
             match zoro_metadata::enrich_paper_with_title(
+                &enrich_client,
                 info.doi.as_deref(),
                 info.arxiv_id.as_deref(),
                 Some(&info.paper_title),
@@ -341,7 +348,7 @@ pub async fn save_items(
                                         },
                                     );
                                     match crate::storage::attachments::download_file(
-                                        pdf_url, &pdf_path,
+                                        &enrich_client, pdf_url, &pdf_path,
                                     )
                                     .await
                                     {
@@ -403,6 +410,7 @@ pub async fn save_items(
                             &info.paper_title,
                             aid,
                             &paper_dir,
+                            &enrich_proxy,
                         )
                         .await;
                     }
@@ -858,6 +866,12 @@ pub async fn save_standalone_attachment(
                 let enrich_app = app_handle.clone();
                 let enrich_title = title.clone();
                 let enrich_task_id = format!("enrich-{}", enrich_paper_id);
+                let enrich_client = app_state.http_client.clone();
+                let enrich_proxy2 = app_state
+                    .config
+                    .lock()
+                    .map(|c| c.proxy.clone())
+                    .unwrap_or_default();
                 crate::connector::handlers::emit_task(
                     &enrich_app,
                     &crate::connector::handlers::BackgroundTaskEvent {
@@ -871,6 +885,7 @@ pub async fn save_standalone_attachment(
                 );
                 tokio::spawn(async move {
                     match zoro_metadata::enrich_paper_with_title(
+                        &enrich_client,
                         enrich_doi.as_deref(),
                         enrich_arxiv.as_deref(),
                         Some(&enrich_title),
@@ -931,6 +946,7 @@ pub async fn save_standalone_attachment(
                                     &enrich_title,
                                     aid,
                                     &enrich_paper_dir,
+                                    &enrich_proxy2,
                                 )
                                 .await;
                             }

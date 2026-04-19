@@ -46,7 +46,10 @@ pub struct ProxyServer {
 impl ProxyServer {
     /// Start the proxy server with the given configuration.
     /// Returns once the server is listening; call `shutdown()` to stop.
-    pub async fn start(config: ProxyConfig) -> Result<Self, ProxyError> {
+    pub async fn start(
+        config: ProxyConfig,
+        network_proxy: &zoro_core::models::ProxyConfig,
+    ) -> Result<Self, ProxyError> {
         let health = HealthTracker::new();
 
         // Initialize health records for all providers
@@ -60,7 +63,7 @@ impl ProxyServer {
             health,
             max_retries: config.max_retries,
             access_token: RwLock::new(config.access_token),
-            http_client: reqwest::Client::builder()
+            http_client: zoro_core::http_client::build_http_client(network_proxy)
                 .timeout(std::time::Duration::from_secs(300))
                 .build()
                 .unwrap_or_default(),

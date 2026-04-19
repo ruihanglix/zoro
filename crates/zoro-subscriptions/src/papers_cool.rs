@@ -85,10 +85,8 @@ pub struct PapersCool {
 }
 
 impl PapersCool {
-    pub fn new() -> Self {
-        Self {
-            client: reqwest::Client::new(),
-        }
+    pub fn new(client: reqwest::Client) -> Self {
+        Self { client }
     }
 
     pub async fn fetch_index(&self) -> Result<PapersCoolIndex, SubscriptionError> {
@@ -150,7 +148,7 @@ impl PapersCool {
 
 impl Default for PapersCool {
     fn default() -> Self {
-        Self::new()
+        Self::new(reqwest::Client::new())
     }
 }
 
@@ -580,7 +578,7 @@ mod tests {
     #[tokio::test]
     #[ignore]
     async fn test_browse_arxiv() {
-        let client = PapersCool::new();
+        let client = PapersCool::new(reqwest::Client::new());
         let page = client.browse_arxiv("cs.AI", None).await.unwrap();
         assert!(!page.papers.is_empty());
         assert!(!page.title.is_empty());
@@ -592,7 +590,7 @@ mod tests {
     #[tokio::test]
     #[ignore]
     async fn test_browse_venue() {
-        let client = PapersCool::new();
+        let client = PapersCool::new(reqwest::Client::new());
         let page = client.browse_venue("ICLR.2025", None).await.unwrap();
         assert!(!page.papers.is_empty());
     }
@@ -600,7 +598,7 @@ mod tests {
     #[tokio::test]
     #[ignore]
     async fn test_search() {
-        let client = PapersCool::new();
+        let client = PapersCool::new(reqwest::Client::new());
         let page = client.search("attention mechanism").await.unwrap();
         assert!(!page.papers.is_empty());
     }
@@ -608,7 +606,7 @@ mod tests {
     #[tokio::test]
     #[ignore]
     async fn test_fetch_index() {
-        let client = PapersCool::new();
+        let client = PapersCool::new(reqwest::Client::new());
         let index = client.fetch_index().await.unwrap();
         assert!(!index.arxiv_groups.is_empty());
         assert!(!index.venues.is_empty());

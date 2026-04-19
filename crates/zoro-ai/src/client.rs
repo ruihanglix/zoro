@@ -41,10 +41,10 @@ struct ChatChoice {
 impl ChatClient {
     /// Create a new client. `base_url` should be the API root
     /// (e.g. "https://api.openai.com/v1"). A trailing slash is tolerated.
-    pub fn new(base_url: &str, api_key: &str, model: &str) -> Self {
+    pub fn new(client: reqwest::Client, base_url: &str, api_key: &str, model: &str) -> Self {
         let base_url = base_url.trim_end_matches('/').to_string();
         Self {
-            http: reqwest::Client::new(),
+            http: client,
             base_url,
             api_key: api_key.to_string(),
             model: model.to_string(),
@@ -167,7 +167,7 @@ mod tests {
 
     #[test]
     fn test_base_url_normalization() {
-        let client = ChatClient::new("https://api.openai.com/v1/", "key", "model");
+        let client = ChatClient::new(reqwest::Client::new(), "https://api.openai.com/v1/", "key", "model");
         assert_eq!(client.base_url, "https://api.openai.com/v1");
     }
 }

@@ -387,9 +387,10 @@ pub async fn chat_send_message(
     let confirm_writes = input.confirm_writes;
     let inner = Arc::clone(&chat_state.inner);
     let handle = app_handle.clone();
+    let http_client = state.http_client.clone();
 
     let task = tokio::spawn(async move {
-        let client = zoro_ai::streaming::StreamingClient::new(&base_url, &api_key, &model);
+        let client = zoro_ai::streaming::StreamingClient::new(http_client, &base_url, &api_key, &model);
 
         let result = run_chat_loop(
             &client,

@@ -200,6 +200,20 @@ pub struct Translation {
     pub modified_date: String,
 }
 
+/// Network proxy configuration.
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct ProxyConfig {
+    /// Whether the proxy is enabled.
+    #[serde(default)]
+    pub enabled: bool,
+    /// Proxy URL, e.g. "http://host:port" or "socks5://host:port".
+    #[serde(default)]
+    pub url: String,
+    /// Comma-separated list of hosts that bypass the proxy.
+    #[serde(default)]
+    pub no_proxy: String,
+}
+
 /// Config for the app (config.toml)
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AppConfig {
@@ -215,6 +229,8 @@ pub struct AppConfig {
     pub chat: ChatConfig,
     #[serde(default)]
     pub updater: UpdaterConfig,
+    #[serde(default)]
+    pub proxy: ProxyConfig,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -694,6 +710,7 @@ impl Default for AppConfig {
             mcp: McpConfig::default(),
             chat: ChatConfig::default(),
             updater: UpdaterConfig::default(),
+            proxy: ProxyConfig::default(),
         }
     }
 }

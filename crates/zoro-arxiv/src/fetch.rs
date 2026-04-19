@@ -12,8 +12,11 @@ use tracing;
 /// Fetch arXiv HTML for a given arXiv ID and return self-contained HTML
 /// with all images and CSS inlined as base64/data URIs.
 /// Tries the official arxiv.org/html/ first, falls back to ar5iv.labs.arxiv.org.
-pub async fn fetch_arxiv_html(arxiv_id: &str) -> Result<String, ArxivError> {
-    let client = build_client();
+pub async fn fetch_arxiv_html(
+    proxy: &zoro_core::models::ProxyConfig,
+    arxiv_id: &str,
+) -> Result<String, ArxivError> {
+    let client = build_client(proxy);
 
     let urls = [
         crate::arxiv_id::build_html_url(arxiv_id),
@@ -82,14 +85,18 @@ async fn fetch_html_with_fallback(
 }
 
 /// Save fetched HTML to a file path.
-pub async fn fetch_and_save(arxiv_id: &str, dest: &Path) -> Result<(), ArxivError> {
-    let html = fetch_arxiv_html(arxiv_id).await?;
+pub async fn fetch_and_save(
+    proxy: &zoro_core::models::ProxyConfig,
+    arxiv_id: &str,
+    dest: &Path,
+) -> Result<(), ArxivError> {
+    let html = fetch_arxiv_html(proxy, arxiv_id).await?;
     tokio::fs::write(dest, &html).await?;
     Ok(())
 }
 
-fn build_client() -> reqwest::Client {
-    reqwest::Client::builder()
+fn build_client(proxy: &zoro_core::models::ProxyConfig) -> reqwest::Client {
+    zoro_core::http_client::build_http_client(proxy)
         .user_agent("Mozilla/5.0 (compatible; Zoro/1.0)")
         .timeout(std::time::Duration::from_secs(60))
         .build()

@@ -150,7 +150,7 @@ pub async fn fetch_all_missing_arxiv_html(
 ) -> Result<i32, String> {
     use zoro_db::queries::papers;
 
-    let (rows, data_dir, semaphore, delay_secs) = {
+    let (rows, data_dir, semaphore, delay_secs, proxy_config) = {
         let db = state
             .db
             .lock()
@@ -173,11 +173,17 @@ pub async fn fetch_all_missing_arxiv_html(
             .lock()
             .map(|c| c.general.html_fetch_delay_secs)
             .unwrap_or(3);
+        let proxy_config = state
+            .config
+            .lock()
+            .map(|c| c.proxy.clone())
+            .unwrap_or_default();
         (
             rows,
             state.data_dir.clone(),
             state.html_fetch_semaphore.clone(),
             delay,
+            proxy_config,
         )
     };
 
@@ -204,6 +210,7 @@ pub async fn fetch_all_missing_arxiv_html(
             &row.title,
             arxiv_id,
             &paper_dir,
+            proxy_config.clone(),
         );
         count += 1;
     }
@@ -257,6 +264,58 @@ pub async fn update_html_fetch_config(
     }
     if let Some(v) = html_fetch_delay_secs {
         config.general.html_fetch_delay_secs = v;
+    }
+
+    crate::storage::config::save_config(&state.data_dir, &config)
+        .map_err(|e| format!("Failed to save config: {}", e))?;
+
+    Ok(())
+}
+
+/// Response for the proxy configuration.
+#[derive(Debug, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ProxyConfigResponse {
+    pub enabled: bool,
+    pub url: String,
+    pub no_proxy: String,
+}
+
+/// Get the current network proxy configuration.
+#[tauri::command]
+pub async fn get_proxy_config(state: State<'_, AppState>) -> Result<ProxyConfigResponse, String> {
+    let config = state
+        .config
+        .lock()
+        .map_err(|e| format!("Config lock error: {}", e))?;
+    Ok(ProxyConfigResponse {
+        enabled: config.proxy.enabled,
+        url: config.proxy.url.clone(),
+        no_proxy: config.proxy.no_proxy.clone(),
+    })
+}
+
+/// Update the network proxy configuration. Changes take effect after restart.
+#[tauri::command]
+pub async fn update_proxy_config(
+    state: State<'_, AppState>,
+    enabled: Option<bool>,
+    url: Option<String>,
+    no_proxy: Option<String>,
+) -> Result<(), String> {
+    let mut config = state
+        .config
+        .lock()
+        .map_err(|e| format!("Config lock error: {}", e))?;
+
+    if let Some(v) = enabled {
+        config.proxy.enabled = v;
+    }
+    if let Some(v) = url {
+        config.proxy.url = v;
+    }
+    if let Some(v) = no_proxy {
+        config.proxy.no_proxy = v;
     }
 
     crate::storage::config::save_config(&state.data_dir, &config)

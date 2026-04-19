@@ -44,15 +44,17 @@ pub struct EnrichmentResult {
 /// 4. Merge results (CrossRef preferred, Semantic Scholar fills gaps)
 /// 5. Resolve OA PDF URL if not already known
 pub async fn enrich_paper(
+    client: &reqwest::Client,
     doi: Option<&str>,
     arxiv_id: Option<&str>,
 ) -> Result<EnrichmentResult, MetadataError> {
-    enrich_paper_with_title(doi, arxiv_id, None).await
+    enrich_paper_with_title(client, doi, arxiv_id, None).await
 }
 
 /// Like `enrich_paper`, but also accepts a title for title-based search
 /// when no DOI or arXiv ID is available.
 pub async fn enrich_paper_with_title(
+    client: &reqwest::Client,
     doi: Option<&str>,
     arxiv_id: Option<&str>,
     title: Option<&str>,
@@ -82,7 +84,7 @@ pub async fn enrich_paper_with_title(
                 // 4. CrossRef bibliographic search (slowest)
 
                 // --- 1. OpenAlex title search ---
-                match openalex::search_by_title(t).await {
+                match openalex::search_by_title(client, t).await {
                     Ok(Some(oa)) => {
                         if let Some(doi_str) = oa.extracted_doi() {
                             if let Some(arxiv) = extract_arxiv_from_doi(&doi_str) {
@@ -108,7 +110,7 @@ pub async fn enrich_paper_with_title(
 
                 // --- 2. DBLP title search ---
                 if resolved_doi.is_none() && resolved_arxiv.is_none() {
-                    match dblp::search_by_query(t, 1).await {
+                    match dblp::search_by_query(client, t, 1).await {
                         Ok(hits) => {
                             if let Some(dh) = hits.into_iter().next() {
                                 if let Some(ref doi_str) = dh.doi {
@@ -150,7 +152,7 @@ pub async fn enrich_paper_with_title(
 
                 // --- 3. Semantic Scholar title search ---
                 if resolved_doi.is_none() && resolved_arxiv.is_none() {
-                    match semantic_scholar::search_by_title(t).await {
+                    match semantic_scholar::search_by_title(client, t).await {
                         Ok(Some(s2)) => {
                             if let Some(ref ext) = s2.external_ids {
                                 if let Some(d) = ext.get("DOI").and_then(|v| v.as_str()) {
@@ -179,7 +181,6 @@ pub async fn enrich_paper_with_title(
 
                 // --- 4. CrossRef bibliographic search ---
                 if resolved_doi.is_none() && resolved_arxiv.is_none() {
-                    let client = reqwest::Client::new();
                     let resp = client
                         .get("https://api.crossref.org/works")
                         .query(&[
@@ -244,7 +245,7 @@ pub async fn enrich_paper_with_title(
     if resolved_doi.is_none() {
         if let Some(ref arxiv) = resolved_arxiv {
             let s2_id = format!("ArXiv:{}", arxiv);
-            match semantic_scholar::fetch_semantic_scholar(&s2_id).await {
+            match semantic_scholar::fetch_semantic_scholar(client, &s2_id).await {
                 Ok(s2) => {
                     if let Some(ref ext) = s2.external_ids {
                         if let Some(d) = ext.get("DOI").and_then(|v| v.as_str()) {
@@ -262,7 +263,7 @@ pub async fn enrich_paper_with_title(
     } else if let Some(ref doi_str) = resolved_doi {
         // We have a DOI — also query S2 for OA PDF and publication types
         let s2_id = format!("DOI:{}", doi_str);
-        match semantic_scholar::fetch_semantic_scholar(&s2_id).await {
+        match semantic_scholar::fetch_semantic_scholar(client, &s2_id).await {
             Ok(s2) => {
                 merge_semantic_scholar(&mut result, &s2);
             }
@@ -274,14 +275,14 @@ pub async fn enrich_paper_with_title(
 
     // If we have a DOI (original or discovered), use CrossRef
     if let Some(ref doi_str) = resolved_doi {
-        match crossref::fetch_crossref_metadata(doi_str).await {
+        match crossref::fetch_crossref_metadata(client, doi_str).await {
             Ok(cr) => {
                 merge_crossref(&mut result, &cr);
             }
             Err(e) => {
                 tracing::debug!("CrossRef lookup failed for {}: {}", doi_str, e);
                 // Fallback: try OpenAlex
-                match openalex::fetch_openalex(doi_str).await {
+                match openalex::fetch_openalex(client, doi_str).await {
                     Ok(oa) => {
                         merge_openalex(&mut result, &oa);
                     }
@@ -296,7 +297,7 @@ pub async fn enrich_paper_with_title(
     // If we still don't have a PDF URL, try Unpaywall / OpenAlex OA endpoints
     if result.pdf_url.is_none() {
         if let Some(ref doi_str) = resolved_doi {
-            match unpaywall::fetch_unpaywall(doi_str).await {
+            match unpaywall::fetch_unpaywall(client, doi_str).await {
                 Ok(resp) => {
                     if let Some(url) = resp.pdf_url() {
                         result.pdf_url = Some(url.to_string());
@@ -311,7 +312,7 @@ pub async fn enrich_paper_with_title(
 
     if result.pdf_url.is_none() {
         if let Some(ref doi_str) = resolved_doi {
-            match openalex::fetch_openalex(doi_str).await {
+            match openalex::fetch_openalex(client, doi_str).await {
                 Ok(oa) => {
                     if let Some(url) = oa.oa_pdf_url() {
                         result.pdf_url = Some(url.to_string());
@@ -596,7 +597,7 @@ impl MetadataSearchParams {
 ///
 /// Unlike the automatic enrichment pipeline which picks the best match,
 /// this returns *all* candidates so the user can decide.
-pub async fn search_metadata_candidates(params: &MetadataSearchParams) -> Vec<MetadataCandidate> {
+pub async fn search_metadata_candidates(client: &reqwest::Client, params: &MetadataSearchParams) -> Vec<MetadataCandidate> {
     if params.is_empty() {
         return Vec::new();
     }
@@ -609,7 +610,7 @@ pub async fn search_metadata_candidates(params: &MetadataSearchParams) -> Vec<Me
         if !doi.is_empty() {
             // Direct S2 lookup by DOI
             let s2_id = format!("DOI:{}", doi);
-            if let Ok(p) = semantic_scholar::fetch_semantic_scholar(&s2_id).await {
+            if let Ok(p) = semantic_scholar::fetch_semantic_scholar(client, &s2_id).await {
                 let (d, a) = extract_s2_external_ids(&p);
                 candidates.push(MetadataCandidate {
                     source: "Semantic Scholar".into(),
@@ -632,7 +633,7 @@ pub async fn search_metadata_candidates(params: &MetadataSearchParams) -> Vec<Me
         let arxiv = arxiv.trim();
         if !arxiv.is_empty() {
             let s2_id = format!("ArXiv:{}", arxiv);
-            if let Ok(p) = semantic_scholar::fetch_semantic_scholar(&s2_id).await {
+            if let Ok(p) = semantic_scholar::fetch_semantic_scholar(client, &s2_id).await {
                 let (d, a) = extract_s2_external_ids(&p);
                 candidates.push(MetadataCandidate {
                     source: "Semantic Scholar".into(),
@@ -665,7 +666,6 @@ pub async fn search_metadata_candidates(params: &MetadataSearchParams) -> Vec<Me
         if !do_s2_search {
             return None;
         }
-        let client = reqwest::Client::new();
         let mut req = client
             .get(format!(
                 "https://api.semanticscholar.org/graph/v1/paper/search?fields={}&limit=5",
@@ -700,7 +700,6 @@ pub async fn search_metadata_candidates(params: &MetadataSearchParams) -> Vec<Me
         if !do_oa_search {
             return None;
         }
-        let client = reqwest::Client::new();
         let mut params_list: Vec<(&str, String)> = vec![
             ("mailto", "zoro@gmail.com".to_string()),
             ("per_page", "5".to_string()),
@@ -739,7 +738,6 @@ pub async fn search_metadata_candidates(params: &MetadataSearchParams) -> Vec<Me
         if cr_query.is_empty() {
             return None;
         }
-        let client = reqwest::Client::new();
         let resp = client
             .get("https://api.crossref.org/works")
             .query(&[
@@ -781,7 +779,7 @@ pub async fn search_metadata_candidates(params: &MetadataSearchParams) -> Vec<Me
         if dblp_query.is_empty() {
             return Err(MetadataError::NotFound("empty query".into()));
         }
-        dblp::search_by_query(&dblp_query, 5).await
+        dblp::search_by_query(client, &dblp_query, 5).await
     };
 
     // Run all four searches concurrently

@@ -585,7 +585,7 @@ pub async fn tool_enrich_paper(
     }
 
     // Call enrichment pipeline (network calls, no DB lock held)
-    let enrichment = zoro_metadata::enrich_paper(doi.as_deref(), arxiv_id.as_deref())
+    let enrichment = zoro_metadata::enrich_paper(&state.http_client, doi.as_deref(), arxiv_id.as_deref())
         .await
         .map_err(|e| rmcp::ErrorData::internal_error(format!("Enrichment failed: {}", e), None))?;
 

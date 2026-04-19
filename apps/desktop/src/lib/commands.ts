@@ -536,6 +536,27 @@ export const updateHtmlFetchConfig = (
 export const fetchAllMissingArxivHtml = () =>
 	invoke<number>("fetch_all_missing_arxiv_html");
 
+// Proxy
+export interface ProxyConfigResponse {
+	enabled: boolean;
+	url: string;
+	noProxy: string;
+}
+
+export const getProxyConfig = () =>
+	invoke<ProxyConfigResponse>("get_proxy_config");
+
+export const updateProxyConfig = (
+	enabled?: boolean,
+	url?: string,
+	noProxy?: string,
+) =>
+	invoke<void>("update_proxy_config", {
+		enabled: enabled ?? null,
+		url: url ?? null,
+		noProxy: noProxy ?? null,
+	});
+
 // Citation
 export const enrichPaperMetadata = (paperId: string) =>
 	invoke<PaperResponse>("enrich_paper_metadata", { paperId });

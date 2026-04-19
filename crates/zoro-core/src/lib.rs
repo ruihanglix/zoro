@@ -4,6 +4,7 @@
 
 pub mod bibtex;
 pub mod error;
+pub mod http_client;
 pub mod models;
 pub mod ris;
 pub mod slug_utils;

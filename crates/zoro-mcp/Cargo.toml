@@ -34,3 +34,4 @@ async-trait = { workspace = true }
 axum = { workspace = true }
 tokio-util = "0.7"
 toml = { workspace = true }
+reqwest = { workspace = true }

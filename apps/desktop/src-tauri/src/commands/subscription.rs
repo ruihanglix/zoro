@@ -105,6 +105,7 @@ fn get_cached_thumbnail(data_dir: &std::path::Path, url: &str) -> Option<String>
 /// Returns the local path on success. Runs synchronously (intended for
 /// `tokio::spawn` background tasks).
 async fn download_and_cache_thumbnail(
+    client: &reqwest::Client,
     data_dir: std::path::PathBuf,
     url: String,
 ) -> Result<String, String> {
@@ -125,13 +126,9 @@ async fn download_and_cache_thumbnail(
             .map_err(|e| format!("Failed to create thumbnail cache dir: {}", e))?;
     }
 
-    let client = reqwest::Client::builder()
-        .timeout(std::time::Duration::from_secs(15))
-        .build()
-        .map_err(|e| format!("HTTP client error: {}", e))?;
-
     let response = client
         .get(&url)
+        .timeout(std::time::Duration::from_secs(15))
         .header("User-Agent", "Zoro/0.1.0")
         .send()
         .await
@@ -155,10 +152,11 @@ async fn download_and_cache_thumbnail(
 
 /// Public wrapper so the background poller can cache thumbnails.
 pub async fn download_and_cache_thumbnail_bg(
+    client: &reqwest::Client,
     data_dir: std::path::PathBuf,
     url: String,
 ) -> Result<String, String> {
-    download_and_cache_thumbnail(data_dir, url).await
+    download_and_cache_thumbnail(client, data_dir, url).await
 }
 
 /// Helper to extract an optional i32 from a JSON value.
@@ -409,9 +407,11 @@ pub async fn add_feed_item_to_library(
     let paper_id_for_html = row.id.clone();
     let db_path = state.data_dir.join("library.db");
     let db_path_html = db_path.clone();
+    let dl_client = state.http_client.clone();
+    let dl_client_html = state.http_client.clone();
 
     tokio::spawn(async move {
-        if let Ok(()) = storage::attachments::download_file(&pdf_url_clone, &pdf_path).await {
+        if let Ok(()) = storage::attachments::download_file(&dl_client, &pdf_url_clone, &pdf_path).await {
             let file_size = storage::attachments::get_file_size(&pdf_path);
             if let Ok(dl_db) = zoro_db::Database::open(&db_path) {
                 let _ = attachments::insert_attachment(
@@ -429,9 +429,14 @@ pub async fn add_feed_item_to_library(
     });
 
     let arxiv_id_for_html = arxiv_id.clone();
+    let proxy_config_for_html = state
+        .config
+        .lock()
+        .map(|c| c.proxy.clone())
+        .unwrap_or_default();
     tokio::spawn(async move {
         // Use zoro_arxiv to fetch self-contained HTML (images/CSS inlined as base64)
-        match zoro_arxiv::fetch::fetch_and_save(&arxiv_id_for_html, &html_path).await {
+        match zoro_arxiv::fetch::fetch_and_save(&proxy_config_for_html, &arxiv_id_for_html, &html_path).await {
             Ok(()) => {
                 // Run cleanup on the downloaded HTML
                 let _ = zoro_arxiv::clean::clean_html_file(&html_path, &[]).await;
@@ -457,7 +462,7 @@ pub async fn add_feed_item_to_library(
                 );
                 // Fallback to simple download
                 if let Ok(()) =
-                    storage::attachments::download_file(&html_url_clone, &html_path).await
+                    storage::attachments::download_file(&dl_client_html, &html_url_clone, &html_path).await
                 {
                     let file_size = storage::attachments::get_file_size(&html_path);
                     if let Ok(dl_db) = zoro_db::Database::open(&db_path_html) {
@@ -482,8 +487,9 @@ pub async fn add_feed_item_to_library(
         let enrich_paper_id = row.id.clone();
         let enrich_arxiv = Some(arxiv_id);
         let enrich_db_path = state.data_dir.join("library.db");
+        let enrich_client = state.http_client.clone();
         tokio::spawn(async move {
-            match zoro_metadata::enrich_paper(None, enrich_arxiv.as_deref()).await {
+            match zoro_metadata::enrich_paper(&enrich_client, None, enrich_arxiv.as_deref()).await {
                 Ok(enrichment) => {
                     if let Ok(enrich_db) = zoro_db::Database::open(&enrich_db_path) {
                         if let Ok(current) = papers::get_paper(&enrich_db.conn, &enrich_paper_id) {
@@ -573,11 +579,11 @@ pub async fn refresh_subscription(
     state: State<'_, AppState>,
     subscription_id: String,
 ) -> Result<i32, String> {
-    let source = HuggingFaceDailyPapers::new();
+    let source = HuggingFaceDailyPapers::new(state.http_client.clone());
 
     // First, resolve the latest date from the HF API so we fetch the same
     // set of papers that fetch_feed_items_by_date would return.
-    let latest_date = zoro_subscriptions::fetch_latest_date()
+    let latest_date = zoro_subscriptions::fetch_latest_date(&state.http_client)
         .await
         .map_err(|e| format!("Failed to fetch latest date: {}", e))?
         .unwrap_or_else(|| chrono::Utc::now().format("%Y-%m-%d").to_string());
@@ -625,9 +631,10 @@ pub async fn refresh_subscription(
 
     if !thumbnail_urls.is_empty() {
         let data_dir = state.data_dir.clone();
+        let thumb_client = state.http_client.clone();
         tokio::spawn(async move {
             for url in thumbnail_urls {
-                let _ = download_and_cache_thumbnail(data_dir.clone(), url).await;
+                let _ = download_and_cache_thumbnail(&thumb_client, data_dir.clone(), url).await;
             }
         });
     }
@@ -651,8 +658,8 @@ pub async fn toggle_subscription(
 /// Fetch the latest available date from the HuggingFace Daily Papers API.
 /// Returns the date as YYYY-MM-DD, or null if unavailable.
 #[tauri::command]
-pub async fn get_latest_feed_date() -> Result<Option<String>, String> {
-    let result = zoro_subscriptions::fetch_latest_date()
+pub async fn get_latest_feed_date(state: State<'_, AppState>) -> Result<Option<String>, String> {
+    let result = zoro_subscriptions::fetch_latest_date(&state.http_client)
         .await
         .map_err(|e| format!("{}", e))?;
     tracing::info!("get_latest_feed_date command returning: {:?}", result);
@@ -698,13 +705,13 @@ pub async fn fetch_feed_items_by_date(
                 .collect();
 
             items.sort_by_key(|i| std::cmp::Reverse(i.upvotes.unwrap_or(0)));
-            spawn_thumbnail_downloads(&items, &data_dir);
+            spawn_thumbnail_downloads(&state.http_client, &items, &data_dir);
             return Ok(items);
         }
     }
 
     // Cache miss or force refresh — fetch from API
-    let source = HuggingFaceDailyPapers::new();
+    let source = HuggingFaceDailyPapers::new(state.http_client.clone());
     let items = source
         .fetch_by_date(&date)
         .await
@@ -754,11 +761,11 @@ pub async fn fetch_feed_items_by_date(
         .collect();
 
     filtered.sort_by_key(|i| std::cmp::Reverse(i.upvotes.unwrap_or(0)));
-    spawn_thumbnail_downloads(&filtered, &data_dir);
+    spawn_thumbnail_downloads(&state.http_client, &filtered, &data_dir);
     Ok(filtered)
 }
 
-fn spawn_thumbnail_downloads(items: &[FeedItemResponse], data_dir: &std::path::Path) {
+fn spawn_thumbnail_downloads(client: &reqwest::Client, items: &[FeedItemResponse], data_dir: &std::path::Path) {
     let urls_to_cache: Vec<String> = items
         .iter()
         .filter(|f| f.cached_thumbnail_path.is_none())
@@ -767,9 +774,10 @@ fn spawn_thumbnail_downloads(items: &[FeedItemResponse], data_dir: &std::path::P
 
     if !urls_to_cache.is_empty() {
         let bg_data_dir = data_dir.to_path_buf();
+        let bg_client = client.clone();
         tokio::spawn(async move {
             for url in urls_to_cache {
-                let _ = download_and_cache_thumbnail(bg_data_dir.clone(), url).await;
+                let _ = download_and_cache_thumbnail(&bg_client, bg_data_dir.clone(), url).await;
             }
         });
     }
@@ -1025,13 +1033,10 @@ pub async fn fetch_remote_pdf(state: State<'_, AppState>, url: String) -> Result
         let _ = std::fs::remove_file(&file_path);
     }
 
-    let client = reqwest::Client::builder()
-        .timeout(std::time::Duration::from_secs(60))
-        .build()
-        .map_err(|e| format!("Failed to build HTTP client: {}", e))?;
-
-    let response = client
+    let response = state
+        .http_client
         .get(&url)
+        .timeout(std::time::Duration::from_secs(60))
         .header(
             "User-Agent",
             "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) \

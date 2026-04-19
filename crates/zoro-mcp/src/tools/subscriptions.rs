@@ -261,8 +261,8 @@ pub async fn tool_refresh_subscription(
     // Use fetch_by_date with the latest date so results match the date-based API.
     let items = match sub.source_type.as_str() {
         "huggingface-daily" => {
-            let source = HuggingFaceDailyPapers::new();
-            let latest_date = zoro_subscriptions::fetch_latest_date()
+            let source = HuggingFaceDailyPapers::new(state.http_client.clone());
+            let latest_date = zoro_subscriptions::fetch_latest_date(&state.http_client)
                 .await
                 .map_err(|e| {
                     rmcp::ErrorData::internal_error(

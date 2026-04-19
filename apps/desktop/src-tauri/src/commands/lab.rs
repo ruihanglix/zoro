@@ -23,9 +23,9 @@ pub struct LabState {
 }
 
 impl LabState {
-    pub fn new(data_dir: &std::path::Path) -> Self {
+    pub fn new(data_dir: &std::path::Path, network_proxy: &zoro_core::models::ProxyConfig) -> Self {
         Self {
-            service: Arc::new(Mutex::new(LabService::new(data_dir))),
+            service: Arc::new(Mutex::new(LabService::new(data_dir, network_proxy))),
             proxy: Arc::new(Mutex::new(None)),
         }
     }
@@ -233,7 +233,10 @@ pub async fn lab_set_strategy(
 
 /// Start the lab proxy server.
 #[tauri::command]
-pub async fn lab_start_proxy(state: State<'_, LabState>) -> Result<LabProxyStatus, String> {
+pub async fn lab_start_proxy(
+    state: State<'_, LabState>,
+    app_state: State<'_, crate::AppState>,
+) -> Result<LabProxyStatus, String> {
     let mut proxy_guard = state.proxy.lock().await;
 
     // If already running, return current status
@@ -256,7 +259,13 @@ pub async fn lab_start_proxy(state: State<'_, LabState>) -> Result<LabProxyStatu
 
     drop(service); // Release service lock before starting server
 
-    let server = ProxyServer::start(config)
+    let network_proxy = app_state
+        .config
+        .lock()
+        .map(|c| c.proxy.clone())
+        .unwrap_or_default();
+
+    let server = ProxyServer::start(config, &network_proxy)
         .await
         .map_err(|e| e.to_string())?;
     let port = server.port();
@@ -361,6 +370,7 @@ pub async fn lab_reload_proxy(state: State<'_, LabState>) -> Result<LabProxyStat
 #[tauri::command]
 pub async fn lab_set_enabled(
     state: State<'_, LabState>,
+    app_state: State<'_, crate::AppState>,
     enabled: bool,
 ) -> Result<LabProxyStatus, String> {
     {
@@ -376,7 +386,7 @@ pub async fn lab_set_enabled(
         }
         // Try to start proxy; if no providers are configured yet, that's OK —
         // just return a stopped status so the user can configure keys first.
-        match lab_start_proxy(state.clone()).await {
+        match lab_start_proxy(state.clone(), app_state).await {
             Ok(status) => Ok(status),
             Err(_) => lab_get_proxy_status(state).await,
         }

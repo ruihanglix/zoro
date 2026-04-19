@@ -190,6 +190,7 @@ pub async fn translate_fields(
         all_original_text.push('\n');
 
         let translated = zoro_ai::translate::translate_text(
+            &state.http_client,
             &task_ai_config,
             &ai_config.translation_prompts,
             field,
@@ -237,8 +238,10 @@ pub async fn translate_fields(
         );
         let lang = target_lang.clone();
         let eid = entity_id.clone();
+        let glossary_http = state.http_client.clone();
         tokio::spawn(async move {
             match zoro_ai::translate::extract_glossary_terms(
+                &glossary_http,
                 &glossary_ai,
                 &all_original_text,
                 &lang,
@@ -672,7 +675,7 @@ pub async fn test_ai_connection(state: State<'_, AppState>) -> Result<String, St
     }
 
     let client =
-        zoro_ai::client::ChatClient::new(&resolved.base_url, &resolved.api_key, &resolved.model);
+        zoro_ai::client::ChatClient::new(state.http_client.clone(), &resolved.base_url, &resolved.api_key, &resolved.model);
 
     client
         .test_connection()
@@ -737,6 +740,7 @@ pub async fn translate_selection(
     };
 
     let translated = zoro_ai::translate::translate_text(
+        &state.http_client,
         &quick_config,
         &ai_config.translation_prompts,
         "abstract_text",

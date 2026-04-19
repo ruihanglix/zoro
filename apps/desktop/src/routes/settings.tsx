@@ -78,7 +78,7 @@ import {
 	X,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 type SettingsSection =
@@ -644,6 +644,14 @@ export function Settings() {
 	const [logRetentionDays, setLogRetentionDays] = useState(7);
 	const [logConfigLoaded, setLogConfigLoaded] = useState(false);
 
+	// Network proxy config
+	const [proxyEnabled, setProxyEnabled] = useState(false);
+	const [proxyUrl, setProxyUrl] = useState("");
+	const [proxyNoProxy, setProxyNoProxy] = useState("");
+	const [proxyConfigLoaded, setProxyConfigLoaded] = useState(false);
+	const proxyUrlTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+	const noProxyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
 	// HTML fetch config
 	const [autoFetchArxivHtml, setAutoFetchArxivHtml] = useState(false);
 	const [htmlFetchConcurrency, setHtmlFetchConcurrency] = useState(2);
@@ -1027,6 +1035,12 @@ export function Settings() {
 			setLogRetentionDays(cfg.logRetentionDays);
 			setLogConfigLoaded(true);
 		}).catch((e: unknown) => logger.error("settings", "Failed to load log config", e));
+		commands.getProxyConfig().then((cfg) => {
+			setProxyEnabled(cfg.enabled);
+			setProxyUrl(cfg.url);
+			setProxyNoProxy(cfg.noProxy);
+			setProxyConfigLoaded(true);
+		}).catch((e: unknown) => logger.error("settings", "Failed to load proxy config", e));
 		commands.getHtmlFetchConfig().then((cfg) => {
 			setAutoFetchArxivHtml(cfg.autoFetchArxivHtml);
 			setHtmlFetchConcurrency(cfg.htmlFetchConcurrency);
@@ -1210,6 +1224,39 @@ export function Settings() {
 		} catch (err) {
 			logger.error("settings", "Failed to update log retention", err);
 		}
+	};
+
+	const handleProxyEnabledToggle = async (enabled: boolean) => {
+		try {
+			await commands.updateProxyConfig(enabled, undefined, undefined);
+			setProxyEnabled(enabled);
+		} catch (err) {
+			logger.error("settings", "Failed to update proxy config", err);
+		}
+	};
+
+	const handleProxyUrlChange = (value: string) => {
+		setProxyUrl(value);
+		if (proxyUrlTimerRef.current) clearTimeout(proxyUrlTimerRef.current);
+		proxyUrlTimerRef.current = setTimeout(async () => {
+			try {
+				await commands.updateProxyConfig(undefined, value, undefined);
+			} catch (err) {
+				logger.error("settings", "Failed to update proxy URL", err);
+			}
+		}, 500);
+	};
+
+	const handleNoProxyChange = (value: string) => {
+		setProxyNoProxy(value);
+		if (noProxyTimerRef.current) clearTimeout(noProxyTimerRef.current);
+		noProxyTimerRef.current = setTimeout(async () => {
+			try {
+				await commands.updateProxyConfig(undefined, undefined, value);
+			} catch (err) {
+				logger.error("settings", "Failed to update no-proxy list", err);
+			}
+		}, 500);
 	};
 
 	const handleAutoFetchToggle = async (enabled: boolean) => {
@@ -2436,6 +2483,62 @@ export function Settings() {
 										<RotateCcw className="mr-1.5 h-3.5 w-3.5" />
 										{t("settings.resetColumnLayout")}
 									</Button>
+								</div>
+
+								<Separator />
+
+								{/* Network Proxy */}
+								<div className="space-y-2">
+									<p className="text-xs font-medium">
+										{t("settings.networkProxy")}
+									</p>
+									<label className="flex items-center gap-2 text-sm cursor-pointer">
+										<input
+											type="checkbox"
+											checked={proxyEnabled}
+											onChange={(e) => handleProxyEnabledToggle(e.target.checked)}
+											disabled={!proxyConfigLoaded}
+											className="rounded"
+										/>
+										{t("settings.enableProxy")}
+									</label>
+									{proxyEnabled && (
+										<>
+											<div className="ml-5 space-y-1.5">
+												<label className="text-xs text-muted-foreground">
+													{t("settings.proxyUrl")}
+												</label>
+												<input
+													type="text"
+													value={proxyUrl}
+													onChange={(e) => handleProxyUrlChange(e.target.value)}
+													placeholder={t("settings.proxyUrlPlaceholder")}
+													className="w-full rounded border bg-background px-2 py-1 text-xs"
+												/>
+												<p className="text-[11px] text-muted-foreground">
+													{t("settings.proxyUrlDesc")}
+												</p>
+											</div>
+											<div className="ml-5 space-y-1.5">
+												<label className="text-xs text-muted-foreground">
+													{t("settings.noProxy")}
+												</label>
+												<input
+													type="text"
+													value={proxyNoProxy}
+													onChange={(e) => handleNoProxyChange(e.target.value)}
+													placeholder={t("settings.noProxyPlaceholder")}
+													className="w-full rounded border bg-background px-2 py-1 text-xs"
+												/>
+												<p className="text-[11px] text-muted-foreground">
+													{t("settings.noProxyDesc")}
+												</p>
+											</div>
+											<p className="ml-5 text-[11px] text-muted-foreground">
+												{t("settings.proxyRestartHint")}
+											</p>
+										</>
+									)}
 								</div>
 
 								<Separator />

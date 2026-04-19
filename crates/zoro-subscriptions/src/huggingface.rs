@@ -14,10 +14,8 @@ pub struct HuggingFaceDailyPapers {
 }
 
 impl HuggingFaceDailyPapers {
-    pub fn new() -> Self {
-        Self {
-            client: reqwest::Client::new(),
-        }
+    pub fn new(client: reqwest::Client) -> Self {
+        Self { client }
     }
 
     /// Fetch papers for a specific date (YYYY-MM-DD format).
@@ -113,7 +111,7 @@ impl HuggingFaceDailyPapers {
 
 impl Default for HuggingFaceDailyPapers {
     fn default() -> Self {
-        Self::new()
+        Self::new(reqwest::Client::new())
     }
 }
 
@@ -202,8 +200,7 @@ pub fn extract_source_date(item: &SubscriptionItem) -> Option<String> {
 /// Probes from today backwards (up to 7 days) using `?date=YYYY-MM-DD` and
 /// returns the first date that has at least one paper. This matches the date
 /// shown on the HuggingFace Daily Papers website.
-pub async fn fetch_latest_date() -> Result<Option<String>, SubscriptionError> {
-    let client = reqwest::Client::new();
+pub async fn fetch_latest_date(client: &reqwest::Client) -> Result<Option<String>, SubscriptionError> {
     let today = chrono::Utc::now().date_naive();
 
     // Look back up to 7 days (covers weekends and holidays)
@@ -324,7 +321,7 @@ mod tests {
     #[tokio::test]
     #[ignore] // Requires network access
     async fn test_fetch_daily_papers() {
-        let source = HuggingFaceDailyPapers::new();
+        let source = HuggingFaceDailyPapers::new(reqwest::Client::new());
         let config = source.default_config();
         let items = source.fetch(&config, None).await.unwrap();
         assert!(!items.is_empty(), "Should fetch at least one paper");
