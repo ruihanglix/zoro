@@ -2,6 +2,7 @@
 // Licensed under the AGPL-3.0 license.
 // See LICENSE file in the project root for full license information.
 
+#[cfg(target_os = "macos")]
 use std::collections::HashMap;
 
 #[cfg(target_os = "macos")]
@@ -15,6 +16,7 @@ use tauri::AppHandle;
 
 /// Return a map of menu translation keys → translated strings for the given language.
 /// Falls back to English for unknown language codes.
+#[cfg(target_os = "macos")]
 fn get_translations(lang: &str) -> HashMap<&'static str, &'static str> {
     match lang {
         "zh-CN" => HashMap::from([

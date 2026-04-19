@@ -803,7 +803,7 @@ sup.zr-note-ref { font-size: 0.7em; vertical-align: super; margin-left: 1px;
     }
 
     // Sort by start position descending so we can replace from end to start
-    replacements.sort_by(|a, b| b.plain_start.cmp(&a.plain_start));
+    replacements.sort_by_key(|r| std::cmp::Reverse(r.plain_start));
 
     // Build a mapping from plain text offset → HTML offset
     // Walk the HTML to build char-by-char index mapping

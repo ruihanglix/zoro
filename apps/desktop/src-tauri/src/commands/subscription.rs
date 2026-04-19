@@ -697,7 +697,7 @@ pub async fn fetch_feed_items_by_date(
                 })
                 .collect();
 
-            items.sort_by(|a, b| b.upvotes.unwrap_or(0).cmp(&a.upvotes.unwrap_or(0)));
+            items.sort_by_key(|i| std::cmp::Reverse(i.upvotes.unwrap_or(0)));
             spawn_thumbnail_downloads(&items, &data_dir);
             return Ok(items);
         }
@@ -753,7 +753,7 @@ pub async fn fetch_feed_items_by_date(
         })
         .collect();
 
-    filtered.sort_by(|a, b| b.upvotes.unwrap_or(0).cmp(&a.upvotes.unwrap_or(0)));
+    filtered.sort_by_key(|i| std::cmp::Reverse(i.upvotes.unwrap_or(0)));
     spawn_thumbnail_downloads(&filtered, &data_dir);
     Ok(filtered)
 }
