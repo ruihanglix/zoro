@@ -358,6 +358,7 @@ pub fn build_menu(app: &AppHandle, lang: &str) -> Result<tauri::menu::Menu<Wry>,
         .cut()
         .copy()
         .paste()
+        .select_all()
         .build()?;
 
     // --- View menu ---
