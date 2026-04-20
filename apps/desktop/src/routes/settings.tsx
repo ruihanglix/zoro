@@ -651,6 +651,16 @@ export function Settings() {
 	const [proxyConfigLoaded, setProxyConfigLoaded] = useState(false);
 	const proxyUrlTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 	const noProxyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+	const aiSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+	const pdfSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+	const chatSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+	const mcpSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+	const retentionSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+	const aiConfigLoadedRef = useRef(false);
+	const chatConfigLoadedRef = useRef(false);
+	const mcpConfigLoadedRef = useRef(false);
+	const storageInfoLoadedRef = useRef(false);
+	const pdfConfigLoadedRef = useRef(false);
 	const [proxyTestUrl, setProxyTestUrl] = useState("https://www.google.com");
 	const [proxyTesting, setProxyTesting] = useState(false);
 	const [proxyTestResult, setProxyTestResult] = useState<{
@@ -727,7 +737,7 @@ export function Settings() {
 		null,
 	);
 	const [retentionDays, setRetentionDays] = useState(7);
-	const [retentionSaving, setRetentionSaving] = useState(false);
+	const [, setRetentionSaving] = useState(false);
 	const [clearingCache, setClearingCache] = useState(false);
 	const [changingDataDir, setChangingDataDir] = useState(false);
 	const [zoteroImportOpen, setZoteroImportOpen] = useState(false);
@@ -771,7 +781,7 @@ export function Settings() {
 		ok: boolean;
 		msg: string;
 	} | null>(null);
-	const [aiSaving, setAiSaving] = useState(false);
+	const [, setAiSaving] = useState(false);
 	// Unified provider list — includes the "main" config as a virtual provider
 	const [aiProviders, setAiProviders] = useState<
 		(AiProviderResponse & { isDefault?: boolean })[]
@@ -821,7 +831,7 @@ export function Settings() {
 	const [pdfCustomModel, setPdfCustomModel] = useState("");
 	const [pdfQps, setPdfQps] = useState(4);
 	const [pdfExtraArgs, setPdfExtraArgs] = useState("--no-dual");
-	const [pdfSaving, setPdfSaving] = useState(false);
+	const [, setPdfSaving] = useState(false);
 	const [pdfTesting, setPdfTesting] = useState(false);
 	const [pdfTestResult, setPdfTestResult] = useState<{
 		ok: boolean;
@@ -834,13 +844,12 @@ export function Settings() {
 	);
 	const [chatActivePreset, setChatActivePreset] = useState("");
 	const [chatConfirmToolCalls, setChatConfirmToolCalls] = useState(true);
-	const [chatSaving, setChatSaving] = useState(false);
 
 	// MCP Server state
 	const [mcpStatus, setMcpStatus] = useState<McpStatusResponse | null>(null);
 	const [mcpPort, setMcpPort] = useState(23121);
 	const [mcpTransport, setMcpTransport] = useState("http");
-	const [mcpSaving, setMcpSaving] = useState(false);
+	const [, setMcpSaving] = useState(false);
 	const [mcpStarting, setMcpStarting] = useState(false);
 
 	// CLI state
@@ -864,6 +873,7 @@ export function Settings() {
 			const info = await commands.getStorageInfo();
 			setStorageInfo(info);
 			setRetentionDays(info.feed_cache_retention_days);
+			storageInfoLoadedRef.current = true;
 		} catch (err) {
 			logger.error("settings", "Failed to fetch storage info", err);
 		}
@@ -1003,6 +1013,8 @@ export function Settings() {
 			} else {
 				setCustomNativeLang("");
 			}
+			aiConfigLoadedRef.current = true;
+			pdfConfigLoadedRef.current = true;
 		} catch (err) {
 			logger.error("settings", "Failed to load AI config", err);
 		}
@@ -1014,6 +1026,7 @@ export function Settings() {
 			setChatPresets(config.presets);
 			setChatActivePreset(config.activePreset);
 			setChatConfirmToolCalls(config.confirmToolCalls);
+			chatConfigLoadedRef.current = true;
 		} catch (err) {
 			logger.error("settings", "Failed to load chat config", err);
 		}
@@ -1025,6 +1038,7 @@ export function Settings() {
 			setMcpStatus(status);
 			setMcpPort(status.port);
 			setMcpTransport(status.transport);
+			mcpConfigLoadedRef.current = true;
 		} catch (err) {
 			logger.error("settings", "Failed to load MCP status", err);
 		}
@@ -1710,6 +1724,78 @@ export function Settings() {
 			setMcpSaving(false);
 		}
 	};
+
+	// Auto-save: AI General + Translation (debounce 1500ms)
+	useEffect(() => {
+		if (!aiConfigLoadedRef.current) return;
+		if (aiSaveTimerRef.current) clearTimeout(aiSaveTimerRef.current);
+		aiSaveTimerRef.current = setTimeout(() => {
+			handleAiSave();
+		}, 1500);
+		return () => {
+			if (aiSaveTimerRef.current) clearTimeout(aiSaveTimerRef.current);
+		};
+	}, [aiNativeLang, customNativeLang, aiAutoTranslate, globalDefaultModel,
+		taskQuickModel, taskNormalModel, taskHeavyModel, taskGlossaryModel,
+		promptTitleSystem, promptTitleUser, promptAbstractSystem, promptAbstractUser,
+		htmlConcurrency, aiProviders, glossaryEnabled, glossaryThreshold]);
+
+	// Auto-save: PDF Translation (debounce 1500ms)
+	useEffect(() => {
+		if (!pdfConfigLoadedRef.current) return;
+		if (pdfSaveTimerRef.current) clearTimeout(pdfSaveTimerRef.current);
+		pdfSaveTimerRef.current = setTimeout(() => {
+			handlePdfTranslationSave();
+		}, 1500);
+		return () => {
+			if (pdfSaveTimerRef.current) clearTimeout(pdfSaveTimerRef.current);
+		};
+	}, [pdfEnabled, pdfBabeldocCmd, pdfUseAiConfig, pdfCustomApiKey,
+		pdfCustomBaseUrl, pdfCustomModel, pdfQps, pdfExtraArgs]);
+
+	// Auto-save: Chat (debounce 1500ms)
+	useEffect(() => {
+		if (!chatConfigLoadedRef.current) return;
+		if (chatSaveTimerRef.current) clearTimeout(chatSaveTimerRef.current);
+		chatSaveTimerRef.current = setTimeout(async () => {
+			try {
+				await commands.chatUpdateConfig({
+					activePreset: chatActivePreset,
+					confirmToolCalls: chatConfirmToolCalls,
+					presets: chatPresets,
+				});
+			} catch (err) {
+				logger.error("settings", "Failed to save chat config", err);
+			}
+		}, 1500);
+		return () => {
+			if (chatSaveTimerRef.current) clearTimeout(chatSaveTimerRef.current);
+		};
+	}, [chatActivePreset, chatConfirmToolCalls, chatPresets]);
+
+	// Auto-save: MCP (debounce 1500ms)
+	useEffect(() => {
+		if (!mcpConfigLoadedRef.current) return;
+		if (mcpSaveTimerRef.current) clearTimeout(mcpSaveTimerRef.current);
+		mcpSaveTimerRef.current = setTimeout(() => {
+			handleMcpSave();
+		}, 1500);
+		return () => {
+			if (mcpSaveTimerRef.current) clearTimeout(mcpSaveTimerRef.current);
+		};
+	}, [mcpTransport, mcpPort]);
+
+	// Auto-save: Storage retention (debounce 1500ms)
+	useEffect(() => {
+		if (!storageInfoLoadedRef.current) return;
+		if (retentionSaveTimerRef.current) clearTimeout(retentionSaveTimerRef.current);
+		retentionSaveTimerRef.current = setTimeout(() => {
+			handleRetentionSave();
+		}, 1500);
+		return () => {
+			if (retentionSaveTimerRef.current) clearTimeout(retentionSaveTimerRef.current);
+		};
+	}, [retentionDays]);
 
 	const handleMcpToggle = async (enabled: boolean) => {
 		setMcpStarting(true);
@@ -3557,21 +3643,6 @@ export function Settings() {
 											t("settings.testConnection")
 										)}
 									</Button>
-									<Button
-										variant="default"
-										size="sm"
-										onClick={handleAiSave}
-										disabled={aiSaving}
-									>
-										{aiSaving ? (
-											<>
-												<Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
-												{t("common.saving")}
-											</>
-										) : (
-											t("common.save")
-										)}
-									</Button>
 								</div>
 							</div>
 						)}
@@ -3720,25 +3791,6 @@ export function Settings() {
 									onSaveGlossaryConfig={handleGlossaryConfigSave}
 								/>
 
-								<Separator className="my-4" />
-
-								<div className="flex items-center gap-2 flex-wrap">
-									<Button
-										variant="default"
-										size="sm"
-										onClick={handleAiSave}
-										disabled={aiSaving}
-									>
-										{aiSaving ? (
-											<>
-												<Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
-												{t("common.saving")}
-											</>
-										) : (
-											t("common.save")
-										)}
-									</Button>
-								</div>
 							</div>
 						)}
 
@@ -3937,21 +3989,6 @@ export function Settings() {
 														</>
 													) : (
 														t("common.test")
-													)}
-												</Button>
-												<Button
-													variant="default"
-													size="sm"
-													onClick={handlePdfTranslationSave}
-													disabled={pdfSaving}
-												>
-													{pdfSaving ? (
-														<>
-															<Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
-															{t("common.saving")}
-														</>
-													) : (
-														t("settings.savePdfSettings")
 													)}
 												</Button>
 											</div>
@@ -4167,33 +4204,6 @@ export function Settings() {
 									</div>
 								</div>
 
-								<Separator />
-
-								<div className="flex items-center gap-2">
-									<Button
-										onClick={async () => {
-											setChatSaving(true);
-											try {
-												await commands.chatUpdateConfig({
-													activePreset: chatActivePreset,
-													confirmToolCalls: chatConfirmToolCalls,
-													presets: chatPresets,
-												});
-											} catch (err) {
-											logger.error("settings", "Failed to save chat config", err);
-											} finally {
-												setChatSaving(false);
-											}
-										}}
-										disabled={chatSaving}
-										size="sm"
-									>
-										{chatSaving ? (
-											<Loader2 className="mr-1 h-3 w-3 animate-spin" />
-										) : null}
-										{t("common.save")}
-									</Button>
-								</div>
 							</div>
 						)}
 
@@ -4359,25 +4369,6 @@ export function Settings() {
 											/>
 										</div>
 									</div>
-									<Button
-										variant="outline"
-										size="sm"
-										onClick={handleMcpSave}
-										disabled={
-											mcpSaving ||
-											(mcpPort === mcpStatus?.port &&
-												mcpTransport === mcpStatus?.transport)
-										}
-									>
-										{mcpSaving ? (
-											<>
-												<Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
-												{t("common.saving")}
-											</>
-										) : (
-											t("settings.saveConfiguration")
-										)}
-									</Button>
 								</div>
 
 								<Separator />
@@ -4695,18 +4686,6 @@ export function Settings() {
 										<span className="text-xs text-muted-foreground">
 											{t("settings.days")}
 										</span>
-										<Button
-											variant="outline"
-											size="sm"
-											className="h-8"
-											onClick={handleRetentionSave}
-											disabled={
-												retentionSaving ||
-												retentionDays === storageInfo.feed_cache_retention_days
-											}
-										>
-											{retentionSaving ? t("common.saving") : t("common.save")}
-										</Button>
 									</div>
 									<p className="text-[11px] text-muted-foreground">
 										{t("settings.itemsNeverDeleted")}
