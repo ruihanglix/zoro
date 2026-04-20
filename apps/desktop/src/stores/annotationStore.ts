@@ -27,17 +27,17 @@ export interface ZoroHighlight extends IHighlight {
 
 // Expanded annotation colors (8 colors, matching Zotero)
 export const ANNOTATION_COLORS = [
-	{ name: "Yellow", value: "#ffe28f" },
-	{ name: "Red", value: "#f5a3a3" },
-	{ name: "Green", value: "#a8e6a3" },
-	{ name: "Blue", value: "#a3d1e6" },
-	{ name: "Purple", value: "#cba3e6" },
-	{ name: "Magenta", value: "#e6a3d1" },
-	{ name: "Orange", value: "#f5c88a" },
-	{ name: "Gray", value: "#c4c4c4" },
+	{ name: "Yellow", value: "#ffd400" },
+	{ name: "Red", value: "#ff6666" },
+	{ name: "Green", value: "#5fb236" },
+	{ name: "Blue", value: "#2ea8e5" },
+	{ name: "Purple", value: "#a28ae5" },
+	{ name: "Magenta", value: "#e56eee" },
+	{ name: "Orange", value: "#f19837" },
+	{ name: "Gray", value: "#aaaaaa" },
 ] as const;
 
-export const DEFAULT_ANNOTATION_COLOR = "#ffe28f";
+export const DEFAULT_ANNOTATION_COLOR = "#ffd400";
 
 export type AnnotationType =
 	| "highlight"

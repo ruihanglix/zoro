@@ -21,7 +21,7 @@ import type {
 import { supportedLanguages } from "@/lib/i18n";
 import type { SupportedLanguage } from "@/lib/i18n";
 import { logger } from "@/lib/logger";
-import { cn } from "@/lib/utils";
+import { cn, confirmAction } from "@/lib/utils";
 import { createPluginSDK } from "@/plugins/PluginManager";
 import { usePluginStore } from "@/plugins/pluginStore";
 import { useAcpProxyStore } from "@/stores/acpProxyStore";
@@ -288,7 +288,7 @@ function GlossarySection({
 	};
 
 	const handleClear = async () => {
-		if (!confirm(t("settings.clearGlossaryConfirm"))) return;
+		if (!(await confirmAction(t("settings.clearGlossaryConfirm")))) return;
 		try {
 			await commands.clearGlossary();
 			await loadTerms();
@@ -1358,9 +1358,9 @@ export function Settings() {
 
 	const handleClearCache = async () => {
 		if (
-			!confirm(
+			!(await confirmAction(
 				"Delete all cached feed items that haven't been added to your library?",
-			)
+			))
 		) {
 			return;
 		}
@@ -1821,9 +1821,9 @@ export function Settings() {
 
 	const handleClearTranslations = async () => {
 		if (
-			!confirm(
+			!(await confirmAction(
 				"Delete all cached translations? They will be re-generated on next view.",
-			)
+			))
 		) {
 			return;
 		}

@@ -232,6 +232,7 @@
 		"markAsUnread": "标记为\"未读\"",
 		"openContainingFolder": "打开所在文件夹",
 		"deletePaperConfirm": "确定删除该论文及其所有文件吗？",
+		"deleteAttachmentConfirm": "确定删除该附件吗？",
 		"deleteMultipleConfirm": "确定删除 {{count}} 篇选中的论文及其所有文件吗？",
 		"openNote": "打开笔记",
 		"showInFinder": "在 Finder 中显示",

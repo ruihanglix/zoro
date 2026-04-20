@@ -232,6 +232,7 @@
 		"markAsUnread": "\"未読\"にする",
 		"openContainingFolder": "フォルダを開く",
 		"deletePaperConfirm": "この論文とすべてのファイルを削除しますか？",
+		"deleteAttachmentConfirm": "この添付ファイルを削除しますか？",
 		"deleteMultipleConfirm": "選択した {{count}} 件の論文とすべてのファイルを削除しますか？",
 		"openNote": "ノートを開く",
 		"showInFinder": "Finderで表示",

@@ -232,6 +232,7 @@
 		"markAsUnread": "\"읽지 않음\"으로 표시",
 		"openContainingFolder": "폴더 열기",
 		"deletePaperConfirm": "이 논문과 모든 파일을 삭제하시겠습니까?",
+		"deleteAttachmentConfirm": "이 첨부 파일을 삭제하시겠습니까?",
 		"deleteMultipleConfirm": "선택한 {{count}}개 논문과 모든 파일을 삭제하시겠습니까?",
 		"openNote": "노트 열기",
 		"showInFinder": "Finder에서 보기",

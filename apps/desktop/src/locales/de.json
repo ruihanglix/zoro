@@ -232,6 +232,7 @@
 		"markAsUnread": "Als \"Ungelesen\" markieren",
 		"openContainingFolder": "Enthaltenden Ordner öffnen",
 		"deletePaperConfirm": "Diesen Artikel und alle Dateien löschen?",
+		"deleteAttachmentConfirm": "Diesen Anhang löschen?",
 		"deleteMultipleConfirm": "{{count}} ausgewählte Artikel und alle Dateien löschen?",
 		"openNote": "Notiz öffnen",
 		"showInFinder": "Im Finder anzeigen",

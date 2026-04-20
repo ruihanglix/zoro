@@ -8,3 +8,15 @@ import { twMerge } from "tailwind-merge";
 export function cn(...inputs: ClassValue[]) {
 	return twMerge(clsx(inputs));
 }
+
+/**
+ * Show a native confirmation dialog via Tauri's dialog plugin.
+ * Returns `true` if the user confirmed, `false` otherwise.
+ */
+export async function confirmAction(
+	message: string,
+	title?: string,
+): Promise<boolean> {
+	const { ask } = await import("@tauri-apps/plugin-dialog");
+	return ask(message, { title: title ?? "", kind: "warning" });
+}

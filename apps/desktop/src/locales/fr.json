@@ -232,6 +232,7 @@
 		"markAsUnread": "Marquer comme \"Non lu\"",
 		"openContainingFolder": "Ouvrir le dossier contenant",
 		"deletePaperConfirm": "Supprimer cet article et tous ses fichiers ?",
+		"deleteAttachmentConfirm": "Supprimer cette pièce jointe ?",
 		"deleteMultipleConfirm": "Supprimer {{count}} articles sélectionnés et tous leurs fichiers ?",
 		"openNote": "Ouvrir la note",
 		"showInFinder": "Afficher dans le Finder",

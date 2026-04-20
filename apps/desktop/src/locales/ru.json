@@ -232,6 +232,7 @@
 		"markAsUnread": "Отметить как \"Не прочитано\"",
 		"openContainingFolder": "Открыть содержащую папку",
 		"deletePaperConfirm": "Удалить эту статью и все файлы?",
+		"deleteAttachmentConfirm": "Удалить это вложение?",
 		"deleteMultipleConfirm": "Удалить {{count}} выбранных статей и все файлы?",
 		"openNote": "Открыть заметку",
 		"showInFinder": "Показать в Finder",

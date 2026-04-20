@@ -46,7 +46,7 @@ import type {
 	TagResponse,
 } from "@/lib/commands";
 import { getHtmlAnnotationScript } from "@/lib/htmlAnnotation";
-import { cn } from "@/lib/utils";
+import { cn, confirmAction } from "@/lib/utils";
 import {
 	createPluginSDK,
 	emitParagraphHover,
@@ -1384,7 +1384,7 @@ function ReaderMetadataPanel({
 	};
 
 	const handleFetchArxivHtml = async () => {
-		if (paper.has_html && !confirm(t("paper.redownloadHtmlConfirm"))) {
+		if (paper.has_html && !(await confirmAction(t("paper.redownloadHtmlConfirm")))) {
 			return;
 		}
 		try {
@@ -1413,7 +1413,7 @@ function ReaderMetadataPanel({
 
 	const handleDelete = () => {
 		setTimeout(async () => {
-			if (confirmBeforeDelete && !confirm(t("paper.deleteConfirm"))) {
+			if (confirmBeforeDelete && !(await confirmAction(t("paper.deleteConfirm")))) {
 				return;
 			}
 			try {

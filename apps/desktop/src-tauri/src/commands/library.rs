@@ -1932,6 +1932,44 @@ pub async fn add_attachment_files(
     ))
 }
 
+/// Delete an attachment record from the database and remove the file from disk.
+#[tauri::command]
+pub async fn delete_attachment(
+    state: State<'_, AppState>,
+    paper_id: String,
+    attachment_id: String,
+) -> Result<(), String> {
+    let db = state
+        .db
+        .lock()
+        .map_err(|e| format!("DB lock error: {}", e))?;
+
+    // Look up the attachment to get its relative_path before deleting from DB
+    let db_attachments =
+        attachments::get_paper_attachments(&db.conn, &paper_id).map_err(|e| format!("{}", e))?;
+    let attachment = db_attachments
+        .iter()
+        .find(|a| a.id == attachment_id)
+        .ok_or_else(|| format!("Attachment not found: {}", attachment_id))?;
+
+    let row = papers::get_paper(&db.conn, &paper_id).map_err(|e| format!("{}", e))?;
+    let paper_dir = state.data_dir.join("library").join(&row.dir_path);
+    let file_path = paper_dir.join(&attachment.relative_path);
+
+    // Delete from database
+    attachments::delete_attachment(&db.conn, &attachment_id).map_err(|e| format!("{}", e))?;
+
+    sync_after_mutation(&state, &db, Some(&paper_id));
+    drop(db);
+
+    // Remove file from disk (best-effort)
+    if file_path.exists() {
+        let _ = std::fs::remove_file(&file_path);
+    }
+
+    Ok(())
+}
+
 fn mime_from_ext(ext: &str) -> &'static str {
     match ext {
         "pdf" => "application/pdf",

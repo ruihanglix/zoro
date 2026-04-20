@@ -25,6 +25,7 @@ import type {
 	UpdatePaperInput,
 } from "@/lib/commands";
 import * as commands from "@/lib/commands";
+import { confirmAction } from "@/lib/utils";
 import { useLibraryStore } from "@/stores/libraryStore";
 import { useTabStore } from "@/stores/tabStore";
 import {
@@ -134,7 +135,7 @@ export function PaperDetail({ paper }: { paper: PaperResponse }) {
 
 	const handleDelete = () => {
 		setTimeout(async () => {
-			if (confirmBeforeDelete && !confirm(t("paper.deleteConfirm"))) {
+			if (confirmBeforeDelete && !(await confirmAction(t("paper.deleteConfirm")))) {
 				return;
 			}
 			try {
@@ -170,7 +171,7 @@ export function PaperDetail({ paper }: { paper: PaperResponse }) {
 	};
 
 	const handleFetchArxivHtml = async () => {
-		if (paper.has_html && !confirm(t("paper.redownloadHtmlConfirm"))) {
+		if (paper.has_html && !(await confirmAction(t("paper.redownloadHtmlConfirm")))) {
 			return;
 		}
 		try {

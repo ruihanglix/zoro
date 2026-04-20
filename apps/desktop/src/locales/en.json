@@ -232,6 +232,7 @@
 		"markAsUnread": "Mark as \"Unread\"",
 		"openContainingFolder": "Open Containing Folder",
 		"deletePaperConfirm": "Delete this paper and all its files?",
+		"deleteAttachmentConfirm": "Delete this attachment?",
 		"deleteMultipleConfirm": "Delete {{count}} selected papers and all their files?",
 		"openNote": "Open Note",
 		"showInFinder": "Show in Finder",

@@ -753,6 +753,9 @@ export const saveReaderState = (
 export const addAttachmentFiles = (paperId: string, filePaths: string[]) =>
 	invoke<PaperResponse>("add_attachment_files", { paperId, filePaths });
 
+export const deleteAttachment = (paperId: string, attachmentId: string) =>
+	invoke<void>("delete_attachment", { paperId, attachmentId });
+
 // File access
 export const getPaperPdfPath = (paperId: string) =>
 	invoke<string>("get_paper_pdf_path", { paperId });

@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/context-menu";
 import type { PaperResponse } from "@/lib/commands";
 import * as commands from "@/lib/commands";
+import { confirmAction } from "@/lib/utils";
 import { useLibraryStore } from "@/stores/libraryStore";
 import { useTabStore } from "@/stores/tabStore";
 import { useUiStore } from "@/stores/uiStore";
@@ -144,7 +145,7 @@ export function PaperContextMenu({ paper, children }: PaperContextMenuProps) {
 		setTimeout(async () => {
 			if (
 				confirmBeforeDelete &&
-				!confirm(t("contextMenu.deletePaperConfirm"))
+				!(await confirmAction(t("contextMenu.deletePaperConfirm")))
 			) {
 				return;
 			}
