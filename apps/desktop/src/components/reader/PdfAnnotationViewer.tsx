@@ -1771,11 +1771,6 @@ export function PdfAnnotationViewer({
         [class*='_container_'] {
           background-color: #272727 !important;
         }
-        /* Dark-mode highlight: counter-invert the highlight layer so that
-           colours appear vivid on the inverted canvas, matching Zotero. */
-        .PdfHighlighter__highlight-layer {
-          filter: invert(0.82) hue-rotate(180deg);
-        }
         .pdf-underline .Highlight__part {
           border-bottom-width: 3px !important;
         }
