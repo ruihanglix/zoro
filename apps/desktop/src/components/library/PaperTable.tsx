@@ -160,13 +160,10 @@ export function PaperTable() {
 
 	// Expand/collapse state
 	const [expandedPapers, setExpandedPapers] = useState<Set<string>>(new Set());
-	const papersRef = useRef(papers);
+	const paperIdsKey = useMemo(() => papers.map((p) => p.id).join(","), [papers]);
 	useEffect(() => {
-		if (papersRef.current !== papers) {
-			papersRef.current = papers;
-			setExpandedPapers(new Set());
-		}
-	}, [papers]);
+		setExpandedPapers(new Set());
+	}, [paperIdsKey]);
 
 	const toggleExpand = useCallback((paperId: string) => {
 		setExpandedPapers((prev) => {
