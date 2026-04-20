@@ -4,6 +4,19 @@
 
 use serde::{Deserialize, Serialize};
 
+/// API format of a provider endpoint.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "lowercase")]
+pub enum ApiFormat {
+    /// Standard OpenAI /v1/chat/completions
+    #[default]
+    OpenAI,
+    /// Google Gemini generateContent API
+    Gemini,
+    /// Anthropic /v1/messages API
+    Anthropic,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Paper {
     pub id: String, // UUID
@@ -337,9 +350,13 @@ pub struct AiConfig {
     /// Falls back to the main `model` field when a task model is empty.
     #[serde(default)]
     pub task_model_defaults: TaskModelDefaults,
+    /// Resolved API format — transient, not persisted to config file.
+    /// Set by `resolve_for_model()` based on the matched provider's format.
+    #[serde(skip)]
+    pub resolved_format: ApiFormat,
 }
 
-/// An additional OpenAI-compatible AI provider that can be selected per-message.
+/// An additional AI provider that can be selected per-message.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AiProvider {
     pub id: String,
@@ -349,6 +366,9 @@ pub struct AiProvider {
     pub api_key: String,
     #[serde(default)]
     pub models: Vec<String>,
+    /// API format for this provider (OpenAI, Gemini, or Anthropic).
+    #[serde(default)]
+    pub format: ApiFormat,
 }
 
 impl AiConfig {
@@ -364,6 +384,7 @@ impl AiConfig {
     pub fn resolve_for_model(&self, model: &str) -> AiConfig {
         let mut cfg = self.clone();
         cfg.model = model.to_string();
+        cfg.resolved_format = ApiFormat::OpenAI; // default
 
         if model.is_empty() {
             return cfg;
@@ -380,6 +401,7 @@ impl AiConfig {
                         cfg.base_url = p.base_url.clone();
                     }
                     cfg.api_key = "acp-proxy".to_string();
+                    cfg.resolved_format = p.format;
                     return cfg;
                 }
             }
@@ -398,6 +420,7 @@ impl AiConfig {
                 if !p.api_key.is_empty() {
                     cfg.api_key = p.api_key.clone();
                 }
+                cfg.resolved_format = p.format;
                 break;
             }
         }
@@ -705,6 +728,7 @@ impl Default for AppConfig {
                 glossary_threshold: default_glossary_threshold(),
                 providers: Vec::new(),
                 task_model_defaults: TaskModelDefaults::default(),
+                resolved_format: ApiFormat::OpenAI,
             },
             sync: SyncConfig::default(),
             mcp: McpConfig::default(),

@@ -159,7 +159,7 @@ pub async fn translate_text(
         "Translating field"
     );
 
-    let client = ChatClient::new(client.clone(), &config.base_url, &config.api_key, &config.model);
+    let client = ChatClient::new(client.clone(), &config.base_url, &config.api_key, &config.model, config.resolved_format);
     let result = client.chat(&system_prompt, &user_prompt, 0.3, None).await?;
 
     tracing::debug!(
@@ -206,7 +206,7 @@ pub async fn extract_glossary_terms(
         lang_name
     );
 
-    let client = ChatClient::new(http_client.clone(), &config.base_url, &config.api_key, &config.model);
+    let client = ChatClient::new(http_client.clone(), &config.base_url, &config.api_key, &config.model, config.resolved_format);
     let result = client.chat(&system_prompt, text, 0.3, None).await?;
 
     parse_extracted_terms(&result)

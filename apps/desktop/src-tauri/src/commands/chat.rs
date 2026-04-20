@@ -302,6 +302,7 @@ pub async fn chat_send_message(
         base_url = resolved.base_url;
         api_key = resolved.api_key;
     }
+    let format = resolved.resolved_format;
 
     if base_url.is_empty() {
         return Err("Selected provider has no base URL configured.".into());
@@ -390,7 +391,7 @@ pub async fn chat_send_message(
     let http_client = state.http_client.clone();
 
     let task = tokio::spawn(async move {
-        let client = zoro_ai::streaming::StreamingClient::new(http_client, &base_url, &api_key, &model);
+        let client = zoro_ai::streaming::StreamingClient::new(http_client, &base_url, &api_key, &model, format);
 
         let result = run_chat_loop(
             &client,

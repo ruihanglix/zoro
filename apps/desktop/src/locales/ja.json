@@ -642,6 +642,8 @@
 		"useMainAiConfig": "メインAI設定を使用（APIキー、ベースURL、モデル）",
 		"customApiConfigForPdf": "PDF翻訳用のカスタムAPI設定",
 		"apiBaseUrl": "APIベースURL",
+		"apiFormat": "API フォーマット",
+		"apiFormatDesc": "このプロバイダーが使用するAPIフォーマットを選択してください。",
 		"apiKey": "APIキー",
 		"set": "設定済み",
 		"keySet": "キー設定済み",

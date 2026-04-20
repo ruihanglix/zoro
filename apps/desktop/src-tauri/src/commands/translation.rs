@@ -340,6 +340,11 @@ pub async fn get_ai_config(
                     base_url: p.base_url.clone(),
                     api_key_set: !p.api_key.is_empty(),
                     models: p.models.clone(),
+                    format: match p.format {
+                        zoro_core::models::ApiFormat::Gemini => "gemini".to_string(),
+                        zoro_core::models::ApiFormat::Anthropic => "anthropic".to_string(),
+                        _ => "openai".to_string(),
+                    },
                 })
                 .collect();
 
@@ -351,6 +356,7 @@ pub async fn get_ai_config(
                     base_url: format!("http://127.0.0.1:{}/v1", port),
                     api_key_set: true, // No real key needed
                     models: vec!["Zoro-ACP-Proxy".to_string()],
+                    format: "openai".to_string(),
                 });
             }
 
@@ -400,6 +406,7 @@ pub struct AiProviderResponse {
     pub base_url: String,
     pub api_key_set: bool,
     pub models: Vec<String>,
+    pub format: String,
 }
 
 #[derive(Debug, Serialize)]
@@ -552,6 +559,11 @@ pub async fn update_ai_config(
                         _ => existing_key,
                     },
                     models: p.models,
+                    format: match p.format.as_deref() {
+                        Some("gemini") => zoro_core::models::ApiFormat::Gemini,
+                        Some("anthropic") => zoro_core::models::ApiFormat::Anthropic,
+                        _ => zoro_core::models::ApiFormat::OpenAI,
+                    },
                 }
             })
             .collect();
@@ -626,6 +638,8 @@ pub struct UpdateAiProviderInput {
     pub api_key: Option<String>,
     #[serde(default)]
     pub models: Vec<String>,
+    #[serde(default)]
+    pub format: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -675,7 +689,7 @@ pub async fn test_ai_connection(state: State<'_, AppState>) -> Result<String, St
     }
 
     let client =
-        zoro_ai::client::ChatClient::new(state.http_client.clone(), &resolved.base_url, &resolved.api_key, &resolved.model);
+        zoro_ai::client::ChatClient::new(state.http_client.clone(), &resolved.base_url, &resolved.api_key, &resolved.model, resolved.resolved_format);
 
     client
         .test_connection()

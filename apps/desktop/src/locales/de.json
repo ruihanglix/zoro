@@ -642,6 +642,8 @@
 		"useMainAiConfig": "Haupt-AI-Konfiguration verwenden (API-Schlüssel, Basis-URL, Modell)",
 		"customApiConfigForPdf": "Benutzerdefinierte API-Konfiguration für PDF-Übersetzung",
 		"apiBaseUrl": "API-Basis-URL",
+		"apiFormat": "API-Format",
+		"apiFormatDesc": "Wählen Sie das API-Format dieses Anbieters.",
 		"apiKey": "API-Schlüssel",
 		"set": "gesetzt",
 		"keySet": "Schlüssel gesetzt",

@@ -784,6 +784,7 @@ export function Settings() {
 		baseUrl: string;
 		apiKey: string;
 		models: string;
+		format: "openai" | "gemini" | "anthropic";
 	} | null>(null);
 	// Track pending API keys for providers that haven't been saved yet
 	const [pendingProviderKeys, setPendingProviderKeys] = useState<
@@ -957,6 +958,7 @@ export function Settings() {
 				baseUrl: config.baseUrl,
 				apiKeySet: config.apiKeySet,
 				models: mainModels,
+				format: savedMainProvider?.format || "openai",
 				isDefault: false,
 			};
 			const additionalProviders = (config.providers || [])
@@ -1184,6 +1186,7 @@ export function Settings() {
 							baseUrl: p.baseUrl,
 							apiKey: undefined, // tells backend to keep existing key
 							models: p.models,
+							format: p.format,
 						})),
 						// Append lab proxy if available
 						...(labProxy ? [labProxy] : []),
@@ -1566,6 +1569,7 @@ export function Settings() {
 									baseUrl: mainP.baseUrl,
 									apiKey: pendingProviderKeys[mainP.id] || undefined,
 									models: mainP.models,
+									format: mainP.format,
 								},
 							]
 						: []),
@@ -1576,6 +1580,7 @@ export function Settings() {
 						baseUrl: p.baseUrl,
 						apiKey: pendingProviderKeys[p.id] || undefined,
 						models: p.models,
+						format: p.format,
 					})),
 					// Auto-inject lab proxy provider (when lab is enabled and proxy is running)
 					...(labEnabled && labProxyStatus?.running && labProxyModels.length > 0
@@ -2816,6 +2821,7 @@ export function Settings() {
 													baseUrl: "",
 													apiKey: "",
 													models: "",
+													format: "openai",
 												})
 											}
 										>
@@ -2840,6 +2846,11 @@ export function Settings() {
 															<span className="text-sm font-medium truncate">
 																{p.name || t("settings.unnamed")}
 															</span>
+															{p.format && p.format !== "openai" && (
+																<span className="inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-medium bg-muted text-muted-foreground">
+																	{p.format === "anthropic" ? "Anthropic" : "Gemini"}
+																</span>
+															)}
 														</div>
 														<div className="text-[11px] text-muted-foreground truncate">
 															<>
@@ -2879,6 +2890,7 @@ export function Settings() {
 																		baseUrl: p.baseUrl,
 																		apiKey: "",
 																		models: p.models.join(", "),
+																		format: p.format || "openai",
 																	})
 																}
 															>
@@ -2942,6 +2954,28 @@ export function Settings() {
 													}
 													className="mt-1 h-8 w-full rounded-md border bg-transparent px-2 text-sm"
 												/>
+											</div>
+											<div>
+												<label className="text-xs font-medium">
+													{t("settings.apiFormat")}
+												</label>
+												<select
+													value={editingProvider.format}
+													onChange={(e) =>
+														setEditingProvider({
+															...editingProvider,
+															format: e.target.value as "openai" | "gemini" | "anthropic",
+														})
+													}
+													className="mt-1 h-8 w-full rounded-md border bg-transparent px-2 text-sm"
+												>
+													<option value="openai">OpenAI</option>
+													<option value="gemini">Gemini</option>
+													<option value="anthropic">Anthropic</option>
+												</select>
+												<p className="mt-0.5 text-[11px] text-muted-foreground">
+													{t("settings.apiFormatDesc")}
+												</p>
 											</div>
 											<div>
 												<label className="text-xs font-medium">
@@ -3036,7 +3070,7 @@ export function Settings() {
 														size="sm"
 														className="h-7 text-xs"
 														disabled={
-															!editingProvider.baseUrl || fetchingProviderModels
+															!editingProvider.baseUrl || fetchingProviderModels || editingProvider.format === "anthropic"
 														}
 														onClick={async () => {
 															setFetchingProviderModels(true);
@@ -3195,6 +3229,7 @@ export function Settings() {
 																					? true
 																					: p.apiKeySet,
 																				models,
+																				format: editingProvider.format,
 																			}
 																		: p,
 																),
@@ -3209,6 +3244,7 @@ export function Settings() {
 																	baseUrl: editingProvider.baseUrl,
 																	apiKeySet: !!editingProvider.apiKey,
 																	models,
+																	format: editingProvider.format,
 																},
 															]);
 														}

@@ -78,6 +78,10 @@ pub async fn fetch_models(
     match provider.format {
         ApiFormat::Gemini => fetch_gemini_models(client, provider, api_key).await,
         ApiFormat::OpenAI => fetch_openai_models(client, provider, api_key).await,
+        ApiFormat::Anthropic => {
+            // Anthropic doesn't have a /models endpoint; return empty list
+            Err("Anthropic API does not provide a model listing endpoint".to_string())
+        }
     }
 }
 

@@ -4,13 +4,15 @@
 
 use crate::error::AiError;
 use serde::{Deserialize, Serialize};
+use zoro_core::models::ApiFormat;
 
-/// A generic OpenAI-compatible chat completions client.
+/// A generic chat completions client supporting OpenAI and Anthropic formats.
 pub struct ChatClient {
     http: reqwest::Client,
     base_url: String,
     api_key: String,
     model: String,
+    format: ApiFormat,
 }
 
 #[derive(Debug, Serialize)]
@@ -38,21 +40,72 @@ struct ChatChoice {
     message: ChatMessage,
 }
 
+// Anthropic request/response types
+#[derive(Debug, Serialize)]
+struct AnthropicRequest {
+    model: String,
+    messages: Vec<AnthropicMessage>,
+    max_tokens: u32,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    system: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    temperature: Option<f32>,
+}
+
+#[derive(Debug, Serialize)]
+struct AnthropicMessage {
+    role: String,
+    content: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct AnthropicResponse {
+    content: Vec<AnthropicContentBlock>,
+}
+
+#[derive(Debug, Deserialize)]
+struct AnthropicContentBlock {
+    #[serde(rename = "type")]
+    block_type: String,
+    #[serde(default)]
+    text: Option<String>,
+}
+
 impl ChatClient {
     /// Create a new client. `base_url` should be the API root
     /// (e.g. "https://api.openai.com/v1"). A trailing slash is tolerated.
-    pub fn new(client: reqwest::Client, base_url: &str, api_key: &str, model: &str) -> Self {
+    pub fn new(
+        client: reqwest::Client,
+        base_url: &str,
+        api_key: &str,
+        model: &str,
+        format: ApiFormat,
+    ) -> Self {
         let base_url = base_url.trim_end_matches('/').to_string();
         Self {
             http: client,
             base_url,
             api_key: api_key.to_string(),
             model: model.to_string(),
+            format,
         }
     }
 
     /// Send a chat completion request and return the assistant's reply text.
     pub async fn chat(
+        &self,
+        system_prompt: &str,
+        user_prompt: &str,
+        temperature: f32,
+        max_tokens: Option<u32>,
+    ) -> Result<String, AiError> {
+        match self.format {
+            ApiFormat::Anthropic => self.chat_anthropic(system_prompt, user_prompt, temperature, max_tokens).await,
+            _ => self.chat_openai(system_prompt, user_prompt, temperature, max_tokens).await,
+        }
+    }
+
+    async fn chat_openai(
         &self,
         system_prompt: &str,
         user_prompt: &str,
@@ -114,7 +167,6 @@ impl ChatClient {
             let status = resp.status().as_u16();
 
             if status == 429 && attempts < 3 {
-                // Rate limited — wait and retry
                 let wait = std::time::Duration::from_secs(2u64.pow(attempts));
                 tracing::warn!("Rate limited (429), retrying in {:?}...", wait);
                 tokio::time::sleep(wait).await;
@@ -123,11 +175,7 @@ impl ChatClient {
 
             if !resp.status().is_success() {
                 let body = resp.text().await.unwrap_or_default();
-                tracing::debug!(
-                    status = status,
-                    body = %body,
-                    "LLM response error"
-                );
+                tracing::debug!(status = status, body = %body, "LLM response error");
                 return Err(AiError::Api {
                     status,
                     message: body,
@@ -135,12 +183,7 @@ impl ChatClient {
             }
 
             let raw_body = resp.text().await?;
-            tracing::debug!(
-                status = status,
-                body_len = raw_body.len(),
-                body = %raw_body,
-                "LLM response"
-            );
+            tracing::debug!(status = status, body_len = raw_body.len(), body = %raw_body, "LLM response");
 
             let body: ChatResponse = serde_json::from_str(&raw_body)?;
             let content = body
@@ -148,6 +191,85 @@ impl ChatClient {
                 .into_iter()
                 .next()
                 .map(|c| c.message.content)
+                .ok_or(AiError::EmptyResponse)?;
+
+            return Ok(content.trim().to_string());
+        }
+    }
+
+    async fn chat_anthropic(
+        &self,
+        system_prompt: &str,
+        user_prompt: &str,
+        temperature: f32,
+        max_tokens: Option<u32>,
+    ) -> Result<String, AiError> {
+        let url = format!("{}/v1/messages", self.base_url);
+
+        let request = AnthropicRequest {
+            model: self.model.clone(),
+            messages: vec![AnthropicMessage {
+                role: "user".to_string(),
+                content: user_prompt.to_string(),
+            }],
+            max_tokens: max_tokens.unwrap_or(4096),
+            system: if system_prompt.is_empty() {
+                None
+            } else {
+                Some(system_prompt.to_string())
+            },
+            temperature: if temperature == 0.0 { None } else { Some(temperature) },
+        };
+
+        tracing::debug!(
+            url = %url,
+            model = %request.model,
+            max_tokens = %request.max_tokens,
+            "Anthropic LLM request"
+        );
+
+        // Retry once on 429 (rate limit)
+        let mut attempts = 0;
+        loop {
+            attempts += 1;
+            let resp = self
+                .http
+                .post(&url)
+                .header("x-api-key", &self.api_key)
+                .header("anthropic-version", "2023-06-01")
+                .header("Content-Type", "application/json")
+                .json(&request)
+                .timeout(std::time::Duration::from_secs(120))
+                .send()
+                .await?;
+
+            let status = resp.status().as_u16();
+
+            if status == 429 && attempts < 3 {
+                let wait = std::time::Duration::from_secs(2u64.pow(attempts));
+                tracing::warn!("Anthropic rate limited (429), retrying in {:?}...", wait);
+                tokio::time::sleep(wait).await;
+                continue;
+            }
+
+            if !resp.status().is_success() {
+                let body = resp.text().await.unwrap_or_default();
+                tracing::debug!(status = status, body = %body, "Anthropic response error");
+                return Err(AiError::Api {
+                    status,
+                    message: body,
+                });
+            }
+
+            let raw_body = resp.text().await?;
+            tracing::debug!(status = status, body_len = raw_body.len(), body = %raw_body, "Anthropic response");
+
+            let body: AnthropicResponse = serde_json::from_str(&raw_body)?;
+            let content = body
+                .content
+                .into_iter()
+                .find(|b| b.block_type == "text")
+                .and_then(|b| b.text)
                 .ok_or(AiError::EmptyResponse)?;
 
             return Ok(content.trim().to_string());
@@ -167,7 +289,13 @@ mod tests {
 
     #[test]
     fn test_base_url_normalization() {
-        let client = ChatClient::new(reqwest::Client::new(), "https://api.openai.com/v1/", "key", "model");
+        let client = ChatClient::new(
+            reqwest::Client::new(),
+            "https://api.openai.com/v1/",
+            "key",
+            "model",
+            ApiFormat::OpenAI,
+        );
         assert_eq!(client.base_url, "https://api.openai.com/v1");
     }
 }

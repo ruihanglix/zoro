@@ -642,6 +642,8 @@
 		"useMainAiConfig": "Использовать основную конфигурацию AI (API-ключ, базовый URL, модель)",
 		"customApiConfigForPdf": "Пользовательская конфигурация API для перевода PDF",
 		"apiBaseUrl": "Базовый URL API",
+		"apiFormat": "Формат API",
+		"apiFormatDesc": "Выберите формат API, используемый этим провайдером.",
 		"apiKey": "API-ключ",
 		"set": "задан",
 		"keySet": "ключ задан",

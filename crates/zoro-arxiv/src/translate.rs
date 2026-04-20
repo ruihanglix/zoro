@@ -479,6 +479,7 @@ where
         &ai_config.base_url,
         &ai_config.api_key,
         &ai_config.model,
+        ai_config.resolved_format,
     ));
 
     {

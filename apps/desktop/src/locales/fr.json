@@ -642,6 +642,8 @@
 		"useMainAiConfig": "Utiliser la configuration IA principale (clé API, URL de base, modèle)",
 		"customApiConfigForPdf": "Configuration API personnalisée pour la traduction PDF",
 		"apiBaseUrl": "URL de base de l'API",
+		"apiFormat": "Format API",
+		"apiFormatDesc": "Sélectionnez le format API utilisé par ce fournisseur.",
 		"apiKey": "Clé API",
 		"set": "définie",
 		"keySet": "clé définie",

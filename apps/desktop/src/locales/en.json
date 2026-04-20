@@ -644,6 +644,8 @@
 		"useMainAiConfig": "Use main AI config (API key, base URL, model)",
 		"customApiConfigForPdf": "Custom API configuration for PDF translation",
 		"apiBaseUrl": "API Base URL",
+		"apiFormat": "API Format",
+		"apiFormatDesc": "Select the API format used by this provider.",
 		"apiKey": "API Key",
 		"set": "set",
 		"keySet": "key set",

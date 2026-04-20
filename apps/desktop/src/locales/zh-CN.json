@@ -644,6 +644,8 @@
 		"useMainAiConfig": "使用主 AI 配置（API 密钥、地址、模型）",
 		"customApiConfigForPdf": "PDF 翻译自定义 API 配置",
 		"apiBaseUrl": "API 基础地址",
+		"apiFormat": "API 格式",
+		"apiFormatDesc": "选择此提供商使用的 API 格式。",
 		"apiKey": "API 密钥",
 		"set": "已设置",
 		"keySet": "密钥已设置",

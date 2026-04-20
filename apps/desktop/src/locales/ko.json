@@ -642,6 +642,8 @@
 		"useMainAiConfig": "기본 AI 설정 사용 (API 키, Base URL, 모델)",
 		"customApiConfigForPdf": "PDF 번역용 사용자 지정 API 설정",
 		"apiBaseUrl": "API Base URL",
+		"apiFormat": "API 형식",
+		"apiFormatDesc": "이 제공자가 사용하는 API 형식을 선택하세요.",
 		"apiKey": "API 키",
 		"set": "설정됨",
 		"keySet": "키 설정됨",

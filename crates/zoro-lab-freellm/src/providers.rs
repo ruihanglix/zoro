@@ -6,7 +6,7 @@
 //! Each provider offers free-tier API access for AI models.
 
 use serde::{Deserialize, Serialize};
-use zoro_llm_proxy::ApiFormat;
+use zoro_core::models::ApiFormat;
 
 /// A free LLM provider that offers free-tier API access.
 #[derive(Debug, Clone, Serialize, Deserialize)]

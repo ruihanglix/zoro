@@ -945,6 +945,7 @@ export interface AiProviderResponse {
 	baseUrl: string;
 	apiKeySet: boolean;
 	models: string[];
+	format: "openai" | "gemini" | "anthropic";
 }
 
 export interface AiConfigResponse {
@@ -1042,6 +1043,7 @@ export interface UpdateAiProviderInput {
 	baseUrl: string;
 	apiKey?: string;
 	models: string[];
+	format?: "openai" | "gemini" | "anthropic";
 }
 
 export const getTranslations = (entityType: string, entityId: string) =>
