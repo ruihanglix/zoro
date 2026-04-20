@@ -270,7 +270,7 @@ impl StreamingClient {
         on_chunk: impl Fn(&str),
         max_tokens: Option<u32>,
     ) -> Result<StreamResult, AiError> {
-        let url = format!("{}/v1/messages", self.base_url);
+        let url = format!("{}/messages", self.base_url);
 
         // Separate system messages from user/assistant messages
         let mut system_parts: Vec<String> = Vec::new();

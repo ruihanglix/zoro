@@ -3070,7 +3070,7 @@ export function Settings() {
 														size="sm"
 														className="h-7 text-xs"
 														disabled={
-															!editingProvider.baseUrl || fetchingProviderModels || editingProvider.format === "anthropic"
+															!editingProvider.baseUrl || fetchingProviderModels
 														}
 														onClick={async () => {
 															setFetchingProviderModels(true);
@@ -3096,7 +3096,12 @@ export function Settings() {
 																const headers: Record<string, string> = {
 																	"Content-Type": "application/json",
 																};
-																if (apiKey) {
+																if (editingProvider.format === "anthropic") {
+																	if (apiKey) {
+																		headers["x-api-key"] = apiKey;
+																	}
+																	headers["anthropic-version"] = "2023-06-01";
+																} else if (apiKey) {
 																	headers.Authorization = `Bearer ${apiKey}`;
 																}
 																const fetchUrl = `${baseUrl}/models`;

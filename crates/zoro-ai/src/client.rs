@@ -204,7 +204,7 @@ impl ChatClient {
         temperature: f32,
         max_tokens: Option<u32>,
     ) -> Result<String, AiError> {
-        let url = format!("{}/v1/messages", self.base_url);
+        let url = format!("{}/messages", self.base_url);
 
         let request = AnthropicRequest {
             model: self.model.clone(),

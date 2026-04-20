@@ -509,7 +509,7 @@ async fn forward_anthropic(
     req: &ChatCompletionRequest,
 ) -> Result<Response, ProxyError> {
     let api_key = provider.next_api_key();
-    let url = format!("{}/v1/messages", provider.base_url.trim_end_matches('/'));
+    let url = format!("{}/messages", provider.base_url.trim_end_matches('/'));
 
     // Extract system messages and user/assistant messages
     let (system_text, messages) = convert_messages_to_anthropic(&req.messages);
