@@ -785,6 +785,7 @@ export function Settings() {
 		apiKey: string;
 		models: string;
 		format: "openai" | "gemini" | "anthropic";
+		headers: Record<string, string>;
 	} | null>(null);
 	// Track pending API keys for providers that haven't been saved yet
 	const [pendingProviderKeys, setPendingProviderKeys] = useState<
@@ -1187,6 +1188,7 @@ export function Settings() {
 							apiKey: undefined, // tells backend to keep existing key
 							models: p.models,
 							format: p.format,
+							headers: p.headers,
 						})),
 						// Append lab proxy if available
 						...(labProxy ? [labProxy] : []),
@@ -1570,6 +1572,7 @@ export function Settings() {
 									apiKey: pendingProviderKeys[mainP.id] || undefined,
 									models: mainP.models,
 									format: mainP.format,
+									headers: mainP.headers,
 								},
 							]
 						: []),
@@ -1581,6 +1584,7 @@ export function Settings() {
 						apiKey: pendingProviderKeys[p.id] || undefined,
 						models: p.models,
 						format: p.format,
+						headers: p.headers,
 					})),
 					// Auto-inject lab proxy provider (when lab is enabled and proxy is running)
 					...(labEnabled && labProxyStatus?.running && labProxyModels.length > 0
@@ -2822,6 +2826,7 @@ export function Settings() {
 													apiKey: "",
 													models: "",
 													format: "openai",
+													headers: {},
 												})
 											}
 										>
@@ -2891,6 +2896,7 @@ export function Settings() {
 																		apiKey: "",
 																		models: p.models.join(", "),
 																		format: p.format || "openai",
+																		headers: p.headers || {},
 																	})
 																}
 															>
@@ -3104,6 +3110,12 @@ export function Settings() {
 																} else if (apiKey) {
 																	headers.Authorization = `Bearer ${apiKey}`;
 																}
+																// Merge custom headers (override system defaults)
+																if (editingProvider.headers) {
+																	for (const [k, v] of Object.entries(editingProvider.headers)) {
+																		if (k.trim()) headers[k.trim()] = v;
+																	}
+																}
 																const fetchUrl = `${baseUrl}/models`;
 															logger.info("settings", `fetchModels requesting: ${fetchUrl} (apiKey: ${apiKey ? "yes" : "none"})`);
 																const resp = await commands.httpProxyGet(
@@ -3199,6 +3211,94 @@ export function Settings() {
 													)}
 												</div>
 											</div>
+											{/* Custom Headers */}
+											<div>
+												<label className="text-xs font-medium">
+													Custom Headers
+												</label>
+												<p className="text-[11px] text-muted-foreground mb-1">
+													Custom HTTP headers sent with every API request. Can override defaults like Authorization.
+												</p>
+												<div className="space-y-1.5">
+													{Object.entries(editingProvider.headers).map(
+														([key, value]) => (
+															<div
+																key={key}
+																className="flex items-center gap-1.5"
+															>
+																<input
+																	type="text"
+																	placeholder="Header name"
+																	value={key}
+																	onChange={(e) => {
+																		const newHeaders = {
+																			...editingProvider.headers,
+																		};
+																		const val = newHeaders[key];
+																		delete newHeaders[key];
+																		newHeaders[e.target.value] =
+																			val;
+																		setEditingProvider({
+																			...editingProvider,
+																			headers: newHeaders,
+																		});
+																	}}
+																	className="h-7 w-[40%] rounded-md border bg-transparent px-2 text-xs font-mono"
+																/>
+																<input
+																	type="text"
+																	placeholder="Value"
+																	value={value}
+																	onChange={(e) => {
+																		setEditingProvider({
+																			...editingProvider,
+																			headers: {
+																				...editingProvider.headers,
+																				[key]: e.target.value,
+																			},
+																		});
+																	}}
+																	className="h-7 flex-1 rounded-md border bg-transparent px-2 text-xs font-mono"
+																/>
+																<Button
+																	variant="ghost"
+																	size="sm"
+																	className="h-7 w-7 p-0 text-destructive"
+																	onClick={() => {
+																		const newHeaders = {
+																			...editingProvider.headers,
+																		};
+																		delete newHeaders[key];
+																		setEditingProvider({
+																			...editingProvider,
+																			headers: newHeaders,
+																		});
+																	}}
+																>
+																	<Trash2 className="h-3 w-3" />
+																</Button>
+															</div>
+														),
+													)}
+													<Button
+														variant="outline"
+														size="sm"
+														className="h-7 text-xs"
+														onClick={() => {
+															setEditingProvider({
+																...editingProvider,
+																headers: {
+																	...editingProvider.headers,
+																	"": "",
+																},
+															});
+														}}
+													>
+														<Plus className="mr-1 h-3 w-3" />
+														Add Header
+													</Button>
+												</div>
+											</div>
 											<div className="flex items-center gap-2 pt-1">
 												<Button
 													variant="default"
@@ -3211,6 +3311,11 @@ export function Settings() {
 															.split(",")
 															.map((m) => m.trim())
 															.filter(Boolean);
+														// Clean headers: remove entries with empty keys
+														const cleanHeaders: Record<string, string> = {};
+														for (const [k, v] of Object.entries(editingProvider.headers)) {
+															if (k.trim()) cleanHeaders[k.trim()] = v;
+														}
 														// Store pending API key if provided
 														if (editingProvider.apiKey) {
 															setPendingProviderKeys((prev) => ({
@@ -3235,6 +3340,7 @@ export function Settings() {
 																					: p.apiKeySet,
 																				models,
 																				format: editingProvider.format,
+																				headers: cleanHeaders,
 																			}
 																		: p,
 																),
@@ -3250,6 +3356,7 @@ export function Settings() {
 																	apiKeySet: !!editingProvider.apiKey,
 																	models,
 																	format: editingProvider.format,
+																	headers: cleanHeaders,
 																},
 															]);
 														}

@@ -4,6 +4,7 @@
 
 use crate::error::AiError;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use zoro_core::models::ApiFormat;
 
 /// A generic chat completions client supporting OpenAI and Anthropic formats.
@@ -13,6 +14,7 @@ pub struct ChatClient {
     api_key: String,
     model: String,
     format: ApiFormat,
+    custom_headers: HashMap<String, String>,
 }
 
 #[derive(Debug, Serialize)]
@@ -80,6 +82,7 @@ impl ChatClient {
         api_key: &str,
         model: &str,
         format: ApiFormat,
+        custom_headers: HashMap<String, String>,
     ) -> Self {
         let base_url = base_url.trim_end_matches('/').to_string();
         Self {
@@ -88,6 +91,7 @@ impl ChatClient {
             api_key: api_key.to_string(),
             model: model.to_string(),
             format,
+            custom_headers,
         }
     }
 
@@ -159,7 +163,9 @@ impl ChatClient {
                 .http
                 .post(&url)
                 .header("Authorization", format!("Bearer {}", self.api_key))
-                .header("Content-Type", "application/json")
+                .header("Content-Type", "application/json");
+            let resp = self.custom_headers.iter().fold(resp, |r, (k, v)| r.header(k.as_str(), v.as_str()));
+            let resp = resp
                 .json(&request)
                 .timeout(std::time::Duration::from_secs(120))
                 .send()
@@ -238,7 +244,9 @@ impl ChatClient {
                 .post(&url)
                 .header("x-api-key", &self.api_key)
                 .header("anthropic-version", "2023-06-01")
-                .header("Content-Type", "application/json")
+                .header("Content-Type", "application/json");
+            let resp = self.custom_headers.iter().fold(resp, |r, (k, v)| r.header(k.as_str(), v.as_str()));
+            let resp = resp
                 .json(&request)
                 .timeout(std::time::Duration::from_secs(120))
                 .send()
@@ -318,6 +326,7 @@ mod tests {
             "key",
             "model",
             ApiFormat::OpenAI,
+            HashMap::new(),
         );
         assert_eq!(client.base_url, "https://api.openai.com/v1");
     }

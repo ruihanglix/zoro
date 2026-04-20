@@ -946,6 +946,7 @@ export interface AiProviderResponse {
 	apiKeySet: boolean;
 	models: string[];
 	format: "openai" | "gemini" | "anthropic";
+	headers: Record<string, string>;
 }
 
 export interface AiConfigResponse {
@@ -1044,6 +1045,7 @@ export interface UpdateAiProviderInput {
 	apiKey?: string;
 	models: string[];
 	format?: "openai" | "gemini" | "anthropic";
+	headers?: Record<string, string>;
 }
 
 export const getTranslations = (entityType: string, entityId: string) =>

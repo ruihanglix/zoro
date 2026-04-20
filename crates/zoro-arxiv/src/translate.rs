@@ -480,6 +480,7 @@ where
         &ai_config.api_key,
         &ai_config.model,
         ai_config.resolved_format,
+        ai_config.resolved_headers.clone(),
     ));
 
     {

@@ -345,6 +345,7 @@ pub async fn get_ai_config(
                         zoro_core::models::ApiFormat::Anthropic => "anthropic".to_string(),
                         _ => "openai".to_string(),
                     },
+                    headers: p.headers.clone(),
                 })
                 .collect();
 
@@ -357,6 +358,7 @@ pub async fn get_ai_config(
                     api_key_set: true, // No real key needed
                     models: vec!["Zoro-ACP-Proxy".to_string()],
                     format: "openai".to_string(),
+                    headers: std::collections::HashMap::new(),
                 });
             }
 
@@ -407,6 +409,7 @@ pub struct AiProviderResponse {
     pub api_key_set: bool,
     pub models: Vec<String>,
     pub format: String,
+    pub headers: std::collections::HashMap<String, String>,
 }
 
 #[derive(Debug, Serialize)]
@@ -543,12 +546,16 @@ pub async fn update_ai_config(
             .filter(|p| p.id != "__acp_proxy__")
             .map(|p| {
                 // Preserve existing api_key if no new one is provided
-                let existing_key = config
+                let existing = config
                     .ai
                     .providers
                     .iter()
-                    .find(|ep| ep.id == p.id)
+                    .find(|ep| ep.id == p.id);
+                let existing_key = existing
                     .map(|ep| ep.api_key.clone())
+                    .unwrap_or_default();
+                let existing_headers = existing
+                    .map(|ep| ep.headers.clone())
                     .unwrap_or_default();
                 zoro_core::models::AiProvider {
                     id: p.id,
@@ -564,6 +571,7 @@ pub async fn update_ai_config(
                         Some("anthropic") => zoro_core::models::ApiFormat::Anthropic,
                         _ => zoro_core::models::ApiFormat::OpenAI,
                     },
+                    headers: p.headers.unwrap_or_else(|| existing_headers),
                 }
             })
             .collect();
@@ -640,6 +648,8 @@ pub struct UpdateAiProviderInput {
     pub models: Vec<String>,
     #[serde(default)]
     pub format: Option<String>,
+    #[serde(default)]
+    pub headers: Option<std::collections::HashMap<String, String>>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -689,7 +699,7 @@ pub async fn test_ai_connection(state: State<'_, AppState>) -> Result<String, St
     }
 
     let client =
-        zoro_ai::client::ChatClient::new(state.http_client.clone(), &resolved.base_url, &resolved.api_key, &resolved.model, resolved.resolved_format);
+        zoro_ai::client::ChatClient::new(state.http_client.clone(), &resolved.base_url, &resolved.api_key, &resolved.model, resolved.resolved_format, resolved.resolved_headers.clone());
 
     client
         .test_connection()

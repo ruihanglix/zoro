@@ -3,6 +3,7 @@
 // See LICENSE file in the project root for full license information.
 
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
 /// API format of a provider endpoint.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
@@ -354,6 +355,10 @@ pub struct AiConfig {
     /// Set by `resolve_for_model()` based on the matched provider's format.
     #[serde(skip)]
     pub resolved_format: ApiFormat,
+    /// Resolved custom headers — transient, not persisted to config file.
+    /// Set by `resolve_for_model()` based on the matched provider's headers.
+    #[serde(skip)]
+    pub resolved_headers: HashMap<String, String>,
 }
 
 /// An additional AI provider that can be selected per-message.
@@ -369,6 +374,9 @@ pub struct AiProvider {
     /// API format for this provider (OpenAI, Gemini, or Anthropic).
     #[serde(default)]
     pub format: ApiFormat,
+    /// Custom HTTP headers to include in API requests.
+    #[serde(default)]
+    pub headers: HashMap<String, String>,
 }
 
 impl AiConfig {
@@ -402,6 +410,7 @@ impl AiConfig {
                     }
                     cfg.api_key = "acp-proxy".to_string();
                     cfg.resolved_format = p.format;
+                    cfg.resolved_headers = p.headers.clone();
                     return cfg;
                 }
             }
@@ -421,6 +430,7 @@ impl AiConfig {
                     cfg.api_key = p.api_key.clone();
                 }
                 cfg.resolved_format = p.format;
+                cfg.resolved_headers = p.headers.clone();
                 break;
             }
         }
@@ -729,6 +739,7 @@ impl Default for AppConfig {
                 providers: Vec::new(),
                 task_model_defaults: TaskModelDefaults::default(),
                 resolved_format: ApiFormat::OpenAI,
+                resolved_headers: HashMap::new(),
             },
             sync: SyncConfig::default(),
             mcp: McpConfig::default(),
