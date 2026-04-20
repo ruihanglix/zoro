@@ -99,10 +99,11 @@ impl ChatClient {
         temperature: f32,
         max_tokens: Option<u32>,
     ) -> Result<String, AiError> {
-        match self.format {
+        let result = match self.format {
             ApiFormat::Anthropic => self.chat_anthropic(system_prompt, user_prompt, temperature, max_tokens).await,
             _ => self.chat_openai(system_prompt, user_prompt, temperature, max_tokens).await,
-        }
+        }?;
+        Ok(strip_thinking_tags(&result))
     }
 
     async fn chat_openai(
@@ -283,6 +284,28 @@ impl ChatClient {
     }
 }
 
+/// Strip `<think>...</think>` blocks from reasoning model output.
+/// Many reasoning models (DeepSeek, MiniMax, Qwen, etc.) wrap chain-of-thought
+/// in these tags. Callers always want the final answer only.
+fn strip_thinking_tags(text: &str) -> String {
+    let mut result = text.to_string();
+    // Repeatedly strip all <think>...</think> blocks (handles nested/multiple)
+    while let Some(start) = result.find("<think>") {
+        if let Some(end) = result[start..].find("</think>") {
+            result = format!(
+                "{}{}",
+                &result[..start],
+                &result[start + end + "</think>".len()..],
+            );
+        } else {
+            // Unclosed <think> tag — strip from <think> to end
+            result = result[..start].to_string();
+            break;
+        }
+    }
+    result.trim().to_string()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -297,5 +320,22 @@ mod tests {
             ApiFormat::OpenAI,
         );
         assert_eq!(client.base_url, "https://api.openai.com/v1");
+    }
+
+    #[test]
+    fn test_strip_thinking_tags() {
+        assert_eq!(
+            strip_thinking_tags("<think>reasoning here</think>\nAnswer"),
+            "Answer"
+        );
+        assert_eq!(
+            strip_thinking_tags("<think>\nlong\nreasoning\n</think>\n\nFinal answer"),
+            "Final answer"
+        );
+        assert_eq!(strip_thinking_tags("No tags here"), "No tags here");
+        assert_eq!(
+            strip_thinking_tags("<think>unclosed tag"),
+            ""
+        );
     }
 }
