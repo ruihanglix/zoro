@@ -3944,9 +3944,9 @@ export function Settings() {
 						)}
 
 						{section === "connector-export" && (
-							<div className="space-y-8">
+							<div className="grid grid-cols-1 lg:grid-cols-2 2xl:grid-cols-3 gap-4 items-start">
 								{connectorStatus && (
-							<div className="space-y-3 text-sm">
+								<div className="rounded-lg border bg-card/50 p-4 space-y-3 text-sm">
 								<div className="flex items-center gap-2">
 									<span>{t("settings.zoroConnector")}</span>
 									<Badge
@@ -4282,7 +4282,7 @@ export function Settings() {
 								</div>
 							</div>
 								)}
-								<div className="space-y-5">
+								<div className="rounded-lg border bg-card/50 p-4 space-y-5">
 								<div className="space-y-2">
 									<h3 className="text-sm font-semibold">
 										{t("settings.export")}
@@ -4498,9 +4498,9 @@ export function Settings() {
 						)}
 
 						{section === "storage-sync" && (
-							<div className="space-y-8">
+							<div className="grid grid-cols-1 lg:grid-cols-2 2xl:grid-cols-3 gap-4 items-start">
 								{storageInfo && (
-							<div className="space-y-3">
+								<div className="rounded-lg border bg-card/50 p-4 space-y-3">
 								<div className="text-sm">
 									<span className="text-xs text-muted-foreground">
 										{t("settings.dataDirectory")}:
@@ -4592,7 +4592,7 @@ export function Settings() {
 								</Button>
 							</div>
 								)}
-							<div className="space-y-3">
+								<div className="rounded-lg border bg-card/50 p-4 space-y-3 lg:col-span-1 2xl:col-span-2">
 								{syncStatus && (
 									<div className="flex items-center gap-2 text-sm flex-wrap">
 										<span>{t("settings.status")}:</span>
