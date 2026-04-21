@@ -81,7 +81,10 @@ impl OpenAlexWork {
 }
 
 /// Fetch metadata from OpenAlex API for a DOI.
-pub async fn fetch_openalex(client: &reqwest::Client, doi: &str) -> Result<OpenAlexWork, MetadataError> {
+pub async fn fetch_openalex(
+    client: &reqwest::Client,
+    doi: &str,
+) -> Result<OpenAlexWork, MetadataError> {
     let url = format!("{}/doi:{}?mailto=zoro@gmail.com", OPENALEX_API, doi);
     let resp = client
         .get(&url)
@@ -115,7 +118,10 @@ struct OpenAlexSearchResponse {
 ///
 /// OpenAlex has no strict rate limit (only requires `mailto`), making it a
 /// good fallback when Semantic Scholar returns 429 errors.
-pub async fn search_by_title(client: &reqwest::Client, title: &str) -> Result<Option<OpenAlexWork>, MetadataError> {
+pub async fn search_by_title(
+    client: &reqwest::Client,
+    title: &str,
+) -> Result<Option<OpenAlexWork>, MetadataError> {
     let resp = client
         .get(OPENALEX_API)
         .query(&[

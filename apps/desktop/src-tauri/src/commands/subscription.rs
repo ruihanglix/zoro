@@ -411,7 +411,9 @@ pub async fn add_feed_item_to_library(
     let dl_client_html = state.http_client.clone();
 
     tokio::spawn(async move {
-        if let Ok(()) = storage::attachments::download_file(&dl_client, &pdf_url_clone, &pdf_path).await {
+        if let Ok(()) =
+            storage::attachments::download_file(&dl_client, &pdf_url_clone, &pdf_path).await
+        {
             let file_size = storage::attachments::get_file_size(&pdf_path);
             if let Ok(dl_db) = zoro_db::Database::open(&db_path) {
                 let _ = attachments::insert_attachment(
@@ -436,7 +438,13 @@ pub async fn add_feed_item_to_library(
         .unwrap_or_default();
     tokio::spawn(async move {
         // Use zoro_arxiv to fetch self-contained HTML (images/CSS inlined as base64)
-        match zoro_arxiv::fetch::fetch_and_save(&proxy_config_for_html, &arxiv_id_for_html, &html_path).await {
+        match zoro_arxiv::fetch::fetch_and_save(
+            &proxy_config_for_html,
+            &arxiv_id_for_html,
+            &html_path,
+        )
+        .await
+        {
             Ok(()) => {
                 // Run cleanup on the downloaded HTML
                 let _ = zoro_arxiv::clean::clean_html_file(&html_path, &[]).await;
@@ -461,8 +469,12 @@ pub async fn add_feed_item_to_library(
                     "Failed to fetch self-contained arXiv HTML, falling back to direct download"
                 );
                 // Fallback to simple download
-                if let Ok(()) =
-                    storage::attachments::download_file(&dl_client_html, &html_url_clone, &html_path).await
+                if let Ok(()) = storage::attachments::download_file(
+                    &dl_client_html,
+                    &html_url_clone,
+                    &html_path,
+                )
+                .await
                 {
                     let file_size = storage::attachments::get_file_size(&html_path);
                     if let Ok(dl_db) = zoro_db::Database::open(&db_path_html) {
@@ -765,7 +777,11 @@ pub async fn fetch_feed_items_by_date(
     Ok(filtered)
 }
 
-fn spawn_thumbnail_downloads(client: &reqwest::Client, items: &[FeedItemResponse], data_dir: &std::path::Path) {
+fn spawn_thumbnail_downloads(
+    client: &reqwest::Client,
+    items: &[FeedItemResponse],
+    data_dir: &std::path::Path,
+) {
     let urls_to_cache: Vec<String> = items
         .iter()
         .filter(|f| f.cached_thumbnail_path.is_none())

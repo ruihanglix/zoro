@@ -25,7 +25,10 @@ pub async fn fetch_bibtex(client: &reqwest::Client, doi: &str) -> Result<String,
 }
 
 /// Like `fetch_bibtex` but also returns raw HTTP debug info.
-pub async fn fetch_bibtex_debug(client: &reqwest::Client, doi: &str) -> Result<(String, HttpDebugInfo), MetadataError> {
+pub async fn fetch_bibtex_debug(
+    client: &reqwest::Client,
+    doi: &str,
+) -> Result<(String, HttpDebugInfo), MetadataError> {
     fetch_doi_content(client, doi, "application/x-bibtex").await
 }
 
@@ -36,7 +39,11 @@ pub async fn fetch_bibtex_debug(client: &reqwest::Client, doi: &str) -> Result<(
 /// Supported styles: `apa`, `ieee`, `modern-language-association`,
 /// `chicago-author-date`, `chicago-fullnote-bibliography`, `vancouver`,
 /// `harvard-cite-them-right`, `nature`, `science`, and any CSL style name.
-pub async fn fetch_formatted_citation(client: &reqwest::Client, doi: &str, style: &str) -> Result<String, MetadataError> {
+pub async fn fetch_formatted_citation(
+    client: &reqwest::Client,
+    doi: &str,
+    style: &str,
+) -> Result<String, MetadataError> {
     let accept = format!("text/x-bibliography; style={}", style);
     let (text, _) = fetch_doi_content(client, doi, &accept).await?;
     Ok(text)

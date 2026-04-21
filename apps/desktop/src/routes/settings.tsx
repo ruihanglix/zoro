@@ -1007,6 +1007,7 @@ export function Settings() {
 				apiKeySet: config.apiKeySet,
 				models: mainModels,
 				format: savedMainProvider?.format || "openai",
+				headers: savedMainProvider?.headers || {},
 				isDefault: false,
 			};
 			const additionalProviders = (config.providers || [])

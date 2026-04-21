@@ -2,9 +2,9 @@
 // Licensed under the AGPL-3.0 license.
 // See LICENSE file in the project root for full license information.
 
+use crate::AppState;
 use std::collections::HashMap;
 use tauri::State;
-use crate::AppState;
 
 /// Generic HTTP GET proxy — lets the frontend bypass browser CORS restrictions
 /// by routing the request through the Rust backend (reqwest).

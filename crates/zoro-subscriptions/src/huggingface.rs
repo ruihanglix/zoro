@@ -200,7 +200,9 @@ pub fn extract_source_date(item: &SubscriptionItem) -> Option<String> {
 /// Probes from today backwards (up to 7 days) using `?date=YYYY-MM-DD` and
 /// returns the first date that has at least one paper. This matches the date
 /// shown on the HuggingFace Daily Papers website.
-pub async fn fetch_latest_date(client: &reqwest::Client) -> Result<Option<String>, SubscriptionError> {
+pub async fn fetch_latest_date(
+    client: &reqwest::Client,
+) -> Result<Option<String>, SubscriptionError> {
     let today = chrono::Utc::now().date_naive();
 
     // Look back up to 7 days (covers weekends and holidays)

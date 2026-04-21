@@ -61,7 +61,10 @@ const S2_FIELDS: &str = "title,abstract,year,venue,publicationDate,externalIds,j
 /// Fetch paper metadata from Semantic Scholar.
 ///
 /// `paper_id` can be: `DOI:10.xxx`, `ArXiv:2301.00001`, `CorpusId:xxx`, or an S2 paper ID.
-pub async fn fetch_semantic_scholar(client: &reqwest::Client, paper_id: &str) -> Result<S2Paper, MetadataError> {
+pub async fn fetch_semantic_scholar(
+    client: &reqwest::Client,
+    paper_id: &str,
+) -> Result<S2Paper, MetadataError> {
     let url = format!("{}/{}?fields={}", S2_API, paper_id, S2_FIELDS);
     let resp = client
         .get(&url)
@@ -97,7 +100,10 @@ struct S2SearchResponse {
 /// Search Semantic Scholar by title and return the best match.
 /// Uses relevance search; only returns a result if the top hit title
 /// closely matches the query to avoid false positives.
-pub async fn search_by_title(client: &reqwest::Client, title: &str) -> Result<Option<S2Paper>, MetadataError> {
+pub async fn search_by_title(
+    client: &reqwest::Client,
+    title: &str,
+) -> Result<Option<S2Paper>, MetadataError> {
     let resp = client
         .get(format!("{}/search", S2_API))
         .query(&[("query", title), ("fields", S2_FIELDS), ("limit", "3")])

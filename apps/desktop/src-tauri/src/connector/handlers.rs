@@ -195,7 +195,8 @@ pub async fn save_item(
                 let app = app_handle.clone();
                 let title = paper_title.clone();
                 let task_id = format!("pdf-{}", pid);
-                let dl_client = app_state.http_client.clone();                emit_task(
+                let dl_client = app_state.http_client.clone();
+                emit_task(
                     &app,
                     &BackgroundTaskEvent {
                         task_id: task_id.clone(),
@@ -207,8 +208,12 @@ pub async fn save_item(
                     },
                 );
                 tokio::spawn(async move {
-                    match crate::storage::attachments::download_file(&dl_client, &pdf_url_clone, &pdf_path)
-                        .await
+                    match crate::storage::attachments::download_file(
+                        &dl_client,
+                        &pdf_url_clone,
+                        &pdf_path,
+                    )
+                    .await
                     {
                         Ok(()) => {
                             let file_size = crate::storage::attachments::get_file_size(&pdf_path);
@@ -263,9 +268,12 @@ pub async fn save_item(
                 let html_app = app_handle.clone();
                 let dl_client_html = app_state.http_client.clone();
                 tokio::spawn(async move {
-                    if let Ok(()) =
-                        crate::storage::attachments::download_file(&dl_client_html, &html_url_clone, &html_path)
-                            .await
+                    if let Ok(()) = crate::storage::attachments::download_file(
+                        &dl_client_html,
+                        &html_url_clone,
+                        &html_path,
+                    )
+                    .await
                     {
                         let file_size = crate::storage::attachments::get_file_size(&html_path);
                         if let Ok(db) = zoro_db::Database::open(&dbp) {
@@ -377,7 +385,9 @@ pub async fn save_item(
                                         let pdf_path = enrich_paper_dir.join("paper.pdf");
                                         if !pdf_path.exists() {
                                             match crate::storage::attachments::download_file(
-                                                &enrich_client, pdf_url, &pdf_path,
+                                                &enrich_client,
+                                                pdf_url,
+                                                &pdf_path,
                                             )
                                             .await
                                             {

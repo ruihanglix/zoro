@@ -76,7 +76,10 @@ impl CrossRefWork {
 }
 
 /// Fetch metadata from CrossRef API for a DOI.
-pub async fn fetch_crossref_metadata(client: &reqwest::Client, doi: &str) -> Result<CrossRefWork, MetadataError> {
+pub async fn fetch_crossref_metadata(
+    client: &reqwest::Client,
+    doi: &str,
+) -> Result<CrossRefWork, MetadataError> {
     let url = format!("{}/{}", CROSSREF_API, doi);
     let resp = client
         .get(&url)

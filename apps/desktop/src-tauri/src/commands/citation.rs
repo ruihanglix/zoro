@@ -188,7 +188,9 @@ pub async fn enrich_paper_metadata(
                 );
                 drop(db);
                 tokio::spawn(async move {
-                    match storage::attachments::download_file(&dl_client, &pdf_url_clone, &pdf_path).await {
+                    match storage::attachments::download_file(&dl_client, &pdf_url_clone, &pdf_path)
+                        .await
+                    {
                         Ok(()) => {
                             let file_size = storage::attachments::get_file_size(&pdf_path);
                             if let Ok(db) = zoro_db::Database::open(&dbp) {
@@ -295,9 +297,10 @@ pub async fn apply_metadata_candidate(
     arxiv_id: Option<String>,
 ) -> Result<PaperResponse, String> {
     // If the candidate has a DOI or arXiv, run the full enrichment pipeline
-    let enrichment = zoro_metadata::enrich_paper(&state.http_client, doi.as_deref(), arxiv_id.as_deref())
-        .await
-        .map_err(|e| format!("Enrichment failed: {}", e))?;
+    let enrichment =
+        zoro_metadata::enrich_paper(&state.http_client, doi.as_deref(), arxiv_id.as_deref())
+            .await
+            .map_err(|e| format!("Enrichment failed: {}", e))?;
 
     let db = state
         .db
@@ -493,7 +496,11 @@ fn save_citation_cache(
     Ok(())
 }
 
-async fn fetch_citation_from_doi(client: &reqwest::Client, doi: &str, style: &str) -> Result<CitationResponse, String> {
+async fn fetch_citation_from_doi(
+    client: &reqwest::Client,
+    doi: &str,
+    style: &str,
+) -> Result<CitationResponse, String> {
     if style == "bibtex" {
         let (text, debug) = doi_content_negotiation::fetch_bibtex_debug(client, doi)
             .await
@@ -514,9 +521,10 @@ async fn fetch_citation_from_doi(client: &reqwest::Client, doi: &str, style: &st
     }
 
     let csl_style = doi_content_negotiation::normalize_style_name(style);
-    let (text, debug) = doi_content_negotiation::fetch_formatted_citation_debug(client, doi, csl_style)
-        .await
-        .map_err(|e| format!("Failed to fetch citation: {}", e))?;
+    let (text, debug) =
+        doi_content_negotiation::fetch_formatted_citation_debug(client, doi, csl_style)
+            .await
+            .map_err(|e| format!("Failed to fetch citation: {}", e))?;
     let accept = format!("text/x-bibliography; style={}", csl_style);
     Ok(CitationResponse {
         text,

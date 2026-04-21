@@ -59,8 +59,7 @@ pub async fn list_paper_links(
         .db
         .lock()
         .map_err(|e| format!("DB lock error: {}", e))?;
-    let rows =
-        paper_links::list_paper_links(&db.conn, &paper_id).map_err(|e| format!("{}", e))?;
+    let rows = paper_links::list_paper_links(&db.conn, &paper_id).map_err(|e| format!("{}", e))?;
     Ok(rows.iter().map(row_to_response).collect())
 }
 

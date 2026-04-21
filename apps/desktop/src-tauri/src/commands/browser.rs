@@ -4,9 +4,9 @@
 
 use std::sync::atomic::{AtomicBool, Ordering};
 
+use crate::AppState;
 use serde::Serialize;
 use tauri::{Emitter, LogicalPosition, LogicalSize, Manager, State, WebviewUrl};
-use crate::AppState;
 
 /// Global dark mode state shared between the `browser_set_dark_mode` command
 /// and the `on_page_load` callback so that newly loaded pages also receive
@@ -76,6 +76,7 @@ struct BrowserPageInfoEvent {
 }
 
 #[tauri::command]
+#[allow(clippy::too_many_arguments)]
 pub async fn create_browser_webview(
     app: tauri::AppHandle,
     state: State<'_, AppState>,
@@ -251,7 +252,7 @@ pub async fn create_browser_webview(
 
                 // Inject dark-mode CSS if globally enabled
                 if DARK_MODE.load(Ordering::Relaxed) {
-                    let _ = webview.eval(&dark_mode_js(true));
+                    let _ = webview.eval(dark_mode_js(true));
                 }
 
                 // Inject clipboard helper: tracks the last focused editable

@@ -42,10 +42,7 @@ pub fn insert_paper_link(
     })
 }
 
-pub fn list_paper_links(
-    conn: &Connection,
-    paper_id: &str,
-) -> Result<Vec<PaperLinkRow>, DbError> {
+pub fn list_paper_links(conn: &Connection, paper_id: &str) -> Result<Vec<PaperLinkRow>, DbError> {
     let mut stmt = conn.prepare(
         "SELECT id, paper_id, url, title, favicon, created_date
          FROM paper_links WHERE paper_id = ?1 ORDER BY created_date DESC",

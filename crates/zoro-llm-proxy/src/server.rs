@@ -514,7 +514,9 @@ async fn forward_anthropic(
     // Extract system messages and user/assistant messages
     let (system_text, messages) = convert_messages_to_anthropic(&req.messages);
 
-    let max_tokens = req.rest.get("max_tokens")
+    let max_tokens = req
+        .rest
+        .get("max_tokens")
         .and_then(|v| v.as_u64())
         .unwrap_or(4096) as u32;
 
@@ -575,15 +577,13 @@ async fn forward_anthropic(
         // Stream: convert Anthropic SSE events to OpenAI SSE format
         let stream = upstream_resp.bytes_stream();
         let model = req.model.clone();
-        let mapped = stream.map(move |chunk_result| {
-            match chunk_result {
-                Ok(bytes) => {
-                    let text = String::from_utf8_lossy(&bytes);
-                    let converted = convert_anthropic_sse_to_openai(&text, &model);
-                    Ok::<_, std::io::Error>(axum::body::Bytes::from(converted))
-                }
-                Err(e) => Err(std::io::Error::new(std::io::ErrorKind::Other, e)),
+        let mapped = stream.map(move |chunk_result| match chunk_result {
+            Ok(bytes) => {
+                let text = String::from_utf8_lossy(&bytes);
+                let converted = convert_anthropic_sse_to_openai(&text, &model);
+                Ok::<_, std::io::Error>(axum::body::Bytes::from(converted))
             }
+            Err(e) => Err(std::io::Error::other(e)),
         });
         let body = Body::from_stream(mapped);
         Ok(Response::builder()
@@ -607,7 +607,9 @@ async fn forward_anthropic(
 // ── Anthropic format converters ─────────────────────────────────────────────
 
 /// Extract system messages to a single string and convert remaining messages to Anthropic format.
-fn convert_messages_to_anthropic(messages: &[serde_json::Value]) -> (String, Vec<serde_json::Value>) {
+fn convert_messages_to_anthropic(
+    messages: &[serde_json::Value],
+) -> (String, Vec<serde_json::Value>) {
     let mut system_parts = Vec::new();
     let mut converted = Vec::new();
 
@@ -618,7 +620,11 @@ fn convert_messages_to_anthropic(messages: &[serde_json::Value]) -> (String, Vec
         if role == "system" {
             system_parts.push(content.to_string());
         } else {
-            let anthropic_role = if role == "assistant" { "assistant" } else { "user" };
+            let anthropic_role = if role == "assistant" {
+                "assistant"
+            } else {
+                "user"
+            };
             converted.push(serde_json::json!({
                 "role": anthropic_role,
                 "content": content,
@@ -637,7 +643,8 @@ fn convert_anthropic_response_to_openai(raw: &str, model: &str) -> String {
     };
 
     // Extract text from content[0].text
-    let text = parsed.get("content")
+    let text = parsed
+        .get("content")
         .and_then(|c| c.as_array())
         .and_then(|arr| {
             // Find first text block
@@ -651,7 +658,8 @@ fn convert_anthropic_response_to_openai(raw: &str, model: &str) -> String {
         })
         .unwrap_or("");
 
-    let stop_reason = parsed.get("stop_reason")
+    let stop_reason = parsed
+        .get("stop_reason")
         .and_then(|r| r.as_str())
         .unwrap_or("end_turn");
 
@@ -676,7 +684,8 @@ fn convert_anthropic_response_to_openai(raw: &str, model: &str) -> String {
             },
             "finish_reason": finish_reason,
         }],
-    }).to_string()
+    })
+    .to_string()
 }
 
 /// Convert Anthropic SSE events to OpenAI SSE format (line-by-line).
@@ -725,7 +734,8 @@ fn convert_anthropic_sse_to_openai(chunk: &str, model: &str) -> String {
                 }
                 "message_delta" => {
                     if let Some(delta) = parsed.get("delta") {
-                        if let Some(stop_reason) = delta.get("stop_reason").and_then(|r| r.as_str()) {
+                        if let Some(stop_reason) = delta.get("stop_reason").and_then(|r| r.as_str())
+                        {
                             let finish_reason = match stop_reason {
                                 "end_turn" => "stop",
                                 "tool_use" => "tool_calls",

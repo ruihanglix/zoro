@@ -11,7 +11,11 @@ use crate::{openalex, semantic_scholar, unpaywall};
 /// 2. Semantic Scholar — `openAccessPdf` field
 /// 3. Unpaywall — `best_oa_location.url_for_pdf` (DOI required)
 /// 4. OpenAlex — `best_oa_location.pdf_url` (DOI required)
-pub async fn resolve_pdf_url(client: &reqwest::Client, doi: Option<&str>, arxiv_id: Option<&str>) -> Option<String> {
+pub async fn resolve_pdf_url(
+    client: &reqwest::Client,
+    doi: Option<&str>,
+    arxiv_id: Option<&str>,
+) -> Option<String> {
     // 1. ArXiv: trivial derivation, no network needed
     if let Some(id) = arxiv_id {
         let id = id.trim();

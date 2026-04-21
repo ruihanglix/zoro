@@ -72,7 +72,11 @@ struct DblpAuthor {
 }
 
 /// Search DBLP by query and return up to `limit` hits.
-pub async fn search_by_query(client: &reqwest::Client, query: &str, limit: usize) -> Result<Vec<DblpHit>, MetadataError> {
+pub async fn search_by_query(
+    client: &reqwest::Client,
+    query: &str,
+    limit: usize,
+) -> Result<Vec<DblpHit>, MetadataError> {
     let resp = client
         .get(DBLP_SEARCH_API)
         .query(&[("q", query), ("format", "json"), ("h", &limit.to_string())])

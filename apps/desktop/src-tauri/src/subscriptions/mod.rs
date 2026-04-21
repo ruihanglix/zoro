@@ -40,14 +40,19 @@ pub async fn start_poller(app: AppHandle) {
                     let source = HuggingFaceDailyPapers::new(app_state.http_client.clone());
                     // Resolve the latest date first, then fetch by date so
                     // poller results are consistent with the date-based API.
-                    let latest_date = match zoro_subscriptions::fetch_latest_date(&app_state.http_client).await {
-                        Ok(Some(d)) => d,
-                        Ok(None) => chrono::Utc::now().format("%Y-%m-%d").to_string(),
-                        Err(e) => {
-                            tracing::error!("Failed to fetch latest date for {}: {}", sub.name, e);
-                            continue;
-                        }
-                    };
+                    let latest_date =
+                        match zoro_subscriptions::fetch_latest_date(&app_state.http_client).await {
+                            Ok(Some(d)) => d,
+                            Ok(None) => chrono::Utc::now().format("%Y-%m-%d").to_string(),
+                            Err(e) => {
+                                tracing::error!(
+                                    "Failed to fetch latest date for {}: {}",
+                                    sub.name,
+                                    e
+                                );
+                                continue;
+                            }
+                        };
                     match source.fetch_by_date(&latest_date).await {
                         Ok(items) => {
                             // Collect thumbnail URLs before entering DB lock scope

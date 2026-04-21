@@ -156,7 +156,10 @@ impl StreamingClient {
             .post(&url)
             .header("Authorization", format!("Bearer {}", self.api_key))
             .header("Content-Type", "application/json");
-        let resp = self.custom_headers.iter().fold(resp, |r, (k, v)| r.header(k.as_str(), v.as_str()));
+        let resp = self
+            .custom_headers
+            .iter()
+            .fold(resp, |r, (k, v)| r.header(k.as_str(), v.as_str()));
         let resp = resp
             .json(&body)
             .timeout(std::time::Duration::from_secs(300))
@@ -394,7 +397,10 @@ impl StreamingClient {
             .header("x-api-key", &self.api_key)
             .header("anthropic-version", "2023-06-01")
             .header("Content-Type", "application/json");
-        let resp = self.custom_headers.iter().fold(resp, |r, (k, v)| r.header(k.as_str(), v.as_str()));
+        let resp = self
+            .custom_headers
+            .iter()
+            .fold(resp, |r, (k, v)| r.header(k.as_str(), v.as_str()));
         let resp = resp
             .json(&body)
             .timeout(std::time::Duration::from_secs(300))
@@ -487,22 +493,17 @@ impl StreamingClient {
                                 delta.get("type").and_then(|t| t.as_str()).unwrap_or("");
                             match delta_type {
                                 "text_delta" => {
-                                    if let Some(text) =
-                                        delta.get("text").and_then(|t| t.as_str())
-                                    {
+                                    if let Some(text) = delta.get("text").and_then(|t| t.as_str()) {
                                         accumulated_text.push_str(text);
                                         on_chunk(text);
                                     }
                                 }
                                 "input_json_delta" => {
                                     if let Some(idx) = current_tool_index {
-                                        if let Some(partial) = delta
-                                            .get("partial_json")
-                                            .and_then(|p| p.as_str())
+                                        if let Some(partial) =
+                                            delta.get("partial_json").and_then(|p| p.as_str())
                                         {
-                                            tool_accumulators[idx]
-                                                .arguments
-                                                .push_str(partial);
+                                            tool_accumulators[idx].arguments.push_str(partial);
                                         }
                                     }
                                 }
@@ -607,10 +608,8 @@ fn convert_content_for_anthropic(content: Option<&serde_json::Value>) -> serde_j
                             if parts.len() == 2 {
                                 let media_info = parts[0]; // e.g. "image/png;base64"
                                 let data = parts[1];
-                                let media_type = media_info
-                                    .split(';')
-                                    .next()
-                                    .unwrap_or("image/png");
+                                let media_type =
+                                    media_info.split(';').next().unwrap_or("image/png");
                                 return Some(serde_json::json!({
                                     "type": "image",
                                     "source": {

@@ -263,7 +263,14 @@ pub async fn plugin_ai_chat(
         .collect();
 
     // Use the non-streaming ChatClient with raw messages
-    let client = zoro_ai::client::ChatClient::new(state.http_client.clone(), &base_url, &api_key, &model, resolved.resolved_format, resolved.resolved_headers.clone());
+    let client = zoro_ai::client::ChatClient::new(
+        state.http_client.clone(),
+        &base_url,
+        &api_key,
+        &model,
+        resolved.resolved_format,
+        resolved.resolved_headers.clone(),
+    );
 
     // Extract system and user messages for the ChatClient API
     let system_prompt = messages
@@ -349,7 +356,14 @@ pub async fn plugin_ai_chat_stream(
     let http_client = state.http_client.clone();
 
     tokio::spawn(async move {
-        let client = zoro_ai::streaming::StreamingClient::new(http_client, &base_url, &api_key, &model, resolved.resolved_format, resolved.resolved_headers.clone());
+        let client = zoro_ai::streaming::StreamingClient::new(
+            http_client,
+            &base_url,
+            &api_key,
+            &model,
+            resolved.resolved_format,
+            resolved.resolved_headers.clone(),
+        );
 
         let max_tokens = input.max_tokens;
 
