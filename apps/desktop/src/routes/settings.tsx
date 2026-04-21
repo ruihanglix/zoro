@@ -49,7 +49,6 @@ import {
 	CheckCircle,
 	ChevronDown,
 	ChevronRight,
-	Cloud,
 	Download,
 	ExternalLink,
 	FileText,
@@ -118,11 +117,9 @@ type SettingsSection =
 	| "ai-lab"
 	| "general"
 	| "keybindings"
-	| "connector"
+	| "connector-export"
 	| "subscriptions"
-	| "storage"
-	| "sync"
-	| "export"
+	| "storage-sync"
 	| "about"
 	| "plugins-general"
 	| "reader"
@@ -171,14 +168,12 @@ const NAV_GROUPS: NavGroup[] = [
 				icon: BookOpenText,
 			},
 			{
-				id: "connector",
-				labelKey: "settings.navBrowserConnector",
+				id: "connector-export",
+				labelKey: "settings.navConnectorExport",
 				icon: Globe,
 			},
 			{ id: "subscriptions", labelKey: "settings.navSubscriptions", icon: Rss },
-			{ id: "storage", labelKey: "settings.navStorage", icon: HardDrive },
-			{ id: "sync", labelKey: "settings.navWebdavSync", icon: Cloud },
-			{ id: "export", labelKey: "settings.navExportData", icon: Download },
+			{ id: "storage-sync", labelKey: "settings.navStorageSync", icon: HardDrive },
 			{ id: "about", labelKey: "settings.navAbout", icon: Info },
 		],
 	},
@@ -3948,7 +3943,9 @@ export function Settings() {
 							</div>
 						)}
 
-						{section === "connector" && connectorStatus && (
+						{section === "connector-export" && (
+							<div className="space-y-8">
+								{connectorStatus && (
 							<div className="space-y-3 text-sm">
 								<div className="flex items-center gap-2">
 									<span>{t("settings.zoroConnector")}</span>
@@ -4284,6 +4281,150 @@ export function Settings() {
 									</p>
 								</div>
 							</div>
+								)}
+								<div className="space-y-5">
+								<div className="space-y-2">
+									<h3 className="text-sm font-semibold">
+										{t("settings.export")}
+									</h3>
+									<div className="flex items-center gap-2">
+										<Button
+											variant="outline"
+											size="sm"
+											onClick={handleExportAll}
+										>
+											{t("settings.exportAllBibtex")}
+										</Button>
+										<Button
+											variant="outline"
+											size="sm"
+											onClick={handleExportRis}
+										>
+											{t("settings.exportAllRis")}
+										</Button>
+									</div>
+									{exportResult && (
+										<div className="space-y-1">
+											<p className="text-[11px] font-medium text-muted-foreground">
+												{t("settings.bibtexOutput")}:
+											</p>
+											<pre className="max-h-32 overflow-auto rounded-md bg-muted p-2 text-[11px] font-mono">
+												{exportResult}
+											</pre>
+										</div>
+									)}
+									{exportRisResult && (
+										<div className="space-y-1">
+											<p className="text-[11px] font-medium text-muted-foreground">
+												{t("settings.risOutput")}:
+											</p>
+											<pre className="max-h-32 overflow-auto rounded-md bg-muted p-2 text-[11px] font-mono">
+												{exportRisResult}
+											</pre>
+										</div>
+									)}
+								</div>
+
+								<Separator />
+
+								<div className="space-y-2">
+									<h3 className="text-sm font-semibold">
+										{t("zoteroImport.sectionTitle")}
+									</h3>
+									<p className="text-[11px] text-muted-foreground">
+										{t("zoteroImport.sectionDesc")}
+									</p>
+									<Button
+										variant="outline"
+										size="sm"
+										onClick={() => setZoteroImportOpen(true)}
+									>
+										{t("zoteroImport.importFromZotero")}
+									</Button>
+									<ZoteroImportDialog
+										open={zoteroImportOpen}
+										onClose={() => setZoteroImportOpen(false)}
+									/>
+								</div>
+
+								<Separator />
+
+								<div className="space-y-2">
+									<h3 className="text-sm font-semibold">
+										{t("settings.libraryStatistics")}
+									</h3>
+									<div className="grid grid-cols-3 gap-2 text-xs">
+										<div className="rounded-md border p-2.5">
+											<p className="text-muted-foreground">
+												{t("settings.papers")}
+											</p>
+											<p className="text-lg font-semibold">
+												{storageInfo?.total_papers ?? 0}
+											</p>
+										</div>
+										<div className="rounded-md border p-2.5">
+											<p className="text-muted-foreground">
+												{t("settings.collections")}
+											</p>
+											<p className="text-lg font-semibold">
+												{collections.length}
+											</p>
+										</div>
+										<div className="rounded-md border p-2.5">
+											<p className="text-muted-foreground">{t("paper.tags")}</p>
+											<p className="text-lg font-semibold">{tags.length}</p>
+										</div>
+									</div>
+								</div>
+
+								<Separator />
+
+								<div className="space-y-2">
+									<h3 className="text-sm font-semibold">
+										{t("settings.cache")}
+									</h3>
+									<Button
+										variant="outline"
+										size="sm"
+										className="text-destructive hover:text-destructive"
+										onClick={handleClearTranslations}
+										disabled={clearingTranslations}
+									>
+										<Trash2 className="mr-1.5 h-3.5 w-3.5" />
+										{clearingTranslations
+											? t("settings.clearing")
+											: t("settings.clearTranslationCache")}
+									</Button>
+									<p className="text-[11px] text-muted-foreground">
+										{t("settings.clearTranslationCacheDesc")}
+									</p>
+								</div>
+
+								<Separator />
+
+								<div className="space-y-2">
+									<h3 className="text-sm font-semibold">
+										{t("settings.dataDirectory")}
+									</h3>
+									<div className="flex items-center gap-2">
+										<code className="bg-muted px-2 py-0.5 rounded text-xs">
+											{storageInfo?.data_dir ?? "~/.zoro/"}
+										</code>
+										<Button
+											variant="outline"
+											size="sm"
+											onClick={handleChangeDataDir}
+											disabled={changingDataDir}
+										>
+											<FolderOpen className="mr-1.5 h-3.5 w-3.5" />
+											{changingDataDir
+												? t("settings.changingDataDir")
+												: t("settings.changeDataDir")}
+										</Button>
+									</div>
+								</div>
+								</div>
+							</div>
 						)}
 
 						{section === "subscriptions" && (
@@ -4356,7 +4497,9 @@ export function Settings() {
 							</div>
 						)}
 
-						{section === "storage" && storageInfo && (
+						{section === "storage-sync" && (
+							<div className="space-y-8">
+								{storageInfo && (
 							<div className="space-y-3">
 								<div className="text-sm">
 									<span className="text-xs text-muted-foreground">
@@ -4448,9 +4591,7 @@ export function Settings() {
 											})}
 								</Button>
 							</div>
-						)}
-
-						{section === "sync" && (
+								)}
 							<div className="space-y-3">
 								{syncStatus && (
 									<div className="flex items-center gap-2 text-sm flex-wrap">
@@ -4820,150 +4961,6 @@ export function Settings() {
 									</div>
 								)}
 							</div>
-						)}
-
-						{section === "export" && (
-							<div className="space-y-5">
-								<div className="space-y-2">
-									<h3 className="text-sm font-semibold">
-										{t("settings.export")}
-									</h3>
-									<div className="flex items-center gap-2">
-										<Button
-											variant="outline"
-											size="sm"
-											onClick={handleExportAll}
-										>
-											{t("settings.exportAllBibtex")}
-										</Button>
-										<Button
-											variant="outline"
-											size="sm"
-											onClick={handleExportRis}
-										>
-											{t("settings.exportAllRis")}
-										</Button>
-									</div>
-									{exportResult && (
-										<div className="space-y-1">
-											<p className="text-[11px] font-medium text-muted-foreground">
-												{t("settings.bibtexOutput")}:
-											</p>
-											<pre className="max-h-32 overflow-auto rounded-md bg-muted p-2 text-[11px] font-mono">
-												{exportResult}
-											</pre>
-										</div>
-									)}
-									{exportRisResult && (
-										<div className="space-y-1">
-											<p className="text-[11px] font-medium text-muted-foreground">
-												{t("settings.risOutput")}:
-											</p>
-											<pre className="max-h-32 overflow-auto rounded-md bg-muted p-2 text-[11px] font-mono">
-												{exportRisResult}
-											</pre>
-										</div>
-									)}
-								</div>
-
-								<Separator />
-
-								<div className="space-y-2">
-									<h3 className="text-sm font-semibold">
-										{t("zoteroImport.sectionTitle")}
-									</h3>
-									<p className="text-[11px] text-muted-foreground">
-										{t("zoteroImport.sectionDesc")}
-									</p>
-									<Button
-										variant="outline"
-										size="sm"
-										onClick={() => setZoteroImportOpen(true)}
-									>
-										{t("zoteroImport.importFromZotero")}
-									</Button>
-									<ZoteroImportDialog
-										open={zoteroImportOpen}
-										onClose={() => setZoteroImportOpen(false)}
-									/>
-								</div>
-
-								<Separator />
-
-								<div className="space-y-2">
-									<h3 className="text-sm font-semibold">
-										{t("settings.libraryStatistics")}
-									</h3>
-									<div className="grid grid-cols-3 gap-2 text-xs">
-										<div className="rounded-md border p-2.5">
-											<p className="text-muted-foreground">
-												{t("settings.papers")}
-											</p>
-											<p className="text-lg font-semibold">
-												{storageInfo?.total_papers ?? 0}
-											</p>
-										</div>
-										<div className="rounded-md border p-2.5">
-											<p className="text-muted-foreground">
-												{t("settings.collections")}
-											</p>
-											<p className="text-lg font-semibold">
-												{collections.length}
-											</p>
-										</div>
-										<div className="rounded-md border p-2.5">
-											<p className="text-muted-foreground">{t("paper.tags")}</p>
-											<p className="text-lg font-semibold">{tags.length}</p>
-										</div>
-									</div>
-								</div>
-
-								<Separator />
-
-								<div className="space-y-2">
-									<h3 className="text-sm font-semibold">
-										{t("settings.cache")}
-									</h3>
-									<Button
-										variant="outline"
-										size="sm"
-										className="text-destructive hover:text-destructive"
-										onClick={handleClearTranslations}
-										disabled={clearingTranslations}
-									>
-										<Trash2 className="mr-1.5 h-3.5 w-3.5" />
-										{clearingTranslations
-											? t("settings.clearing")
-											: t("settings.clearTranslationCache")}
-									</Button>
-									<p className="text-[11px] text-muted-foreground">
-										{t("settings.clearTranslationCacheDesc")}
-									</p>
-								</div>
-
-								<Separator />
-
-								<div className="space-y-2">
-									<h3 className="text-sm font-semibold">
-										{t("settings.dataDirectory")}
-									</h3>
-									<div className="flex items-center gap-2">
-										<code className="bg-muted px-2 py-0.5 rounded text-xs">
-											{storageInfo?.data_dir ?? "~/.zoro/"}
-										</code>
-										<Button
-											variant="outline"
-											size="sm"
-											onClick={handleChangeDataDir}
-											disabled={changingDataDir}
-										>
-											<FolderOpen className="mr-1.5 h-3.5 w-3.5" />
-											{changingDataDir
-												? t("settings.changingDataDir")
-												: t("settings.changeDataDir")}
-										</Button>
-									</div>
-								</div>
 							</div>
 						)}
 

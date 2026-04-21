@@ -538,6 +538,8 @@
 		"navStorage": "Speicher",
 		"navWebdavSync": "WebDAV-Synchronisation",
 		"navExportData": "Export & Daten",
+		"navStorageSync": "Speicher & Sync",
+		"navConnectorExport": "Verbindung & Export",
 		"navAbout": "Über",
 		"navKeyboardShortcuts": "Tastaturkürzel",
 		"startupDefaultsNote": "Diese Standardeinstellungen gelten beim App-Start. Änderungen werden beim nächsten Start wirksam.",

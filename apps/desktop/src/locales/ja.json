@@ -538,6 +538,8 @@
 		"navStorage": "ストレージ",
 		"navWebdavSync": "WebDAV同期",
 		"navExportData": "エクスポートとデータ",
+		"navStorageSync": "ストレージと同期",
+		"navConnectorExport": "接続とエクスポート",
 		"navAbout": "概要",
 		"navKeyboardShortcuts": "キーボードショートカット",
 		"startupDefaultsNote": "これらのデフォルト設定はアプリ起動時に適用されます。変更は次回起動時に反映されます。",

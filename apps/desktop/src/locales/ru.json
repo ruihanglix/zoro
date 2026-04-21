@@ -538,6 +538,8 @@
 		"navStorage": "Хранилище",
 		"navWebdavSync": "Синхронизация WebDAV",
 		"navExportData": "Экспорт и данные",
+		"navStorageSync": "Хранилище и синхронизация",
+		"navConnectorExport": "Подключение и экспорт",
 		"navAbout": "О программе",
 		"navKeyboardShortcuts": "Горячие клавиши",
 		"startupDefaultsNote": "Эти настройки применяются при запуске. Изменения вступят в силу после перезапуска.",

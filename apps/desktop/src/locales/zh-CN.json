@@ -538,6 +538,8 @@
 		"navStorage": "存储",
 		"navWebdavSync": "WebDAV 同步",
 		"navExportData": "导出与数据",
+		"navStorageSync": "存储与同步",
+		"navConnectorExport": "连接与导出",
 		"navAbout": "关于",
 		"navKeyboardShortcuts": "键盘快捷键",
 		"startupDefaultsNote": "这些默认设置在应用启动时生效，更改将在下次启动时生效。",

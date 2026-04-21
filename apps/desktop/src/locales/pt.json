@@ -538,6 +538,8 @@
 		"navStorage": "Armazenamento",
 		"navWebdavSync": "Sincronização WebDAV",
 		"navExportData": "Exportação e Dados",
+		"navStorageSync": "Armazenamento e Sincronização",
+		"navConnectorExport": "Conexão e Exportação",
 		"navAbout": "Sobre",
 		"navKeyboardShortcuts": "Atalhos de teclado",
 		"startupDefaultsNote": "Estes padrões se aplicam quando o app é iniciado. As alterações entram em vigor na próxima inicialização.",

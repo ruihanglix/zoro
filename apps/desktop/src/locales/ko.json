@@ -538,6 +538,8 @@
 		"navStorage": "저장소",
 		"navWebdavSync": "WebDAV 동기화",
 		"navExportData": "내보내기 및 데이터",
+		"navStorageSync": "저장소 및 동기화",
+		"navConnectorExport": "연결 및 내보내기",
 		"navAbout": "정보",
 		"navKeyboardShortcuts": "키보드 단축키",
 		"startupDefaultsNote": "이 기본값은 앱 시작 시 적용됩니다. 변경 사항은 다음 실행 시 적용됩니다.",

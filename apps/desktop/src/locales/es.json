@@ -538,6 +538,8 @@
 		"navStorage": "Almacenamiento",
 		"navWebdavSync": "Sincronizacion WebDAV",
 		"navExportData": "Exportar y datos",
+		"navStorageSync": "Almacenamiento y Sincronización",
+		"navConnectorExport": "Conexión y Exportación",
 		"navAbout": "Acerca de",
 		"navKeyboardShortcuts": "Atajos de teclado",
 		"startupDefaultsNote": "Estos valores predeterminados se aplican al iniciar la aplicacion. Los cambios se aplican en el proximo inicio.",
