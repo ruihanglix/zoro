@@ -350,15 +350,38 @@ pub fn build_menu(app: &AppHandle, lang: &str) -> Result<tauri::menu::Menu<Wry>,
         .close_window()
         .build()?;
 
-    // --- Edit menu (all predefined so macOS auto-localises) ---
+    // --- Edit menu ---
+    // We use custom menu items for Cut/Copy/Paste/Select All instead of
+    // the predefined ones (.cut()/.copy()/.paste()/.select_all()) because
+    // macOS predefined items intercept Cmd+C/V/X/A at the OS level and the
+    // resulting native copy: / paste: selectors are not always forwarded to
+    // WKWebView's JavaScript layer (no keydown or copy events). By using
+    // custom items we receive the event through on_menu_event and can emit
+    // it to the frontend where we handle clipboard logic ourselves.
     let edit_menu = SubmenuBuilder::new(app, t(&tr, "edit"))
         .undo()
         .redo()
         .separator()
-        .cut()
-        .copy()
-        .paste()
-        .select_all()
+        .item(
+            &MenuItemBuilder::with_id("edit-cut", "Cut")
+                .accelerator("CmdOrCtrl+X")
+                .build(app)?,
+        )
+        .item(
+            &MenuItemBuilder::with_id("edit-copy", "Copy")
+                .accelerator("CmdOrCtrl+C")
+                .build(app)?,
+        )
+        .item(
+            &MenuItemBuilder::with_id("edit-paste", "Paste")
+                .accelerator("CmdOrCtrl+V")
+                .build(app)?,
+        )
+        .item(
+            &MenuItemBuilder::with_id("edit-select-all", "Select All")
+                .accelerator("CmdOrCtrl+A")
+                .build(app)?,
+        )
         .build()?;
 
     // --- View menu ---
@@ -430,9 +453,11 @@ pub fn register_menu_event_handler(app: &AppHandle) {
     let handle = app.clone();
     app.on_menu_event(move |_app, event| {
         let id = event.id().0.as_str();
-        // Only forward our custom IDs; predefined items (undo/copy/etc.)
-        // are handled natively by macOS.
         match id {
+            // Custom edit commands — forwarded to the frontend which handles
+            // clipboard and selection operations via JavaScript.
+            "edit-cut" | "edit-copy" | "edit-paste" | "edit-select-all" |
+            // Custom navigation / UI IDs
             "add-paper" | "open-library" | "import" | "settings" | "zoom-in" | "zoom-out"
             | "actual-size" | "toggle-sidebar" | "view-library" | "view-feed"
             | "view-papers-cool" | "theme-light" | "theme-dark" | "theme-system" | "about"

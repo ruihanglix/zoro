@@ -68,6 +68,7 @@ import type {
 } from "@/stores/uiStore";
 import { convertFileSrc } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
+import { writeText as tauriWriteText } from "@tauri-apps/plugin-clipboard-manager";
 import { readFile } from "@tauri-apps/plugin-fs";
 import {
 	ArrowLeft,
@@ -1637,9 +1638,29 @@ function HtmlReader({
 
 	// Cmd/Ctrl+C support: the iframe selection is inaccessible from the parent
 	// when focus is on the popup toolbar. Store selected text and intercept copy.
+	// On macOS, the native menu Cmd+C arrives as a "menu-copy" CustomEvent
+	// dispatched by useMenuEvents (see PdfAnnotationViewer for full explanation).
 	const lastHtmlSelectedTextRef = useRef<string | null>(null);
 
 	useEffect(() => {
+		const writeToClipboard = async (text: string) => {
+			try {
+				await tauriWriteText(text);
+			} catch {
+				try {
+					await navigator.clipboard.writeText(text);
+				} catch {
+					// ignore — both clipboard methods failed
+				}
+			}
+		};
+
+		const handleMenuCopy = () => {
+			const text = lastHtmlSelectedTextRef.current;
+			if (!text) return;
+			writeToClipboard(text);
+		};
+
 		const handleKeyDown = (e: KeyboardEvent) => {
 			if (!(e.metaKey || e.ctrlKey) || e.key !== "c") return;
 			const target = e.target as HTMLElement | null;
@@ -1652,10 +1673,31 @@ function HtmlReader({
 			const text = lastHtmlSelectedTextRef.current;
 			if (!text) return;
 			e.preventDefault();
-			navigator.clipboard.writeText(text);
+			writeToClipboard(text);
 		};
+
+		const handleCopy = (e: ClipboardEvent) => {
+			const target = e.target as HTMLElement | null;
+			const inInput =
+				target?.tagName === "INPUT" ||
+				target?.tagName === "TEXTAREA" ||
+				target?.isContentEditable;
+			if (inInput) return;
+
+			const text = lastHtmlSelectedTextRef.current;
+			if (!text) return;
+			e.preventDefault();
+			e.clipboardData?.setData("text/plain", text);
+		};
+
+		window.addEventListener("menu-copy", handleMenuCopy);
 		document.addEventListener("keydown", handleKeyDown);
-		return () => document.removeEventListener("keydown", handleKeyDown);
+		document.addEventListener("copy", handleCopy);
+		return () => {
+			window.removeEventListener("menu-copy", handleMenuCopy);
+			document.removeEventListener("keydown", handleKeyDown);
+			document.removeEventListener("copy", handleCopy);
+		};
 	}, []);
 
 	const postToIframe = useCallback((message: Record<string, unknown>) => {

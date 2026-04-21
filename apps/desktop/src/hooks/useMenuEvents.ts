@@ -18,6 +18,26 @@ export function useMenuEvents() {
 		const unlisten = listen<string>("menu-event", (event) => {
 			const id = event.payload;
 			switch (id) {
+				// Edit — clipboard & selection
+				// These are custom menu items (not predefined) so that Cmd+C/V/X/A
+				// reach JavaScript. We dispatch the corresponding execCommand so
+				// input fields, textareas, and contenteditable work natively. For
+				// the PDF viewer the custom "menu-copy" event is picked up by a
+				// dedicated handler that reads the stored selection text.
+				case "edit-copy":
+					window.dispatchEvent(new CustomEvent("menu-copy"));
+					document.execCommand("copy");
+					break;
+				case "edit-cut":
+					document.execCommand("cut");
+					break;
+				case "edit-paste":
+					document.execCommand("paste");
+					break;
+				case "edit-select-all":
+					document.execCommand("selectAll");
+					break;
+
 				// File
 				case "add-paper":
 					useUiStore.getState().setAddPaperDialogOpen(true);
