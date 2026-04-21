@@ -53,6 +53,14 @@ import {
 	useTranslationLoading,
 	useTranslationStore,
 } from "@/stores/translationStore";
+import {
+	DropdownMenu,
+	DropdownMenuContent,
+	DropdownMenuItem,
+	DropdownMenuSeparator,
+	DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { useQuickPromptStore, type PromptIndicator } from "@/stores/quickPromptStore";
 import { useIsDarkMode, useUiStore } from "@/stores/uiStore";
 import type {
 	HtmlReaderFontFamily,
@@ -76,11 +84,13 @@ import {
 	PanelLeft,
 	PanelRight,
 	Pen,
+	Pencil,
 	RotateCcw,
 	Search,
 	StickyNote,
 	Type,
 	Underline,
+	Zap,
 } from "lucide-react";
 import { IconFileTypePdf } from "@tabler/icons-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -1059,6 +1069,9 @@ function ReaderToolbar({
 				/>
 			)}
 
+			{/* Quick Prompts */}
+			{!isFeedReaderMode && <QuickPromptsDropdown />}
+
 			{isFeedReaderMode && (
 				<Badge variant="outline" className="text-xs">
 					{t("reader.streamingFromArxiv")}
@@ -1436,6 +1449,90 @@ function TranslateToolbar({
 				)}
 			</Button>
 		</>
+	);
+}
+
+function QuickPromptsDropdown() {
+	const { t } = useTranslation();
+	const prompts = useQuickPromptStore((s) => s.prompts);
+	const openTab = useTabStore((s) => s.openTab);
+	const [copied, setCopied] = useState(false);
+
+	const handleCopy = useCallback(async (content: string) => {
+		await navigator.clipboard.writeText(content);
+		setCopied(true);
+		setTimeout(() => setCopied(false), 1500);
+	}, []);
+
+	const handleEditPrompts = useCallback(() => {
+		openTab({
+			id: "settings",
+			type: "settings",
+			title: "Settings",
+			settingsSection: "reader-quick-prompts",
+		});
+	}, [openTab]);
+
+	return (
+		<>
+			<div className="h-5 w-px bg-border" />
+			<DropdownMenu>
+				<DropdownMenuTrigger asChild>
+					<Button
+						variant="ghost"
+						size="icon"
+						className="h-7 w-7"
+						title={t("settings.quickPrompts")}
+					>
+						{copied ? (
+							<Check className="h-3.5 w-3.5 text-green-500" />
+						) : (
+							<Zap className="h-3.5 w-3.5" />
+						)}
+					</Button>
+				</DropdownMenuTrigger>
+				<DropdownMenuContent align="start" className="w-56">
+					{prompts.length === 0 ? (
+						<div className="px-2 py-3 text-center text-xs text-muted-foreground">
+							{t("settings.quickPromptEmpty")}
+						</div>
+					) : (
+						prompts.map((prompt) => (
+							<DropdownMenuItem
+								key={prompt.id}
+								className="gap-2 cursor-pointer"
+								onClick={() => handleCopy(prompt.content)}
+							>
+								<QuickPromptIndicatorBadge indicator={prompt.indicator} />
+								<span className="truncate">{prompt.label}</span>
+							</DropdownMenuItem>
+						))
+					)}
+					<DropdownMenuSeparator />
+					<DropdownMenuItem
+						className="gap-2 cursor-pointer"
+						onClick={handleEditPrompts}
+					>
+						<Pencil className="h-3.5 w-3.5" />
+						{t("settings.quickPromptEditPrompts")}
+					</DropdownMenuItem>
+				</DropdownMenuContent>
+			</DropdownMenu>
+		</>
+	);
+}
+
+function QuickPromptIndicatorBadge({ indicator }: { indicator: PromptIndicator }) {
+	if (indicator.type === "emoji") {
+		return <span className="text-sm leading-none shrink-0">{indicator.value}</span>;
+	}
+	return (
+		<span
+			className="inline-flex items-center justify-center h-5 w-5 rounded text-[11px] font-bold text-white leading-none shrink-0"
+			style={{ backgroundColor: indicator.color }}
+		>
+			{indicator.value}
+		</span>
 	);
 }
 

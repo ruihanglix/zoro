@@ -26,6 +26,8 @@ export interface Tab {
 	url?: string;
 	/** Display title for the tab */
 	title: string;
+	/** Initial settings section to open (for settings tabs) */
+	settingsSection?: string;
 	/** Timestamp of when this tab was last activated (for idle eviction) */
 	lastActiveAt?: number;
 }

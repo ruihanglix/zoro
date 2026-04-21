@@ -35,6 +35,7 @@ import type {
 	BilingualLayout,
 	Theme,
 } from "@/stores/uiStore";
+import { useTabStore } from "@/stores/tabStore";
 import { getTabLabel, getAllAvailableTabs } from "@/lib/readerTabs";
 import { listen } from "@tauri-apps/api/event";
 import {
@@ -42,6 +43,7 @@ import {
 	ArrowDown,
 	ArrowUp,
 	Book,
+	BookOpenText,
 	Bot,
 	Check,
 	CheckCircle,
@@ -55,6 +57,7 @@ import {
 	FolderOpen,
 	Globe,
 	GraduationCap,
+	GripVertical,
 	HardDrive,
 	Info,
 	Keyboard,
@@ -78,8 +81,31 @@ import {
 	Terminal,
 	Trash2,
 	X,
+	Zap,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
+import {
+	useQuickPromptStore,
+	PRESET_COLORS,
+	type QuickPrompt,
+	type PromptIndicator,
+} from "@/stores/quickPromptStore";
+import {
+	DndContext,
+	closestCenter,
+	KeyboardSensor,
+	PointerSensor,
+	useSensor,
+	useSensors,
+	type DragEndEvent,
+} from "@dnd-kit/core";
+import {
+	SortableContext,
+	sortableKeyboardCoordinates,
+	useSortable,
+	verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 
@@ -100,6 +126,8 @@ type SettingsSection =
 	| "export"
 	| "about"
 	| "plugins-general"
+	| "reader-general"
+	| "reader-quick-prompts"
 	| (string & {}); // Allow dynamic plugin section IDs
 
 type NavItem = { id: SettingsSection; labelKey: string; icon: LucideIcon };
@@ -124,6 +152,21 @@ const NAV_GROUPS: NavGroup[] = [
 			{ id: "ai-mcp", labelKey: "settings.navMcpServer", icon: Terminal },
 			{ id: "ai-cli", labelKey: "settings.navCli", icon: Terminal },
 			{ id: "ai-lab", labelKey: "settings.navLab", icon: FlaskConical },
+		],
+	},
+	{
+		groupLabelKey: "settings.navReader",
+		items: [
+			{
+				id: "reader-general",
+				labelKey: "settings.navReaderGeneral",
+				icon: BookOpenText,
+			},
+			{
+				id: "reader-quick-prompts",
+				labelKey: "settings.navQuickPrompts",
+				icon: Zap,
+			},
 		],
 	},
 	{
@@ -589,7 +632,18 @@ export function Settings() {
 		[t],
 	);
 
-	const [section, setSection] = useState<SettingsSection>("ai-general");
+	// Read initial section from tab's settingsSection (e.g. navigating from reader)
+	const settingsTab = useTabStore((s) => s.tabs.find((tab) => tab.id === "settings"));
+	const [section, setSection] = useState<SettingsSection>(
+		(settingsTab?.settingsSection as SettingsSection) || "ai-general",
+	);
+
+	// When the settingsSection on the tab changes (e.g. reader opens settings to a specific section), sync it
+	useEffect(() => {
+		if (settingsTab?.settingsSection) {
+			setSection(settingsTab.settingsSection as SettingsSection);
+		}
+	}, [settingsTab?.settingsSection]);
 
 	// Dynamic plugin settings contributions
 	const plugins = usePluginStore((s) => s.plugins);
@@ -2281,301 +2335,6 @@ export function Settings() {
 									<p className="text-[11px] text-muted-foreground">
 										{t("settings.fetchAllMissingHtmlDesc")}
 									</p>
-								</div>
-
-								{/* Reader */}
-								<div className="rounded-lg border bg-card/50 p-4 space-y-2">
-									<p className="text-xs font-medium">{t("settings.reader")}</p>
-									<div>
-										<label
-											className="text-xs text-muted-foreground"
-											htmlFor="citation-preview-mode"
-										>
-											{t("settings.citationHoverPreview")}
-										</label>
-										<select
-											id="citation-preview-mode"
-											value={citationPreviewMode}
-											onChange={(e) =>
-												setCitationPreviewMode(
-													e.target.value as CitationPreviewMode,
-												)
-											}
-											className="mt-1 h-8 w-full max-w-xs rounded-md border bg-transparent px-2 text-sm"
-										>
-											<option value="auto">{t("settings.autoMode")}</option>
-											<option value="text">{t("settings.textMode")}</option>
-											<option value="image">{t("settings.imageMode")}</option>
-											<option value="off">{t("settings.offMode")}</option>
-										</select>
-										<p className="text-[11px] text-muted-foreground mt-1">
-											{t("settings.citationHoverPreviewDesc")}
-										</p>
-									</div>
-									<div>
-										<label
-											className="text-xs text-muted-foreground"
-											htmlFor="terminal-font-size"
-										>
-											{t("settings.terminalFontSize")}: {terminalFontSize}px
-										</label>
-										<input
-											id="terminal-font-size"
-											type="range"
-											min={10}
-											max={24}
-											step={1}
-											value={terminalFontSize}
-											onChange={(e) =>
-												setTerminalFontSize(Number(e.target.value))
-											}
-											className="mt-1 w-full max-w-xs"
-										/>
-										<p className="text-[11px] text-muted-foreground mt-1">
-											{t("settings.terminalFontSizeDesc")}
-										</p>
-									</div>
-								</div>
-
-								{/* Reader Panels */}
-								<ReaderPanelsSettings />
-
-								{/* HTML Reader Typography */}
-								<div className="rounded-lg border bg-card/50 p-4 space-y-3 lg:col-span-2 2xl:col-span-2">
-									<div>
-										<p className="text-xs font-medium">
-											{t("settings.htmlTypography")}
-										</p>
-										<p className="text-[11px] text-muted-foreground mt-0.5">
-											{t("settings.htmlTypographyDesc")}
-										</p>
-									</div>
-
-									{/* Font Family + Custom input row */}
-									<div className="flex items-end gap-3 flex-wrap">
-										<div className="flex-1 min-w-[140px]">
-											<label
-												className="text-xs text-muted-foreground"
-												htmlFor="html-font-family"
-											>
-												{t("settings.fontFamily")}
-											</label>
-											<select
-												id="html-font-family"
-												value={htmlReaderTypography.fontFamily}
-												onChange={(e) =>
-													setHtmlReaderTypography({
-														fontFamily: e.target.value as HtmlReaderFontFamily,
-													})
-												}
-												className="mt-1 h-8 w-full rounded-md border bg-transparent px-2 text-sm"
-											>
-												<option value="system">
-													{t("settings.fontFamilySystem")}
-												</option>
-												<option value="serif">
-													{t("settings.fontFamilySerif")}
-												</option>
-												<option value="sans-serif">
-													{t("settings.fontFamilySansSerif")}
-												</option>
-												<option value="cjk">
-													{t("settings.fontFamilyCjk")}
-												</option>
-												<option value="custom">
-													{t("settings.fontFamilyCustom")}
-												</option>
-											</select>
-										</div>
-										{htmlReaderTypography.fontFamily === "custom" && (
-											<div className="flex-1 min-w-[140px]">
-												<label
-													className="text-xs text-muted-foreground"
-													htmlFor="html-custom-font"
-												>
-													{t("settings.customFontFamily")}
-												</label>
-												<input
-													id="html-custom-font"
-													type="text"
-													value={htmlReaderTypography.customFontFamily}
-													onChange={(e) =>
-														setHtmlReaderTypography({
-															customFontFamily: e.target.value,
-														})
-													}
-													placeholder={t(
-														"settings.customFontFamilyPlaceholder",
-													)}
-													className="mt-1 h-8 w-full rounded-md border bg-transparent px-2 text-sm"
-												/>
-											</div>
-										)}
-									</div>
-
-									{/* Sliders in 2-column grid */}
-									<div className="grid grid-cols-2 gap-x-6 gap-y-3">
-										{/* Font Size */}
-										<div>
-											<div className="flex items-center justify-between">
-												<label
-													className="text-xs text-muted-foreground"
-													htmlFor="html-font-size"
-												>
-													{t("settings.fontSize")}
-												</label>
-												<span className="text-xs text-muted-foreground tabular-nums">
-													{htmlReaderTypography.fontSize}px
-												</span>
-											</div>
-											<input
-												id="html-font-size"
-												type="range"
-												min="12"
-												max="24"
-												step="1"
-												value={htmlReaderTypography.fontSize}
-												onChange={(e) =>
-													setHtmlReaderTypography({
-														fontSize: Number(e.target.value),
-													})
-												}
-												className="mt-1 w-full accent-primary"
-											/>
-										</div>
-
-										{/* Line Height */}
-										<div>
-											<div className="flex items-center justify-between">
-												<label
-													className="text-xs text-muted-foreground"
-													htmlFor="html-line-height"
-												>
-													{t("settings.lineHeight")}
-												</label>
-												<span className="text-xs text-muted-foreground tabular-nums">
-													{htmlReaderTypography.lineHeight.toFixed(1)}
-												</span>
-											</div>
-											<input
-												id="html-line-height"
-												type="range"
-												min="1.2"
-												max="2.4"
-												step="0.1"
-												value={htmlReaderTypography.lineHeight}
-												onChange={(e) =>
-													setHtmlReaderTypography({
-														lineHeight: Number(e.target.value),
-													})
-												}
-												className="mt-1 w-full accent-primary"
-											/>
-										</div>
-
-										{/* Font Weight */}
-										<div>
-											<div className="flex items-center justify-between">
-												<label
-													className="text-xs text-muted-foreground"
-													htmlFor="html-font-weight"
-												>
-													{t("settings.fontWeight")}
-												</label>
-												<span className="text-xs text-muted-foreground tabular-nums">
-													{htmlReaderTypography.fontWeight <= 300
-														? t("settings.fontWeightLight")
-														: htmlReaderTypography.fontWeight >= 600
-															? t("settings.fontWeightBold")
-															: t("settings.fontWeightNormal")}
-												</span>
-											</div>
-											<input
-												id="html-font-weight"
-												type="range"
-												min="300"
-												max="700"
-												step="100"
-												value={htmlReaderTypography.fontWeight}
-												onChange={(e) =>
-													setHtmlReaderTypography({
-														fontWeight: Number(e.target.value),
-													})
-												}
-												className="mt-1 w-full accent-primary"
-											/>
-										</div>
-
-										{/* Max Content Width */}
-										<div>
-											<div className="flex items-center justify-between">
-												<label
-													className="text-xs text-muted-foreground"
-													htmlFor="html-max-width"
-												>
-													{t("settings.maxContentWidth")}
-												</label>
-												<span className="text-xs text-muted-foreground tabular-nums">
-													{htmlReaderTypography.maxWidth === 0
-														? t("settings.maxContentWidthUnlimited")
-														: `${htmlReaderTypography.maxWidth}px`}
-												</span>
-											</div>
-											<input
-												id="html-max-width"
-												type="range"
-												min="0"
-												max="1200"
-												step="50"
-												value={htmlReaderTypography.maxWidth}
-												onChange={(e) =>
-													setHtmlReaderTypography({
-														maxWidth: Number(e.target.value),
-													})
-												}
-												className="mt-1 w-full accent-primary"
-											/>
-										</div>
-									</div>
-
-									{/* Bilingual Layout */}
-									<div>
-										<label
-											className="text-xs text-muted-foreground"
-											htmlFor="bilingual-layout"
-										>
-											{t("settings.bilingualLayout")}
-										</label>
-										<p className="text-[11px] text-muted-foreground mt-0.5 mb-1">
-											{t("settings.bilingualLayoutDesc")}
-										</p>
-										<select
-											id="bilingual-layout"
-											value={bilingualLayout}
-											onChange={(e) =>
-												setBilingualLayout(
-													e.target.value as BilingualLayout,
-												)
-											}
-											className="h-8 w-full max-w-[280px] rounded-md border bg-transparent px-2 text-sm"
-										>
-											<option value="interleaved">
-												{t("settings.bilingualLayoutInterleaved")}
-											</option>
-											<option value="side-by-side">
-												{t("settings.bilingualLayoutSideBySide")}
-											</option>
-										</select>
-									</div>
-
-									{/* Reset */}
-									<Button
-										variant="outline"
-										size="sm"
-										onClick={resetHtmlReaderTypography}
-									>
-										{t("settings.resetTypography")}
-									</Button>
 								</div>
 
 								{/* Column layout */}
@@ -5228,6 +4987,309 @@ export function Settings() {
 
 						{section === "plugins-general" && <PluginsGeneralSection />}
 
+						{section === "reader-general" && (
+							<div className="grid grid-cols-1 lg:grid-cols-2 2xl:grid-cols-3 gap-4 items-start">
+								{/* Reader */}
+								<div className="rounded-lg border bg-card/50 p-4 space-y-2">
+									<p className="text-xs font-medium">{t("settings.reader")}</p>
+									<div>
+										<label
+											className="text-xs text-muted-foreground"
+											htmlFor="citation-preview-mode"
+										>
+											{t("settings.citationHoverPreview")}
+										</label>
+										<select
+											id="citation-preview-mode"
+											value={citationPreviewMode}
+											onChange={(e) =>
+												setCitationPreviewMode(
+													e.target.value as CitationPreviewMode,
+												)
+											}
+											className="mt-1 h-8 w-full max-w-xs rounded-md border bg-transparent px-2 text-sm"
+										>
+											<option value="auto">{t("settings.autoMode")}</option>
+											<option value="text">{t("settings.textMode")}</option>
+											<option value="image">{t("settings.imageMode")}</option>
+											<option value="off">{t("settings.offMode")}</option>
+										</select>
+										<p className="text-[11px] text-muted-foreground mt-1">
+											{t("settings.citationHoverPreviewDesc")}
+										</p>
+									</div>
+									<div>
+										<label
+											className="text-xs text-muted-foreground"
+											htmlFor="terminal-font-size"
+										>
+											{t("settings.terminalFontSize")}: {terminalFontSize}px
+										</label>
+										<input
+											id="terminal-font-size"
+											type="range"
+											min={10}
+											max={24}
+											step={1}
+											value={terminalFontSize}
+											onChange={(e) =>
+												setTerminalFontSize(Number(e.target.value))
+											}
+											className="mt-1 w-full max-w-xs"
+										/>
+										<p className="text-[11px] text-muted-foreground mt-1">
+											{t("settings.terminalFontSizeDesc")}
+										</p>
+									</div>
+								</div>
+
+								{/* Reader Panels */}
+								<ReaderPanelsSettings />
+
+								{/* HTML Reader Typography */}
+								<div className="rounded-lg border bg-card/50 p-4 space-y-3 lg:col-span-2 2xl:col-span-2">
+									<div>
+										<p className="text-xs font-medium">
+											{t("settings.htmlTypography")}
+										</p>
+										<p className="text-[11px] text-muted-foreground mt-0.5">
+											{t("settings.htmlTypographyDesc")}
+										</p>
+									</div>
+
+									{/* Font Family + Custom input row */}
+									<div className="flex items-end gap-3 flex-wrap">
+										<div className="flex-1 min-w-[140px]">
+											<label
+												className="text-xs text-muted-foreground"
+												htmlFor="html-font-family"
+											>
+												{t("settings.fontFamily")}
+											</label>
+											<select
+												id="html-font-family"
+												value={htmlReaderTypography.fontFamily}
+												onChange={(e) =>
+													setHtmlReaderTypography({
+														fontFamily: e.target.value as HtmlReaderFontFamily,
+													})
+												}
+												className="mt-1 h-8 w-full rounded-md border bg-transparent px-2 text-sm"
+											>
+												<option value="system">
+													{t("settings.fontFamilySystem")}
+												</option>
+												<option value="serif">
+													{t("settings.fontFamilySerif")}
+												</option>
+												<option value="sans-serif">
+													{t("settings.fontFamilySansSerif")}
+												</option>
+												<option value="cjk">
+													{t("settings.fontFamilyCjk")}
+												</option>
+												<option value="custom">
+													{t("settings.fontFamilyCustom")}
+												</option>
+											</select>
+										</div>
+										{htmlReaderTypography.fontFamily === "custom" && (
+											<div className="flex-1 min-w-[140px]">
+												<label
+													className="text-xs text-muted-foreground"
+													htmlFor="html-custom-font"
+												>
+													{t("settings.customFontFamily")}
+												</label>
+												<input
+													id="html-custom-font"
+													type="text"
+													value={htmlReaderTypography.customFontFamily}
+													onChange={(e) =>
+														setHtmlReaderTypography({
+															customFontFamily: e.target.value,
+														})
+													}
+													placeholder={t(
+														"settings.customFontFamilyPlaceholder",
+													)}
+													className="mt-1 h-8 w-full rounded-md border bg-transparent px-2 text-sm"
+												/>
+											</div>
+										)}
+									</div>
+
+									{/* Sliders in 2-column grid */}
+									<div className="grid grid-cols-2 gap-x-6 gap-y-3">
+										{/* Font Size */}
+										<div>
+											<div className="flex items-center justify-between">
+												<label
+													className="text-xs text-muted-foreground"
+													htmlFor="html-font-size"
+												>
+													{t("settings.fontSize")}
+												</label>
+												<span className="text-xs text-muted-foreground tabular-nums">
+													{htmlReaderTypography.fontSize}px
+												</span>
+											</div>
+											<input
+												id="html-font-size"
+												type="range"
+												min="12"
+												max="24"
+												step="1"
+												value={htmlReaderTypography.fontSize}
+												onChange={(e) =>
+													setHtmlReaderTypography({
+														fontSize: Number(e.target.value),
+													})
+												}
+												className="mt-1 w-full accent-primary"
+											/>
+										</div>
+
+										{/* Line Height */}
+										<div>
+											<div className="flex items-center justify-between">
+												<label
+													className="text-xs text-muted-foreground"
+													htmlFor="html-line-height"
+												>
+													{t("settings.lineHeight")}
+												</label>
+												<span className="text-xs text-muted-foreground tabular-nums">
+													{htmlReaderTypography.lineHeight.toFixed(1)}
+												</span>
+											</div>
+											<input
+												id="html-line-height"
+												type="range"
+												min="1.2"
+												max="2.4"
+												step="0.1"
+												value={htmlReaderTypography.lineHeight}
+												onChange={(e) =>
+													setHtmlReaderTypography({
+														lineHeight: Number(e.target.value),
+													})
+												}
+												className="mt-1 w-full accent-primary"
+											/>
+										</div>
+
+										{/* Font Weight */}
+										<div>
+											<div className="flex items-center justify-between">
+												<label
+													className="text-xs text-muted-foreground"
+													htmlFor="html-font-weight"
+												>
+													{t("settings.fontWeight")}
+												</label>
+												<span className="text-xs text-muted-foreground tabular-nums">
+													{htmlReaderTypography.fontWeight <= 300
+														? t("settings.fontWeightLight")
+														: htmlReaderTypography.fontWeight >= 600
+															? t("settings.fontWeightBold")
+															: t("settings.fontWeightNormal")}
+												</span>
+											</div>
+											<input
+												id="html-font-weight"
+												type="range"
+												min="300"
+												max="700"
+												step="100"
+												value={htmlReaderTypography.fontWeight}
+												onChange={(e) =>
+													setHtmlReaderTypography({
+														fontWeight: Number(e.target.value),
+													})
+												}
+												className="mt-1 w-full accent-primary"
+											/>
+										</div>
+
+										{/* Max Content Width */}
+										<div>
+											<div className="flex items-center justify-between">
+												<label
+													className="text-xs text-muted-foreground"
+													htmlFor="html-max-width"
+												>
+													{t("settings.maxContentWidth")}
+												</label>
+												<span className="text-xs text-muted-foreground tabular-nums">
+													{htmlReaderTypography.maxWidth === 0
+														? t("settings.maxContentWidthUnlimited")
+														: `${htmlReaderTypography.maxWidth}px`}
+												</span>
+											</div>
+											<input
+												id="html-max-width"
+												type="range"
+												min="0"
+												max="1200"
+												step="50"
+												value={htmlReaderTypography.maxWidth}
+												onChange={(e) =>
+													setHtmlReaderTypography({
+														maxWidth: Number(e.target.value),
+													})
+												}
+												className="mt-1 w-full accent-primary"
+											/>
+										</div>
+									</div>
+
+									{/* Bilingual Layout */}
+									<div>
+										<label
+											className="text-xs text-muted-foreground"
+											htmlFor="bilingual-layout"
+										>
+											{t("settings.bilingualLayout")}
+										</label>
+										<p className="text-[11px] text-muted-foreground mt-0.5 mb-1">
+											{t("settings.bilingualLayoutDesc")}
+										</p>
+										<select
+											id="bilingual-layout"
+											value={bilingualLayout}
+											onChange={(e) =>
+												setBilingualLayout(
+													e.target.value as BilingualLayout,
+												)
+											}
+											className="h-8 w-full max-w-[280px] rounded-md border bg-transparent px-2 text-sm"
+										>
+											<option value="interleaved">
+												{t("settings.bilingualLayoutInterleaved")}
+											</option>
+											<option value="side-by-side">
+												{t("settings.bilingualLayoutSideBySide")}
+											</option>
+										</select>
+									</div>
+
+									{/* Reset */}
+									<Button
+										variant="outline"
+										size="sm"
+										onClick={resetHtmlReaderTypography}
+									>
+										{t("settings.resetTypography")}
+									</Button>
+								</div>
+							</div>
+						)}
+
+						{section === "reader-quick-prompts" && (
+							<QuickPromptsSettings />
+						)}
+
 						{/* Dynamic plugin settings sections */}
 						{pluginSettingsContribs.map((contrib) => {
 							const sectionId = `plugin-settings-${contrib.pluginId}-${contrib.contribution.id}`;
@@ -7056,6 +7118,336 @@ function AboutSection() {
 			<p className="text-xs text-muted-foreground">
 				{t("settings.madeBy")}
 			</p>
+		</div>
+	);
+}
+
+/** Quick Prompts settings section with drag-and-drop reordering */
+function QuickPromptsSettings() {
+	const { t } = useTranslation();
+	const { prompts, addPrompt, updatePrompt, removePrompt, reorderPrompts, resetToDefaults } =
+		useQuickPromptStore();
+	const [expandedId, setExpandedId] = useState<string | null>(null);
+
+	const sensors = useSensors(
+		useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+		useSensor(KeyboardSensor, {
+			coordinateGetter: sortableKeyboardCoordinates,
+		}),
+	);
+
+	const handleDragEnd = useCallback(
+		(event: DragEndEvent) => {
+			const { active, over } = event;
+			if (over && active.id !== over.id) {
+				const ids = prompts.map((p) => p.id);
+				const oldIndex = ids.indexOf(active.id as string);
+				const newIndex = ids.indexOf(over.id as string);
+				const newIds = [...ids];
+				newIds.splice(oldIndex, 1);
+				newIds.splice(newIndex, 0, active.id as string);
+				reorderPrompts(newIds);
+			}
+		},
+		[prompts, reorderPrompts],
+	);
+
+	const handleAdd = useCallback(() => {
+		const id = `qp-${Date.now()}`;
+		const newPrompt: QuickPrompt = {
+			id,
+			label: "New Prompt",
+			content: "",
+			indicator: { type: "emoji", value: "✨" },
+		};
+		addPrompt(newPrompt);
+		setExpandedId(id);
+	}, [addPrompt]);
+
+	return (
+		<div className="space-y-4">
+			<div>
+				<p className="text-sm font-semibold">{t("settings.quickPrompts")}</p>
+				<p className="text-[11px] text-muted-foreground mt-0.5">
+					{t("settings.quickPromptsDesc")}
+				</p>
+			</div>
+
+			<DndContext
+				sensors={sensors}
+				collisionDetection={closestCenter}
+				onDragEnd={handleDragEnd}
+			>
+				<SortableContext
+					items={prompts.map((p) => p.id)}
+					strategy={verticalListSortingStrategy}
+				>
+					<div className="space-y-1">
+						{prompts.map((prompt) => (
+							<SortablePromptItem
+								key={prompt.id}
+								prompt={prompt}
+								expanded={expandedId === prompt.id}
+								onToggleExpand={() =>
+									setExpandedId(
+										expandedId === prompt.id ? null : prompt.id,
+									)
+								}
+								onUpdate={(patch) => updatePrompt(prompt.id, patch)}
+								onRemove={() => removePrompt(prompt.id)}
+							/>
+						))}
+					</div>
+				</SortableContext>
+			</DndContext>
+
+			<div className="flex items-center gap-2">
+				<Button
+					variant="outline"
+					size="sm"
+					className="text-xs h-7"
+					onClick={handleAdd}
+				>
+					<Plus className="mr-1 h-3 w-3" />
+					{t("settings.quickPromptAdd")}
+				</Button>
+				<Button
+					variant="ghost"
+					size="sm"
+					className="text-xs h-7"
+					onClick={resetToDefaults}
+				>
+					<RotateCcw className="mr-1 h-3 w-3" />
+					{t("settings.resetToDefaults")}
+				</Button>
+			</div>
+		</div>
+	);
+}
+
+function PromptIndicatorBadge({ indicator }: { indicator: PromptIndicator }) {
+	if (indicator.type === "emoji") {
+		return <span className="text-sm leading-none">{indicator.value}</span>;
+	}
+	return (
+		<span
+			className="inline-flex items-center justify-center h-5 w-5 rounded text-[11px] font-bold text-white leading-none"
+			style={{ backgroundColor: indicator.color }}
+		>
+			{indicator.value}
+		</span>
+	);
+}
+
+function SortablePromptItem({
+	prompt,
+	expanded,
+	onToggleExpand,
+	onUpdate,
+	onRemove,
+}: {
+	prompt: QuickPrompt;
+	expanded: boolean;
+	onToggleExpand: () => void;
+	onUpdate: (patch: Partial<Omit<QuickPrompt, "id">>) => void;
+	onRemove: () => void;
+}) {
+	const { t } = useTranslation();
+	const {
+		attributes,
+		listeners,
+		setNodeRef,
+		transform,
+		transition,
+		isDragging,
+	} = useSortable({ id: prompt.id });
+
+	const style = {
+		transform: CSS.Transform.toString(transform),
+		transition,
+		opacity: isDragging ? 0.5 : 1,
+	};
+
+	return (
+		<div
+			ref={setNodeRef}
+			style={style}
+			className="rounded-md border bg-card/50"
+		>
+			{/* Header row */}
+			<div className="flex items-center gap-2 px-3 py-2">
+				<button
+					type="button"
+					className="cursor-grab text-muted-foreground hover:text-foreground touch-none"
+					{...attributes}
+					{...listeners}
+				>
+					<GripVertical className="h-4 w-4" />
+				</button>
+				<PromptIndicatorBadge indicator={prompt.indicator} />
+				<button
+					type="button"
+					className="flex-1 text-left text-sm truncate"
+					onClick={onToggleExpand}
+				>
+					{prompt.label}
+				</button>
+				<button
+					type="button"
+					className="text-muted-foreground hover:text-foreground"
+					onClick={onToggleExpand}
+				>
+					{expanded ? (
+						<ChevronDown className="h-3.5 w-3.5" />
+					) : (
+						<ChevronRight className="h-3.5 w-3.5" />
+					)}
+				</button>
+				<button
+					type="button"
+					className="text-muted-foreground hover:text-destructive"
+					onClick={onRemove}
+				>
+					<Trash2 className="h-3.5 w-3.5" />
+				</button>
+			</div>
+
+			{/* Expanded editor */}
+			{expanded && (
+				<div className="border-t px-3 py-3 space-y-3">
+					{/* Indicator type */}
+					<div className="space-y-1.5">
+						<label className="text-xs font-medium">
+							{t("settings.quickPromptIndicatorType")}
+						</label>
+						<div className="flex items-center gap-2">
+							<button
+								type="button"
+								className={cn(
+									"rounded-md border px-2.5 py-1 text-xs",
+									prompt.indicator.type === "emoji"
+										? "border-primary bg-primary/10 text-primary"
+										: "text-muted-foreground hover:bg-accent",
+								)}
+								onClick={() =>
+									onUpdate({
+										indicator: { type: "emoji", value: prompt.indicator.type === "emoji" ? prompt.indicator.value : "✨" },
+									})
+								}
+							>
+								{t("settings.quickPromptEmoji")}
+							</button>
+							<button
+								type="button"
+								className={cn(
+									"rounded-md border px-2.5 py-1 text-xs",
+									prompt.indicator.type === "letter"
+										? "border-primary bg-primary/10 text-primary"
+										: "text-muted-foreground hover:bg-accent",
+								)}
+								onClick={() =>
+									onUpdate({
+										indicator: {
+											type: "letter",
+											value: prompt.indicator.type === "letter" ? prompt.indicator.value : prompt.label.charAt(0).toUpperCase(),
+											color: prompt.indicator.type === "letter" ? prompt.indicator.color : PRESET_COLORS[4].value,
+										},
+									})
+								}
+							>
+								{t("settings.quickPromptLetter")}
+							</button>
+						</div>
+
+						{prompt.indicator.type === "emoji" ? (
+							<div>
+								<input
+									type="text"
+									value={prompt.indicator.value}
+									onChange={(e) =>
+										onUpdate({
+											indicator: { type: "emoji", value: e.target.value },
+										})
+									}
+									className="h-8 w-16 rounded-md border bg-transparent px-2 text-center text-lg"
+									maxLength={2}
+								/>
+							</div>
+						) : (
+							<div className="flex items-center gap-3">
+								<input
+									type="text"
+									value={prompt.indicator.value}
+									onChange={(e) => {
+										if (prompt.indicator.type !== "letter") return;
+										onUpdate({
+											indicator: {
+												type: "letter",
+												value: e.target.value.slice(0, 1).toUpperCase(),
+												color: prompt.indicator.color,
+											},
+										});
+									}}
+									className="h-8 w-10 rounded-md border bg-transparent px-2 text-center text-sm font-bold"
+									maxLength={1}
+								/>
+								<div className="flex items-center gap-1">
+									{PRESET_COLORS.map((c) => (
+										<button
+											key={c.name}
+											type="button"
+											className={cn(
+												"h-5 w-5 rounded-full border-2 transition-transform",
+												prompt.indicator.type === "letter" &&
+													prompt.indicator.color === c.value
+													? "border-foreground scale-110"
+													: "border-transparent hover:scale-110",
+											)}
+											style={{ backgroundColor: c.value }}
+											onClick={() => {
+												if (prompt.indicator.type !== "letter") return;
+												onUpdate({
+													indicator: {
+														type: "letter",
+														value: prompt.indicator.value,
+														color: c.value,
+													},
+												});
+											}}
+										/>
+									))}
+								</div>
+							</div>
+						)}
+					</div>
+
+					{/* Label */}
+					<div>
+						<label className="text-xs font-medium">
+							{t("settings.quickPromptLabel")}
+						</label>
+						<input
+							type="text"
+							value={prompt.label}
+							onChange={(e) => onUpdate({ label: e.target.value })}
+							className="mt-1 h-8 w-full rounded-md border bg-transparent px-2 text-sm"
+						/>
+					</div>
+
+					{/* Content */}
+					<div>
+						<label className="text-xs font-medium">
+							{t("settings.quickPromptContent")}
+						</label>
+						<textarea
+							value={prompt.content}
+							onChange={(e) => onUpdate({ content: e.target.value })}
+							rows={3}
+							className="mt-1 w-full rounded-md border bg-transparent px-2 py-1.5 text-xs font-mono resize-y"
+						/>
+					</div>
+				</div>
+			)}
 		</div>
 	);
 }
