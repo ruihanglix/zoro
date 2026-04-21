@@ -195,7 +195,8 @@ pub async fn tool_get_formatted_citation(
     if let Some(ref doi) = row.doi {
         let csl_style = doi_content_negotiation::normalize_style_name(&input.style);
         if let Ok(citation) =
-            doi_content_negotiation::fetch_formatted_citation(&state.http_client, doi, csl_style).await
+            doi_content_negotiation::fetch_formatted_citation(&state.http_client, doi, csl_style)
+                .await
         {
             return Ok(CallToolResult::success(vec![Content::text(citation)]));
         }

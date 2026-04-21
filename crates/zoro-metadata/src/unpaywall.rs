@@ -45,7 +45,10 @@ impl UnpaywallResponse {
 }
 
 /// Look up open-access PDF availability for a DOI via the Unpaywall API.
-pub async fn fetch_unpaywall(client: &reqwest::Client, doi: &str) -> Result<UnpaywallResponse, MetadataError> {
+pub async fn fetch_unpaywall(
+    client: &reqwest::Client,
+    doi: &str,
+) -> Result<UnpaywallResponse, MetadataError> {
     let url = format!("{}/{}?email={}", UNPAYWALL_API, doi, EMAIL);
     let resp = client
         .get(&url)

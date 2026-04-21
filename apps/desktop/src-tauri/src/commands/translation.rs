@@ -546,17 +546,9 @@ pub async fn update_ai_config(
             .filter(|p| p.id != "__acp_proxy__")
             .map(|p| {
                 // Preserve existing api_key if no new one is provided
-                let existing = config
-                    .ai
-                    .providers
-                    .iter()
-                    .find(|ep| ep.id == p.id);
-                let existing_key = existing
-                    .map(|ep| ep.api_key.clone())
-                    .unwrap_or_default();
-                let existing_headers = existing
-                    .map(|ep| ep.headers.clone())
-                    .unwrap_or_default();
+                let existing = config.ai.providers.iter().find(|ep| ep.id == p.id);
+                let existing_key = existing.map(|ep| ep.api_key.clone()).unwrap_or_default();
+                let existing_headers = existing.map(|ep| ep.headers.clone()).unwrap_or_default();
                 zoro_core::models::AiProvider {
                     id: p.id,
                     name: p.name,
@@ -571,7 +563,7 @@ pub async fn update_ai_config(
                         Some("anthropic") => zoro_core::models::ApiFormat::Anthropic,
                         _ => zoro_core::models::ApiFormat::OpenAI,
                     },
-                    headers: p.headers.unwrap_or_else(|| existing_headers),
+                    headers: p.headers.unwrap_or(existing_headers),
                 }
             })
             .collect();
@@ -698,8 +690,14 @@ pub async fn test_ai_connection(state: State<'_, AppState>) -> Result<String, St
         return Err("AI not configured. Set base URL, API key, and model first.".into());
     }
 
-    let client =
-        zoro_ai::client::ChatClient::new(state.http_client.clone(), &resolved.base_url, &resolved.api_key, &resolved.model, resolved.resolved_format, resolved.resolved_headers.clone());
+    let client = zoro_ai::client::ChatClient::new(
+        state.http_client.clone(),
+        &resolved.base_url,
+        &resolved.api_key,
+        &resolved.model,
+        resolved.resolved_format,
+        resolved.resolved_headers.clone(),
+    );
 
     client
         .test_connection()

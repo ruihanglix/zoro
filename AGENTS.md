@@ -265,3 +265,13 @@ All user-facing text in the frontend **must** use the i18n system — no hardcod
 - Placeholders, titles, tooltips, button labels, error messages — all must be translated
 - When adding a new language, add to: `src/lib/i18n.ts` (supportedLanguages + resources), create locale JSON file, and update `apps/browser-extension/src/popup/i18n.ts`
 
+## Pull Request
+
+When writing a PR description:
+- Title should be detailed, listing key changes
+- Write in English
+- No TODO, test plan, or checklist sections — just describe what was done
+- Organize by category: **New Features**, **Bug Fixes**, **Refactor**, ... (include only applicable sections)
+- Each item has a **bold short name** followed by a dash and a concise description of what it does and how it works
+- Keep it informative but brief — a few sentences per item is enough
+

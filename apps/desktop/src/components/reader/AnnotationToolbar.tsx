@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import * as commands from "@/lib/commands";
 import { useAnnotationStore } from "@/stores/annotationStore";
 import type { AnnotationType } from "@/stores/annotationStore";
+import { writeText as tauriWriteText } from "@tauri-apps/plugin-clipboard-manager";
 import {
 	Check,
 	Copy,
@@ -66,11 +67,17 @@ export function AnnotationToolbar({
 	const handleCopyTranslation = async () => {
 		if (!translatedText) return;
 		try {
-			await navigator.clipboard.writeText(translatedText);
+			await tauriWriteText(translatedText);
 			setCopied(true);
 			setTimeout(() => setCopied(false), 1500);
 		} catch {
-			// ignore
+			try {
+				await navigator.clipboard.writeText(translatedText);
+				setCopied(true);
+				setTimeout(() => setCopied(false), 1500);
+			} catch {
+				// ignore
+			}
 		}
 	};
 
@@ -128,11 +135,17 @@ export function AnnotationToolbar({
 							}`}
 							onClick={async () => {
 								try {
-									await navigator.clipboard.writeText(selectedText);
+									await tauriWriteText(selectedText);
 									setCopied(true);
 									setTimeout(() => setCopied(false), 1500);
 								} catch {
-									// ignore
+									try {
+										await navigator.clipboard.writeText(selectedText);
+										setCopied(true);
+										setTimeout(() => setCopied(false), 1500);
+									} catch {
+										// ignore
+									}
 								}
 							}}
 							title={t("reader.copyText")}

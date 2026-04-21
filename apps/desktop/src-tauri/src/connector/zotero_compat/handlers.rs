@@ -348,7 +348,9 @@ pub async fn save_items(
                                         },
                                     );
                                     match crate::storage::attachments::download_file(
-                                        &enrich_client, pdf_url, &pdf_path,
+                                        &enrich_client,
+                                        pdf_url,
+                                        &pdf_path,
                                     )
                                     .await
                                     {

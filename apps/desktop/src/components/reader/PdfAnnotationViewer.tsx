@@ -15,6 +15,7 @@ import { useAnnotationStore } from "@/stores/annotationStore";
 import type { AnnotationType, ZoroHighlight } from "@/stores/annotationStore";
 import { useNoteStore } from "@/stores/noteStore";
 import { useIsDarkMode } from "@/stores/uiStore";
+import { writeText as tauriWriteText } from "@tauri-apps/plugin-clipboard-manager";
 import { readFile } from "@tauri-apps/plugin-fs";
 import { FileText, Loader2 } from "lucide-react";
 import type { PDFDocumentProxy } from "pdfjs-dist";
@@ -1393,11 +1394,46 @@ export function PdfAnnotationViewer({
 
 	// Track last selected text for Cmd+C copy support.
 	// react-pdf-highlighter shows an annotation toolbar popup on selection, which
-	// steals focus and prevents the native copy event from firing. We listen for
-	// Cmd/Ctrl+C at the document level and write the stored text to clipboard.
+	// steals focus and prevents the native copy event from firing.
+	//
+	// On macOS + Tauri the native Edit > Copy menu item (Cmd+C) does not
+	// produce keydown or copy events in the WebView. Instead, the Rust backend
+	// emits a "menu-event" → "edit-copy" which useMenuEvents dispatches as a
+	// CustomEvent("menu-copy") on window. We listen for that event here and
+	// write the selected text to the clipboard via Tauri's clipboard plugin.
+	//
+	// The keydown + copy listeners remain as fallbacks for non-macOS platforms
+	// and for programmatic `document.execCommand("copy")` calls.
 	const lastSelectedTextRef = useRef<string | null>(null);
 
 	useEffect(() => {
+		const getTextToCopy = (): string | null => {
+			const nativeSel = window.getSelection()?.toString()?.trim();
+			return nativeSel || lastSelectedTextRef.current || null;
+		};
+
+		const writeToClipboard = async (text: string) => {
+			try {
+				await tauriWriteText(text);
+			} catch {
+				try {
+					await navigator.clipboard.writeText(text);
+				} catch {
+					// ignore — both clipboard methods failed
+				}
+			}
+		};
+
+		// Primary handler: receives "menu-copy" CustomEvent dispatched by
+		// useMenuEvents when the native macOS Cmd+C menu item is triggered.
+		const handleMenuCopy = () => {
+			const text = getTextToCopy();
+			if (!text) return;
+			writeToClipboard(text);
+		};
+
+		// Fallback 1: keydown — works on non-macOS platforms where the OS
+		// does not intercept Cmd/Ctrl+C via native menus.
 		const handleKeyDown = (e: KeyboardEvent) => {
 			if (!(e.metaKey || e.ctrlKey) || e.key !== "c") return;
 
@@ -1408,16 +1444,38 @@ export function PdfAnnotationViewer({
 				target?.isContentEditable;
 			if (inInput) return;
 
-			const nativeSel = window.getSelection()?.toString()?.trim();
-			const text = nativeSel || lastSelectedTextRef.current;
+			const text = getTextToCopy();
 			if (!text) return;
 
 			e.preventDefault();
-			navigator.clipboard.writeText(text);
+			writeToClipboard(text);
 		};
 
+		// Fallback 2: native copy event — fires when document.execCommand("copy")
+		// is called or when the browser triggers a copy through other means.
+		const handleCopy = (e: ClipboardEvent) => {
+			const target = e.target as HTMLElement | null;
+			const inInput =
+				target?.tagName === "INPUT" ||
+				target?.tagName === "TEXTAREA" ||
+				target?.isContentEditable;
+			if (inInput) return;
+
+			const text = getTextToCopy();
+			if (!text) return;
+
+			e.preventDefault();
+			e.clipboardData?.setData("text/plain", text);
+		};
+
+		window.addEventListener("menu-copy", handleMenuCopy);
 		document.addEventListener("keydown", handleKeyDown);
-		return () => document.removeEventListener("keydown", handleKeyDown);
+		document.addEventListener("copy", handleCopy);
+		return () => {
+			window.removeEventListener("menu-copy", handleMenuCopy);
+			document.removeEventListener("keydown", handleKeyDown);
+			document.removeEventListener("copy", handleCopy);
+		};
 	}, []);
 
 	const handleSelectionFinished = useCallback(

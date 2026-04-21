@@ -8,7 +8,7 @@ use std::collections::HashMap;
 #[cfg(target_os = "macos")]
 use tauri::{
     menu::{MenuBuilder, MenuItemBuilder, PredefinedMenuItem, SubmenuBuilder},
-    AppHandle, Emitter, Wry,
+    AppHandle, Emitter, Manager, Wry,
 };
 
 #[cfg(not(target_os = "macos"))]
@@ -350,15 +350,36 @@ pub fn build_menu(app: &AppHandle, lang: &str) -> Result<tauri::menu::Menu<Wry>,
         .close_window()
         .build()?;
 
-    // --- Edit menu (all predefined so macOS auto-localises) ---
+    // --- Edit menu ---
+    // ALL clipboard operations use custom menu items so we can forward
+    // them to whichever webview (main OR child browser webviews) is
+    // currently focused.  Predefined items only route through the macOS
+    // responder chain, which does not reliably reach child webviews
+    // created via `window.add_child()`.
     let edit_menu = SubmenuBuilder::new(app, t(&tr, "edit"))
         .undo()
         .redo()
         .separator()
-        .cut()
-        .copy()
-        .paste()
-        .select_all()
+        .item(
+            &MenuItemBuilder::with_id("edit-cut", "Cut")
+                .accelerator("CmdOrCtrl+X")
+                .build(app)?,
+        )
+        .item(
+            &MenuItemBuilder::with_id("edit-copy", "Copy")
+                .accelerator("CmdOrCtrl+C")
+                .build(app)?,
+        )
+        .item(
+            &MenuItemBuilder::with_id("edit-paste", "Paste")
+                .accelerator("CmdOrCtrl+V")
+                .build(app)?,
+        )
+        .item(
+            &MenuItemBuilder::with_id("edit-select-all", "Select All")
+                .accelerator("CmdOrCtrl+A")
+                .build(app)?,
+        )
         .build()?;
 
     // --- View menu ---
@@ -424,15 +445,34 @@ pub fn build_menu(app: &AppHandle, lang: &str) -> Result<tauri::menu::Menu<Wry>,
 }
 
 /// Register a global menu-event handler that forwards custom menu item clicks
-/// to the frontend via a `"menu-event"` event.
+/// to the frontend via a `"menu-event"` event, and dispatches clipboard
+/// operations to ALL webviews (main + child browser webviews) so they work
+/// regardless of which webview has focus.
 #[cfg(target_os = "macos")]
 pub fn register_menu_event_handler(app: &AppHandle) {
     let handle = app.clone();
     app.on_menu_event(move |_app, event| {
         let id = event.id().0.as_str();
-        // Only forward our custom IDs; predefined items (undo/copy/etc.)
-        // are handled natively by macOS.
         match id {
+            // --- Clipboard operations ---
+            // For cut/copy/paste/selectAll we inject JS into every webview.
+            // The injected script checks whether the webview is focused
+            // (has an active element or selection) and performs the operation
+            // using document.execCommand, which works inside WKWebView.
+            "edit-cut" => {
+                dispatch_clipboard_to_all_webviews(&handle, "cut");
+            }
+            "edit-copy" => {
+                dispatch_clipboard_to_all_webviews(&handle, "copy");
+            }
+            "edit-paste" => {
+                dispatch_clipboard_paste_to_all_webviews(&handle);
+            }
+            "edit-select-all" => {
+                dispatch_clipboard_to_all_webviews(&handle, "selectAll");
+            }
+
+            // Custom navigation / UI IDs — forwarded to the main webview's JS
             "add-paper" | "open-library" | "import" | "settings" | "zoom-in" | "zoom-out"
             | "actual-size" | "toggle-sidebar" | "view-library" | "view-feed"
             | "view-papers-cool" | "theme-light" | "theme-dark" | "theme-system" | "about"
@@ -442,6 +482,91 @@ pub fn register_menu_event_handler(app: &AppHandle) {
             _ => {}
         }
     });
+}
+
+/// Dispatch a clipboard command (cut / copy / selectAll) to every webview.
+///
+/// For the main webview we still emit the `"menu-event"` so the existing
+/// JS handler (`useMenuEvents`) can do its thing (especially for the PDF/HTML
+/// reader copy path).  For child webviews we call the helper functions
+/// injected by the clipboard tracking script in browser.rs.
+#[cfg(target_os = "macos")]
+fn dispatch_clipboard_to_all_webviews(app: &AppHandle, cmd: &str) {
+    // Main webview: emit event so useMenuEvents can handle it
+    // (this covers edit-copy for PDF/HTML reader + input tracking)
+    let _ = app.emit("menu-event", format!("edit-{}", cmd));
+
+    // Child browser webviews: call the injected helper
+    let fn_name = match cmd {
+        "cut" => "__zoro_do_cut",
+        "copy" => "__zoro_do_copy",
+        "selectAll" => "__zoro_do_select_all",
+        _ => return,
+    };
+    let js = format!(
+        r#"(function(){{ if(window.{fn}) {fn}(); }})()"#,
+        fn = fn_name
+    );
+    for (label, wv) in app.webviews() {
+        if label == "main" {
+            continue;
+        }
+        let _ = wv.eval(&js);
+    }
+}
+
+/// Dispatch paste to every webview.
+///
+/// `document.execCommand('paste')` is blocked in WKWebView for security
+/// reasons, so for child webviews we read the clipboard text in Rust and
+/// pass it to the injected `__zoro_do_paste(text)` helper which uses
+/// `document.execCommand('insertText', …)` on the tracked element.
+/// For the main webview we use the existing `"menu-event"` path.
+#[cfg(target_os = "macos")]
+fn dispatch_clipboard_paste_to_all_webviews(app: &AppHandle) {
+    // Main webview: emit event so useMenuEvents handles it
+    let _ = app.emit("menu-event", "edit-paste");
+
+    // Read clipboard text to inject into child webviews
+    let clipboard_text = get_clipboard_text();
+
+    if let Some(text) = clipboard_text {
+        // Escape for safe JS string embedding
+        let escaped = text
+            .replace('\\', "\\\\")
+            .replace('\'', "\\'")
+            .replace('\n', "\\n")
+            .replace('\r', "\\r")
+            .replace('\t', "\\t");
+
+        let js = format!(
+            r#"(function(){{ if(window.__zoro_do_paste) __zoro_do_paste('{}'); }})()"#,
+            escaped
+        );
+
+        for (label, wv) in app.webviews() {
+            if label == "main" {
+                continue;
+            }
+            let _ = wv.eval(&js);
+        }
+    }
+}
+
+/// Read plain text from the system clipboard using macOS pasteboard API via
+/// `pbpaste`.
+#[cfg(target_os = "macos")]
+fn get_clipboard_text() -> Option<String> {
+    std::process::Command::new("pbpaste")
+        .output()
+        .ok()
+        .and_then(|output| {
+            if output.status.success() {
+                String::from_utf8(output.stdout).ok()
+            } else {
+                None
+            }
+        })
 }
 
 /// Tauri command: rebuild the native menu with the given language.

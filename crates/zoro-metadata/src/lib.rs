@@ -597,7 +597,10 @@ impl MetadataSearchParams {
 ///
 /// Unlike the automatic enrichment pipeline which picks the best match,
 /// this returns *all* candidates so the user can decide.
-pub async fn search_metadata_candidates(client: &reqwest::Client, params: &MetadataSearchParams) -> Vec<MetadataCandidate> {
+pub async fn search_metadata_candidates(
+    client: &reqwest::Client,
+    params: &MetadataSearchParams,
+) -> Vec<MetadataCandidate> {
     if params.is_empty() {
         return Vec::new();
     }

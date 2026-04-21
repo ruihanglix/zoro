@@ -6,8 +6,170 @@ import * as commands from "@/lib/commands";
 import { useTabStore } from "@/stores/tabStore";
 import { useUiStore } from "@/stores/uiStore";
 import { listen } from "@tauri-apps/api/event";
+import { writeText, readText } from "@tauri-apps/plugin-clipboard-manager";
 import { open } from "@tauri-apps/plugin-shell";
 import { useEffect } from "react";
+
+// ---------------------------------------------------------------------------
+// Focus & selection tracking (for clipboard support)
+// ---------------------------------------------------------------------------
+// macOS native menu activation steals WebView focus, so by the time our JS
+// handler runs `document.activeElement` is already <body>. We track the last
+// focused editable element and its selection via `focusin`/`selectionchange`
+// so that clipboard operations can still read/write the correct text.
+
+let _trackedEl: HTMLInputElement | HTMLTextAreaElement | null = null;
+let _selStart = 0;
+let _selEnd = 0;
+let _lastSelectionText = "";
+
+function _onFocusIn(e: FocusEvent) {
+	const t = e.target;
+	if (t instanceof HTMLInputElement || t instanceof HTMLTextAreaElement) {
+		_trackedEl = t;
+		_selStart = t.selectionStart ?? 0;
+		_selEnd = t.selectionEnd ?? 0;
+	}
+}
+
+function _onSelectionChange() {
+	// Snapshot input/textarea selection
+	if (_trackedEl) {
+		_selStart = _trackedEl.selectionStart ?? _selStart;
+		_selEnd = _trackedEl.selectionEnd ?? _selEnd;
+	}
+	// Snapshot window selection (for general page text)
+	const sel = window.getSelection()?.toString();
+	if (sel) _lastSelectionText = sel;
+}
+
+async function _doCopy() {
+	// Dispatch "menu-copy" for PDF viewer & HTML reader special handlers
+	window.dispatchEvent(new CustomEvent("menu-copy"));
+
+	// Handle standard input/textarea selection
+	if (_trackedEl) {
+		const text = _trackedEl.value.slice(_selStart, _selEnd);
+		if (text) {
+			try {
+				await writeText(text);
+			} catch {
+				try {
+					await navigator.clipboard.writeText(text);
+				} catch {
+					/* ignore */
+				}
+			}
+			return;
+		}
+	}
+
+	// Fallback: general page text (non-input selection)
+	if (_lastSelectionText) {
+		try {
+			await writeText(_lastSelectionText);
+		} catch {
+			try {
+				await navigator.clipboard.writeText(_lastSelectionText);
+			} catch {
+				/* ignore */
+			}
+		}
+	}
+}
+
+async function _doCut() {
+	// First copy the selected text
+	if (_trackedEl) {
+		const text = _trackedEl.value.slice(_selStart, _selEnd);
+		if (text) {
+			try {
+				await writeText(text);
+			} catch {
+				try {
+					await navigator.clipboard.writeText(text);
+				} catch {
+					/* ignore */
+				}
+			}
+			// Delete the selected text
+			try {
+				// Try to refocus the element and use execCommand
+				_trackedEl.focus();
+				_trackedEl.setSelectionRange(_selStart, _selEnd);
+				document.execCommand("delete");
+			} catch {
+				/* ignore */
+			}
+			return;
+		}
+	}
+	// Fallback: try execCommand for contenteditable, etc.
+	try {
+		document.execCommand("cut");
+	} catch {
+		/* ignore */
+	}
+}
+
+async function _doPaste() {
+	// Read clipboard text
+	let text: string | null = null;
+	try {
+		text = await readText();
+	} catch {
+		try {
+			text = await navigator.clipboard.readText();
+		} catch {
+			/* ignore */
+		}
+	}
+
+	if (!text) return;
+
+	// Paste into tracked input/textarea
+	if (_trackedEl) {
+		try {
+			_trackedEl.focus();
+			_trackedEl.setSelectionRange(_selStart, _selEnd);
+			// insertText respects undo history and fires input events
+			document.execCommand("insertText", false, text);
+		} catch {
+			/* ignore */
+		}
+		return;
+	}
+
+	// Fallback: try execCommand for contenteditable, etc.
+	try {
+		document.execCommand("insertText", false, text);
+	} catch {
+		/* ignore */
+	}
+}
+
+function _doSelectAll() {
+	// Select all in tracked input/textarea
+	if (_trackedEl) {
+		try {
+			_trackedEl.focus();
+			_trackedEl.setSelectionRange(0, _trackedEl.value.length);
+		} catch {
+			/* ignore */
+		}
+		return;
+	}
+	// Fallback: select all on the page
+	try {
+		document.execCommand("selectAll");
+	} catch {
+		/* ignore */
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Hook
+// ---------------------------------------------------------------------------
 
 /**
  * Listen for native macOS menu-event emissions from the Rust backend
@@ -15,9 +177,26 @@ import { useEffect } from "react";
  */
 export function useMenuEvents() {
 	useEffect(() => {
+		document.addEventListener("focusin", _onFocusIn);
+		document.addEventListener("selectionchange", _onSelectionChange);
+
 		const unlisten = listen<string>("menu-event", (event) => {
 			const id = event.payload;
 			switch (id) {
+				// Clipboard operations
+				case "edit-copy":
+					_doCopy();
+					break;
+				case "edit-cut":
+					_doCut();
+					break;
+				case "edit-paste":
+					_doPaste();
+					break;
+				case "edit-selectAll":
+					_doSelectAll();
+					break;
+
 				// File
 				case "add-paper":
 					useUiStore.getState().setAddPaperDialogOpen(true);
@@ -102,6 +281,8 @@ export function useMenuEvents() {
 		});
 
 		return () => {
+			document.removeEventListener("focusin", _onFocusIn);
+			document.removeEventListener("selectionchange", _onSelectionChange);
 			unlisten.then((fn) => fn());
 		};
 	}, []);

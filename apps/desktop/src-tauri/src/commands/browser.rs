@@ -4,9 +4,9 @@
 
 use std::sync::atomic::{AtomicBool, Ordering};
 
+use crate::AppState;
 use serde::Serialize;
 use tauri::{Emitter, LogicalPosition, LogicalSize, Manager, State, WebviewUrl};
-use crate::AppState;
 
 /// Global dark mode state shared between the `browser_set_dark_mode` command
 /// and the `on_page_load` callback so that newly loaded pages also receive
@@ -76,6 +76,7 @@ struct BrowserPageInfoEvent {
 }
 
 #[tauri::command]
+#[allow(clippy::too_many_arguments)]
 pub async fn create_browser_webview(
     app: tauri::AppHandle,
     state: State<'_, AppState>,
@@ -251,8 +252,64 @@ pub async fn create_browser_webview(
 
                 // Inject dark-mode CSS if globally enabled
                 if DARK_MODE.load(Ordering::Relaxed) {
-                    let _ = webview.eval(&dark_mode_js(true));
+                    let _ = webview.eval(dark_mode_js(true));
                 }
+
+                // Inject clipboard helper: tracks the last focused editable
+                // element so that Cmd+C/V/X/A operations (dispatched from the
+                // native menu via webview.eval) work even after macOS steals
+                // focus from the webview.
+                let _ = webview.eval(
+                    r#"(function(){
+                        if(window.__zoro_clipboard__)return;
+                        window.__zoro_clipboard__=true;
+                        var _el=null,_ss=0,_se=0,_selTxt='';
+                        document.addEventListener('focusin',function(e){
+                            var t=e.target;
+                            if(t&&(t.tagName==='INPUT'||t.tagName==='TEXTAREA'||t.isContentEditable)){
+                                _el=t;
+                                if(t.tagName==='INPUT'||t.tagName==='TEXTAREA'){
+                                    _ss=t.selectionStart||0;_se=t.selectionEnd||0;
+                                }
+                            }
+                        });
+                        document.addEventListener('selectionchange',function(){
+                            if(_el&&(_el.tagName==='INPUT'||_el.tagName==='TEXTAREA')){
+                                _ss=_el.selectionStart||_ss;_se=_el.selectionEnd||_se;
+                            }
+                            var s=window.getSelection();
+                            if(s&&s.toString())_selTxt=s.toString();
+                        });
+                        // Expose helpers for menu-driven clipboard ops
+                        window.__zoro_do_copy=function(){
+                            // Try native execCommand first
+                            try{if(document.execCommand('copy'))return}catch(e){}
+                        };
+                        window.__zoro_do_cut=function(){
+                            try{document.execCommand('cut')}catch(e){}
+                        };
+                        window.__zoro_do_paste=function(text){
+                            // Re-focus tracked element
+                            if(_el){
+                                try{_el.focus()}catch(e){}
+                                if(_el.tagName==='INPUT'||_el.tagName==='TEXTAREA'){
+                                    try{_el.setSelectionRange(_ss,_se)}catch(e){}
+                                }
+                            }
+                            try{document.execCommand('insertText',false,text)}catch(e){}
+                        };
+                        window.__zoro_do_select_all=function(){
+                            if(_el){
+                                try{_el.focus()}catch(e){}
+                                if(_el.tagName==='INPUT'||_el.tagName==='TEXTAREA'){
+                                    try{_el.setSelectionRange(0,_el.value.length)}catch(e){}
+                                    return;
+                                }
+                            }
+                            try{document.execCommand('selectAll')}catch(e){}
+                        };
+                    })();"#,
+                );
             }
         });
 

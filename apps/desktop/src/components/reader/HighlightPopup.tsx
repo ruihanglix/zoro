@@ -5,6 +5,7 @@
 import { Button } from "@/components/ui/button";
 import { useAnnotationStore } from "@/stores/annotationStore";
 import type { ZoroHighlight } from "@/stores/annotationStore";
+import { writeText as tauriWriteText } from "@tauri-apps/plugin-clipboard-manager";
 import { Check, Copy, MessageSquare, Quote, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -69,11 +70,17 @@ export function HighlightPopup({
 							}`}
 							onClick={async () => {
 								try {
-									await navigator.clipboard.writeText(highlight.selectedText!);
+									await tauriWriteText(highlight.selectedText!);
 									setCopied(true);
 									setTimeout(() => setCopied(false), 1500);
 								} catch {
-									// ignore
+									try {
+										await navigator.clipboard.writeText(highlight.selectedText!);
+										setCopied(true);
+										setTimeout(() => setCopied(false), 1500);
+									} catch {
+										// ignore
+									}
 								}
 							}}
 							title={t("reader.copyText")}

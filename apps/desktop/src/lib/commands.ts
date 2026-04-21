@@ -666,6 +666,48 @@ export const updateNote = (id: string, content: string) =>
 
 export const deleteNote = (id: string) => invoke<void>("delete_note", { id });
 
+// Paper Links
+export interface PaperLinkResponse {
+	id: string;
+	paper_id: string;
+	url: string;
+	title: string | null;
+	favicon: string | null;
+	created_date: string;
+}
+
+export const addPaperLink = (
+	paperId: string,
+	url: string,
+	title?: string | null,
+	favicon?: string | null,
+) =>
+	invoke<PaperLinkResponse>("add_paper_link", {
+		paperId,
+		url,
+		title: title ?? null,
+		favicon: favicon ?? null,
+	});
+
+export const listPaperLinks = (paperId: string) =>
+	invoke<PaperLinkResponse[]>("list_paper_links", { paperId });
+
+export const updatePaperLink = (
+	id: string,
+	url?: string | null,
+	title?: string | null,
+	favicon?: string | null,
+) =>
+	invoke<PaperLinkResponse>("update_paper_link", {
+		id,
+		url: url ?? null,
+		title: title ?? null,
+		favicon: favicon ?? null,
+	});
+
+export const deletePaperLink = (id: string) =>
+	invoke<void>("delete_paper_link", { id });
+
 // Annotations
 export interface AnnotationResponse {
 	id: string;

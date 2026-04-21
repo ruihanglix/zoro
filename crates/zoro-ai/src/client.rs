@@ -104,8 +104,14 @@ impl ChatClient {
         max_tokens: Option<u32>,
     ) -> Result<String, AiError> {
         let result = match self.format {
-            ApiFormat::Anthropic => self.chat_anthropic(system_prompt, user_prompt, temperature, max_tokens).await,
-            _ => self.chat_openai(system_prompt, user_prompt, temperature, max_tokens).await,
+            ApiFormat::Anthropic => {
+                self.chat_anthropic(system_prompt, user_prompt, temperature, max_tokens)
+                    .await
+            }
+            _ => {
+                self.chat_openai(system_prompt, user_prompt, temperature, max_tokens)
+                    .await
+            }
         }?;
         Ok(strip_thinking_tags(&result))
     }
@@ -164,7 +170,10 @@ impl ChatClient {
                 .post(&url)
                 .header("Authorization", format!("Bearer {}", self.api_key))
                 .header("Content-Type", "application/json");
-            let resp = self.custom_headers.iter().fold(resp, |r, (k, v)| r.header(k.as_str(), v.as_str()));
+            let resp = self
+                .custom_headers
+                .iter()
+                .fold(resp, |r, (k, v)| r.header(k.as_str(), v.as_str()));
             let resp = resp
                 .json(&request)
                 .timeout(std::time::Duration::from_secs(120))
@@ -225,7 +234,11 @@ impl ChatClient {
             } else {
                 Some(system_prompt.to_string())
             },
-            temperature: if temperature == 0.0 { None } else { Some(temperature) },
+            temperature: if temperature == 0.0 {
+                None
+            } else {
+                Some(temperature)
+            },
         };
 
         tracing::debug!(
@@ -245,7 +258,10 @@ impl ChatClient {
                 .header("x-api-key", &self.api_key)
                 .header("anthropic-version", "2023-06-01")
                 .header("Content-Type", "application/json");
-            let resp = self.custom_headers.iter().fold(resp, |r, (k, v)| r.header(k.as_str(), v.as_str()));
+            let resp = self
+                .custom_headers
+                .iter()
+                .fold(resp, |r, (k, v)| r.header(k.as_str(), v.as_str()));
             let resp = resp
                 .json(&request)
                 .timeout(std::time::Duration::from_secs(120))
@@ -342,9 +358,6 @@ mod tests {
             "Final answer"
         );
         assert_eq!(strip_thinking_tags("No tags here"), "No tags here");
-        assert_eq!(
-            strip_thinking_tags("<think>unclosed tag"),
-            ""
-        );
+        assert_eq!(strip_thinking_tags("<think>unclosed tag"), "");
     }
 }

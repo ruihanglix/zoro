@@ -58,6 +58,27 @@ export function saveSetting<T>(key: string, value: T): void {
 	}
 }
 
+// Reader sidebar tab configuration
+export interface ReaderSidebarConfig {
+	left: string[]; // tab IDs in display order
+	right: string[]; // tab IDs in display order
+}
+
+export const BUILT_IN_TAB_IDS = [
+	"annotation",
+	"agent",
+	"notes",
+	"info",
+	"browser",
+	"terminal",
+] as const;
+export type BuiltInTabId = (typeof BUILT_IN_TAB_IDS)[number];
+
+export const DEFAULT_READER_SIDEBAR_CONFIG: ReaderSidebarConfig = {
+	left: ["annotation"],
+	right: ["agent", "notes", "info", "browser", "terminal"],
+};
+
 type PanelLayout = Record<string, number>;
 
 function layoutsEqual(a: PanelLayout, b: PanelLayout): boolean {
@@ -156,6 +177,9 @@ interface UiState {
 	// Panel layout persistence (synced across same-type tabs)
 	readerPanelLayout: PanelLayout;
 
+	// Reader sidebar tab configuration
+	readerSidebarConfig: ReaderSidebarConfig;
+
 	// Onboarding
 	showOnboarding: boolean;
 
@@ -202,6 +226,17 @@ interface UiState {
 	// Panel layout actions
 	setReaderPanelLayout: (layout: PanelLayout) => void;
 
+	// Reader sidebar config actions
+	setReaderSidebarConfig: (config: ReaderSidebarConfig) => void;
+	addTabToSide: (side: "left" | "right", tabId: string, index?: number) => void;
+	removeTabFromSide: (side: "left" | "right", tabId: string) => void;
+	reorderTabOnSide: (
+		side: "left" | "right",
+		fromIndex: number,
+		toIndex: number,
+	) => void;
+	resetReaderSidebarConfig: () => void;
+
 	// Onboarding actions
 	setShowOnboarding: (show: boolean) => void;
 	restartOnboarding: () => void;
@@ -234,6 +269,31 @@ export const useUiStore = create<UiState>((set, get) => ({
 		"reader-center": 48,
 		"reader-right": 30,
 	}),
+
+	readerSidebarConfig: (() => {
+		const saved = loadSetting<ReaderSidebarConfig | null>(
+			"zoro-reader-sidebar-config",
+			null,
+		);
+		if (saved && Array.isArray(saved.left) && Array.isArray(saved.right)) {
+			// Ensure at least 1 tab per side
+			if (saved.left.length > 0 && saved.right.length > 0) return saved;
+		}
+		// Backward compat: if terminal was hidden, remove it from defaults
+		const showTerminal = loadSetting<boolean>(
+			"zoro-show-reader-terminal",
+			true,
+		);
+		if (!showTerminal) {
+			return {
+				...DEFAULT_READER_SIDEBAR_CONFIG,
+				right: DEFAULT_READER_SIDEBAR_CONFIG.right.filter(
+					(id) => id !== "terminal",
+				),
+			};
+		}
+		return DEFAULT_READER_SIDEBAR_CONFIG;
+	})(),
 
 	showOnboarding: localStorage.getItem(ONBOARDING_KEY) !== "true",
 
@@ -411,5 +471,51 @@ export const useUiStore = create<UiState>((set, get) => ({
 		if (layoutsEqual(get().readerPanelLayout, layout)) return;
 		saveSetting("zoro-reader-layout", layout);
 		set({ readerPanelLayout: layout });
+	},
+
+	setReaderSidebarConfig: (config) => {
+		// Ensure at least 1 tab per side
+		if (config.left.length === 0 || config.right.length === 0) return;
+		saveSetting("zoro-reader-sidebar-config", config);
+		set({ readerSidebarConfig: config });
+	},
+
+	addTabToSide: (side, tabId, index) => {
+		const config = { ...get().readerSidebarConfig };
+		const list = [...config[side]];
+		if (list.includes(tabId)) return;
+		if (index !== undefined) {
+			list.splice(index, 0, tabId);
+		} else {
+			list.push(tabId);
+		}
+		config[side] = list;
+		saveSetting("zoro-reader-sidebar-config", config);
+		set({ readerSidebarConfig: config });
+	},
+
+	removeTabFromSide: (side, tabId) => {
+		const config = { ...get().readerSidebarConfig };
+		const list = config[side].filter((id) => id !== tabId);
+		if (list.length === 0) return; // must keep at least 1
+		config[side] = list;
+		saveSetting("zoro-reader-sidebar-config", config);
+		set({ readerSidebarConfig: config });
+	},
+
+	reorderTabOnSide: (side, fromIndex, toIndex) => {
+		if (fromIndex === toIndex) return;
+		const config = { ...get().readerSidebarConfig };
+		const list = [...config[side]];
+		const [moved] = list.splice(fromIndex, 1);
+		list.splice(toIndex, 0, moved);
+		config[side] = list;
+		saveSetting("zoro-reader-sidebar-config", config);
+		set({ readerSidebarConfig: config });
+	},
+
+	resetReaderSidebarConfig: () => {
+		saveSetting("zoro-reader-sidebar-config", DEFAULT_READER_SIDEBAR_CONFIG);
+		set({ readerSidebarConfig: DEFAULT_READER_SIDEBAR_CONFIG });
 	},
 }));

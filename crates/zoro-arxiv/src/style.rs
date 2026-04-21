@@ -15,9 +15,7 @@ fn cache() -> &'static Mutex<Option<String>> {
     CSS_CACHE.get_or_init(|| Mutex::new(None))
 }
 
-async fn fetch_ar5iv_css(
-    proxy: &zoro_core::models::ProxyConfig,
-) -> Result<String, ArxivError> {
+async fn fetch_ar5iv_css(proxy: &zoro_core::models::ProxyConfig) -> Result<String, ArxivError> {
     {
         let guard = cache().lock().await;
         if let Some(ref cached) = *guard {
