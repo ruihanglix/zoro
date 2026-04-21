@@ -115,52 +115,30 @@ export function SidebarTabPanel({
 	};
 
 	return (
-		<div className="flex h-full min-w-0 flex-col overflow-hidden">
-			{/* Tab bar with context menu */}
-			<ContextMenu>
-				<ContextMenuTrigger asChild>
-					<div className="flex border-b text-xs">
-						{tabIds.map((tab) => (
-							<button
-								key={tab}
-								type="button"
-								className={`flex-1 py-2 text-center capitalize transition-colors text-nowrap px-1 ${
-									effectiveActiveTab === tab
-										? "border-b-2 border-primary font-medium text-foreground"
-										: "text-muted-foreground hover:text-foreground"
-								}`}
-								onClick={() => handleTabClick(tab)}
-							>
-								{getTabLabel(tab, t)}
-							</button>
-						))}
-					</div>
-				</ContextMenuTrigger>
-				<ContextMenuContent>
-					{allTabs.map((tab) => {
-						const isPresent = tabIds.includes(tab.id);
-						const isLastOnSide = isPresent && tabIds.length === 1;
-						return (
-							<ContextMenuCheckboxItem
-								key={tab.id}
-								checked={isPresent}
-								disabled={isLastOnSide}
-								onCheckedChange={(checked) => {
-									if (checked) {
-										addTabToSide(side, tab.id);
-									} else {
-										removeTabFromSide(side, tab.id);
-									}
-								}}
-							>
-								{getTabLabel(tab.id, t)}
-							</ContextMenuCheckboxItem>
-						);
-					})}
-				</ContextMenuContent>
-			</ContextMenu>
+		<ContextMenu>
+			<ContextMenuTrigger asChild>
+				<div className="flex h-full min-w-0 flex-col overflow-hidden">
+					{/* Tab bar — hidden when only 1 tab */}
+					{tabIds.length > 1 && (
+						<div className="flex border-b text-xs">
+							{tabIds.map((tab) => (
+								<button
+									key={tab}
+									type="button"
+									className={`flex-1 py-2 text-center capitalize transition-colors text-nowrap px-1 ${
+										effectiveActiveTab === tab
+											? "border-b-2 border-primary font-medium text-foreground"
+											: "text-muted-foreground hover:text-foreground"
+									}`}
+									onClick={() => handleTabClick(tab)}
+								>
+									{getTabLabel(tab, t)}
+								</button>
+							))}
+						</div>
+					)}
 
-			{/* Tab content */}
+					{/* Tab content */}
 			{effectiveActiveTab === "annotation" && (
 				<AnnotationSidePanel
 					paperId={paperId}
@@ -271,6 +249,30 @@ export function SidebarTabPanel({
 					</div>
 				);
 			})}
-		</div>
+				</div>
+			</ContextMenuTrigger>
+			<ContextMenuContent>
+				{allTabs.map((tab) => {
+					const isPresent = tabIds.includes(tab.id);
+					const isLastOnSide = isPresent && tabIds.length === 1;
+					return (
+						<ContextMenuCheckboxItem
+							key={tab.id}
+							checked={isPresent}
+							disabled={isLastOnSide}
+							onCheckedChange={(checked) => {
+								if (checked) {
+									addTabToSide(side, tab.id);
+								} else {
+									removeTabFromSide(side, tab.id);
+								}
+							}}
+						>
+							{getTabLabel(tab.id, t)}
+						</ContextMenuCheckboxItem>
+					);
+				})}
+			</ContextMenuContent>
+		</ContextMenu>
 	);
 }
