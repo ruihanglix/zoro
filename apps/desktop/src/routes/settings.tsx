@@ -81,7 +81,6 @@ import {
 	Terminal,
 	Trash2,
 	X,
-	Zap,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import {
@@ -126,8 +125,7 @@ type SettingsSection =
 	| "export"
 	| "about"
 	| "plugins-general"
-	| "reader-general"
-	| "reader-quick-prompts"
+	| "reader"
 	| (string & {}); // Allow dynamic plugin section IDs
 
 type NavItem = { id: SettingsSection; labelKey: string; icon: LucideIcon };
@@ -155,21 +153,6 @@ const NAV_GROUPS: NavGroup[] = [
 		],
 	},
 	{
-		groupLabelKey: "settings.navReader",
-		items: [
-			{
-				id: "reader-general",
-				labelKey: "settings.navReaderGeneral",
-				icon: BookOpenText,
-			},
-			{
-				id: "reader-quick-prompts",
-				labelKey: "settings.navQuickPrompts",
-				icon: Zap,
-			},
-		],
-	},
-	{
 		groupLabelKey: "settings.navSettings",
 		items: [
 			{
@@ -181,6 +164,11 @@ const NAV_GROUPS: NavGroup[] = [
 				id: "keybindings",
 				labelKey: "settings.navKeyboardShortcuts",
 				icon: Keyboard,
+			},
+			{
+				id: "reader",
+				labelKey: "settings.navReader",
+				icon: BookOpenText,
 			},
 			{
 				id: "connector",
@@ -4987,8 +4975,9 @@ export function Settings() {
 
 						{section === "plugins-general" && <PluginsGeneralSection />}
 
-						{section === "reader-general" && (
-							<div className="grid grid-cols-1 lg:grid-cols-2 2xl:grid-cols-3 gap-4 items-start">
+						{section === "reader" && (
+							<div className="space-y-6">
+								<div className="grid grid-cols-1 lg:grid-cols-2 2xl:grid-cols-3 gap-4 items-start">
 								{/* Reader */}
 								<div className="rounded-lg border bg-card/50 p-4 space-y-2">
 									<p className="text-xs font-medium">{t("settings.reader")}</p>
@@ -5284,10 +5273,8 @@ export function Settings() {
 									</Button>
 								</div>
 							</div>
-						)}
-
-						{section === "reader-quick-prompts" && (
-							<QuickPromptsSettings />
+								<QuickPromptsSettings />
+							</div>
 						)}
 
 						{/* Dynamic plugin settings sections */}

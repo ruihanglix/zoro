@@ -1470,7 +1470,7 @@ function QuickPromptsDropdown() {
 			id: "settings",
 			type: "settings",
 			title: "Settings",
-			settingsSection: "reader-quick-prompts",
+			settingsSection: "reader",
 		});
 	}, [openTab]);
 
