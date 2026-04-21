@@ -114,12 +114,37 @@ export function SidebarTabPanel({
 		if (tab === "browser") setBrowserMounted(true);
 	};
 
+	const contextMenuContent = (
+		<ContextMenuContent>
+			{allTabs.map((tab) => {
+				const isPresent = tabIds.includes(tab.id);
+				const isLastOnSide = isPresent && tabIds.length === 1;
+				return (
+					<ContextMenuCheckboxItem
+						key={tab.id}
+						checked={isPresent}
+						disabled={isLastOnSide}
+						onCheckedChange={(checked) => {
+							if (checked) {
+								addTabToSide(side, tab.id);
+							} else {
+								removeTabFromSide(side, tab.id);
+							}
+						}}
+					>
+						{getTabLabel(tab.id, t)}
+					</ContextMenuCheckboxItem>
+				);
+			})}
+		</ContextMenuContent>
+	);
+
 	return (
-		<ContextMenu>
-			<ContextMenuTrigger asChild>
-				<div className="flex h-full min-w-0 flex-col overflow-hidden">
-					{/* Tab bar — hidden when only 1 tab */}
-					{tabIds.length > 1 && (
+		<div className="flex h-full min-w-0 flex-col overflow-hidden">
+			{/* Tab bar area with context menu */}
+			<ContextMenu>
+				<ContextMenuTrigger asChild>
+					{tabIds.length > 1 ? (
 						<div className="flex border-b text-xs">
 							{tabIds.map((tab) => (
 								<button
@@ -136,9 +161,15 @@ export function SidebarTabPanel({
 								</button>
 							))}
 						</div>
+					) : (
+						/* Single tab: invisible 4px trigger strip for right-click menu */
+						<div className="h-1 shrink-0" />
 					)}
+				</ContextMenuTrigger>
+				{contextMenuContent}
+			</ContextMenu>
 
-					{/* Tab content */}
+			{/* Tab content */}
 			{effectiveActiveTab === "annotation" && (
 				<AnnotationSidePanel
 					paperId={paperId}
@@ -249,30 +280,6 @@ export function SidebarTabPanel({
 					</div>
 				);
 			})}
-				</div>
-			</ContextMenuTrigger>
-			<ContextMenuContent>
-				{allTabs.map((tab) => {
-					const isPresent = tabIds.includes(tab.id);
-					const isLastOnSide = isPresent && tabIds.length === 1;
-					return (
-						<ContextMenuCheckboxItem
-							key={tab.id}
-							checked={isPresent}
-							disabled={isLastOnSide}
-							onCheckedChange={(checked) => {
-								if (checked) {
-									addTabToSide(side, tab.id);
-								} else {
-									removeTabFromSide(side, tab.id);
-								}
-							}}
-						>
-							{getTabLabel(tab.id, t)}
-						</ContextMenuCheckboxItem>
-					);
-				})}
-			</ContextMenuContent>
-		</ContextMenu>
+		</div>
 	);
 }
