@@ -395,6 +395,8 @@ export function BilingualPdfViewer({
 			// ── Attach listeners ──
 			l.addEventListener("mouseenter", onLeftPointerEnter);
 			r.addEventListener("mouseenter", onRightPointerEnter);
+			l.addEventListener("mousedown", onLeftPointerEnter);
+			r.addEventListener("mousedown", onRightPointerEnter);
 			l.addEventListener("wheel", onLeftWheel, { passive: true });
 			r.addEventListener("wheel", onRightWheel, { passive: true });
 			l.addEventListener("touchstart", onLeftTouchStart, { passive: true });
@@ -409,6 +411,8 @@ export function BilingualPdfViewer({
 			cleanupListeners = () => {
 				l.removeEventListener("mouseenter", onLeftPointerEnter);
 				r.removeEventListener("mouseenter", onRightPointerEnter);
+				l.removeEventListener("mousedown", onLeftPointerEnter);
+				r.removeEventListener("mousedown", onRightPointerEnter);
 				l.removeEventListener("wheel", onLeftWheel);
 				r.removeEventListener("wheel", onRightWheel);
 				l.removeEventListener("touchstart", onLeftTouchStart);

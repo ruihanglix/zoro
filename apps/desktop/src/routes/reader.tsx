@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/resizable";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
+import { useAutoscroll } from "@/hooks/useAutoscroll";
 import { useKeybindings } from "@/hooks/useKeybindings";
 import { useLocalAnnotations } from "@/hooks/useLocalAnnotations";
 import * as commands from "@/lib/commands";
@@ -520,6 +521,7 @@ function ReaderCenterPanel({
 }) {
 	const containerRef = useRef<HTMLDivElement>(null);
 	const lastHoveredRef = useRef<number | null>(null);
+	const autoscroll = useAutoscroll({ containerRef });
 
 	// Set up paragraph hover detection on mousemove
 	useEffect(() => {
@@ -677,6 +679,41 @@ function ReaderCenterPanel({
 				context={{ paperId, readerMode, tabId }}
 				className="absolute inset-0 pointer-events-none z-40"
 			/>
+
+			{/* Autoscroll indicator */}
+			{autoscroll.active && (
+				<div
+					className="absolute z-50 pointer-events-none"
+					style={{
+						left: autoscroll.anchorX,
+						top: autoscroll.anchorY,
+						transform: "translate(-50%, -50%)",
+					}}
+				>
+					<svg
+						width="22"
+						height="22"
+						viewBox="0 0 22 22"
+						fill="none"
+						xmlns="http://www.w3.org/2000/svg"
+					>
+						<circle
+							cx="11"
+							cy="11"
+							r="10"
+							fill="rgba(0,0,0,0.6)"
+							stroke="rgba(255,255,255,0.8)"
+							strokeWidth="1"
+						/>
+						{/* Up arrow */}
+						<path d="M11 4 L8 7.5 L14 7.5 Z" fill="white" />
+						{/* Down arrow */}
+						<path d="M11 18 L8 14.5 L14 14.5 Z" fill="white" />
+						{/* Center dot */}
+						<circle cx="11" cy="11" r="1.5" fill="white" />
+					</svg>
+				</div>
+			)}
 		</div>
 	);
 }
