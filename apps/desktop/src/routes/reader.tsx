@@ -109,6 +109,7 @@ import {
 	Underline,
 	X,
 } from "lucide-react";
+import { IconFileTypePdf } from "@tabler/icons-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useGroupRef, usePanelRef } from "react-resizable-panels";
@@ -939,21 +940,23 @@ function ReaderToolbar({
 					{paper?.has_pdf && (
 						<Button
 							variant={readerMode === "pdf" ? "secondary" : "ghost"}
-							size="sm"
-							className="h-7"
+							size="icon"
+							className="h-7 w-7"
 							onClick={() => onToggleMode("pdf")}
+							title="PDF"
 						>
-							<FileText className="mr-1 h-3.5 w-3.5" /> PDF
+							<IconFileTypePdf className="h-4 w-4" stroke={1.5} />
 						</Button>
 					)}
 					{paper?.has_html && (
 						<Button
 							variant={readerMode === "html" ? "secondary" : "ghost"}
-							size="sm"
-							className="h-7"
+							size="icon"
+							className="h-7 w-7"
 							onClick={() => onToggleMode("html")}
+							title="HTML"
 						>
-							<Globe className="mr-1 h-3.5 w-3.5" /> HTML
+							<Globe className="h-3.5 w-3.5" />
 						</Button>
 					)}
 				</div>
@@ -968,13 +971,12 @@ function ReaderToolbar({
 						<div className="flex items-center gap-1">
 							<Button
 								variant={bilingualMode ? "secondary" : "ghost"}
-								size="sm"
-								className="h-7 text-xs"
+								size="icon"
+								className="h-7 w-7"
 								onClick={onToggleBilingual}
 								title={t("reader.bilingualPdf")}
 							>
-								<BookOpen className="mr-1 h-3.5 w-3.5" />
-								{t("reader.bilingual")}
+								<BookOpen className="h-3.5 w-3.5" />
 							</Button>
 							{bilingualMode && (
 								<>
@@ -2033,36 +2035,36 @@ function TranslateToolbar({
 
 	const translating = readerMode === "html" ? htmlTranslating : pdfTranslating;
 
+	const translateTitle = (() => {
+		if (!translating) {
+			return readerMode === "html"
+				? t("reader.translateBilingual")
+				: t("reader.translatePdf");
+		}
+		const label = t("paper.translating");
+		if (readerMode === "html" && progress && progress.total > 0) {
+			return `${label} ${progress.done}/${progress.total}`;
+		}
+		return label;
+	})();
+
 	return (
 		<>
 			<div className="h-5 w-px bg-border" />
 			<Button
 				variant="ghost"
-				size="sm"
-				className="h-7 text-xs"
+				size="icon"
+				className="h-7 w-7"
 				onClick={handleTranslate}
 				disabled={translating}
-				title={
-					readerMode === "html"
-						? t("reader.translateBilingual")
-						: t("reader.translatePdf")
-				}
+				title={translateTitle}
 			>
 				{translating ? (
-					<Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
+					<Loader2 className="h-3.5 w-3.5 animate-spin" />
 				) : (
-					<Languages className="mr-1 h-3.5 w-3.5" />
+					<Languages className="h-3.5 w-3.5" />
 				)}
-				{translating ? t("paper.translating") : t("paper.translate")}
 			</Button>
-			{readerMode === "html" &&
-				htmlTranslating &&
-				progress &&
-				progress.total > 0 && (
-					<span className="text-[10px] text-muted-foreground tabular-nums">
-						{progress.done}/{progress.total}
-					</span>
-				)}
 		</>
 	);
 }
