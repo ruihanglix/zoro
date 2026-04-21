@@ -92,6 +92,15 @@ pub fn create_tables(conn: &Connection) -> Result<(), DbError> {
             modified_date TEXT NOT NULL
         );
 
+        CREATE TABLE IF NOT EXISTS paper_links (
+            id TEXT PRIMARY KEY,
+            paper_id TEXT NOT NULL REFERENCES papers(id) ON DELETE CASCADE,
+            url TEXT NOT NULL,
+            title TEXT,
+            favicon TEXT,
+            created_date TEXT NOT NULL
+        );
+
         CREATE TABLE IF NOT EXISTS attachments (
             id TEXT PRIMARY KEY,
             paper_id TEXT NOT NULL REFERENCES papers(id) ON DELETE CASCADE,
@@ -258,6 +267,7 @@ pub fn create_tables(conn: &Connection) -> Result<(), DbError> {
         CREATE INDEX IF NOT EXISTS idx_paper_tags_tag ON paper_tags(tag_id);
         CREATE INDEX IF NOT EXISTS idx_attachments_paper ON attachments(paper_id);
         CREATE INDEX IF NOT EXISTS idx_notes_paper ON notes(paper_id);
+        CREATE INDEX IF NOT EXISTS idx_paper_links_paper_id ON paper_links(paper_id);
         CREATE INDEX IF NOT EXISTS idx_subscription_items_sub ON subscription_items(subscription_id);
         CREATE INDEX IF NOT EXISTS idx_subscription_items_ext ON subscription_items(external_id);
         CREATE INDEX IF NOT EXISTS idx_subscription_items_source_date

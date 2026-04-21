@@ -1217,6 +1217,14 @@
 		"bookmarkUrl": "网址",
 		"closeTab": "关闭标签页",
 		"resetBookmarks": "恢复默认书签",
-		"copyPaperPdf": "复制论文 PDF 到剪贴板"
+		"copyPaperPdf": "复制论文 PDF 到剪贴板",
+		"paperLinks": "关联链接",
+		"addLink": "添加链接",
+		"editLink": "编辑链接",
+		"deleteLink": "删除链接",
+		"saveToPaper": "保存到关联链接",
+		"linkUrl": "网址",
+		"linkTitle": "标题",
+		"noLinks": "暂无链接"
 	}
 }

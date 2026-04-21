@@ -1217,6 +1217,14 @@
 		"bookmarkUrl": "URL",
 		"closeTab": "Close Tab",
 		"resetBookmarks": "Reset Bookmarks",
-		"copyPaperPdf": "Copy paper PDF to clipboard"
+		"copyPaperPdf": "Copy paper PDF to clipboard",
+		"paperLinks": "Paper Links",
+		"addLink": "Add Link",
+		"editLink": "Edit Link",
+		"deleteLink": "Delete Link",
+		"saveToPaper": "Save to Paper Links",
+		"linkUrl": "URL",
+		"linkTitle": "Title",
+		"noLinks": "No links yet"
 	}
 }

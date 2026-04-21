@@ -8,6 +8,7 @@ pub mod citations;
 pub mod collections;
 pub mod glossary;
 pub mod notes;
+pub mod paper_links;
 pub mod papers;
 pub mod papers_cool_cache;
 pub mod plugin_storage;

@@ -478,6 +478,11 @@ pub fn run() {
             commands::notes::list_notes,
             commands::notes::update_note,
             commands::notes::delete_note,
+            // Paper Links
+            commands::paper_links::add_paper_link,
+            commands::paper_links::list_paper_links,
+            commands::paper_links::update_paper_link,
+            commands::paper_links::delete_paper_link,
             // Annotations
             commands::annotations::add_annotation,
             commands::annotations::list_annotations,

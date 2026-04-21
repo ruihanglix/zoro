@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import * as commands from "@/lib/commands";
 import { cn } from "@/lib/utils";
+import { usePaperLinksStore } from "@/stores/paperLinksStore";
 import { loadSetting, saveSetting } from "@/stores/uiStore";
 import { useIsDarkMode } from "@/stores/uiStore";
 import { listen } from "@tauri-apps/api/event";
@@ -14,6 +15,7 @@ import { open } from "@tauri-apps/plugin-shell";
 import {
 	ArrowLeft,
 	ArrowRight,
+	Bookmark,
 	ExternalLink,
 	FileText,
 	Globe,
@@ -21,7 +23,7 @@ import {
 	RefreshCw,
 	X,
 } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 interface BrowserTab {
@@ -79,6 +81,25 @@ export function BrowserPanel({ storageKey, isActive, paperId }: BrowserPanelProp
 	tabsRef.current = tabs;
 
 	const activeTab = tabs.find((tab) => tab.id === activeTabId) ?? null;
+
+	// Paper links store
+	const paperLinks = usePaperLinksStore((s) => s.links);
+	const fetchLinks = usePaperLinksStore((s) => s.fetchLinks);
+	const addLink = usePaperLinksStore((s) => s.addLink);
+	const removeLink = usePaperLinksStore((s) => s.removeLink);
+
+	// Fetch paper links when paperId changes
+	useEffect(() => {
+		if (paperId) {
+			fetchLinks(paperId);
+		}
+	}, [paperId, fetchLinks]);
+
+	// Check if current URL is already saved as a paper link
+	const savedLink = useMemo(() => {
+		if (!activeTab?.url) return null;
+		return paperLinks.find((l) => l.url === activeTab.url) ?? null;
+	}, [paperLinks, activeTab?.url]);
 
 	// Persist tabs state
 	useEffect(() => {
@@ -626,13 +647,41 @@ export function BrowserPanel({ storageKey, isActive, paperId }: BrowserPanelProp
 					>
 						<ExternalLink className="h-3 w-3" />
 					</Button>
+					{paperId && activeTab?.url && (
+						<Button
+							variant="ghost"
+							size="icon"
+							className={cn(
+								"h-6 w-6 shrink-0",
+								savedLink && "text-primary",
+							)}
+							onClick={async () => {
+								if (savedLink) {
+									await removeLink(savedLink.id);
+								} else {
+									await addLink(
+										paperId,
+										activeTab.url,
+										activeTab.title || null,
+										activeTab.favicon || null,
+									);
+								}
+							}}
+							title={t("browser.saveToPaper")}
+						>
+							<Bookmark
+								className="h-3 w-3"
+								fill={savedLink ? "currentColor" : "none"}
+							/>
+						</Button>
+					)}
 				</div>
 			)}
 
 			{/* Content area */}
 			<div className="flex-1 relative min-h-0">
 				{showNewTabPage ? (
-					<NewTabPage onNavigate={handleNewTabNavigate} />
+					<NewTabPage onNavigate={handleNewTabNavigate} paperId={paperId} />
 				) : (
 					tabs.map((tab) => (
 						<div
