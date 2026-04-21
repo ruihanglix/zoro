@@ -78,6 +78,7 @@ pub async fn fetch_models(
     match provider.format {
         ApiFormat::Gemini => fetch_gemini_models(client, provider, api_key).await,
         ApiFormat::OpenAI => fetch_openai_models(client, provider, api_key).await,
+        ApiFormat::Anthropic => fetch_anthropic_models(client, provider, api_key).await,
     }
 }
 
@@ -228,6 +229,44 @@ async fn fetch_gemini_models(
                         None
                     }
                 })
+                .collect::<Vec<_>>()
+        })
+        .unwrap_or_default();
+
+    Ok(models)
+}
+
+/// Fetch models from the Anthropic /v1/models endpoint.
+async fn fetch_anthropic_models(
+    client: &reqwest::Client,
+    provider: &FreeProvider,
+    api_key: &str,
+) -> Result<Vec<String>, String> {
+    let url = format!("{}/models", provider.base_url.trim_end_matches('/'));
+
+    let resp = client
+        .get(&url)
+        .header("x-api-key", api_key)
+        .header("anthropic-version", "2023-06-01")
+        .send()
+        .await
+        .map_err(|e| format!("HTTP error: {}", e))?;
+
+    if !resp.status().is_success() {
+        return Err(format!("API error ({})", resp.status()));
+    }
+
+    let body: serde_json::Value = resp
+        .json()
+        .await
+        .map_err(|e| format!("JSON parse error: {}", e))?;
+
+    let models = body
+        .get("data")
+        .and_then(|d| d.as_array())
+        .map(|arr| {
+            arr.iter()
+                .filter_map(|m| m.get("id").and_then(|id| id.as_str()).map(|s| s.to_string()))
                 .collect::<Vec<_>>()
         })
         .unwrap_or_default();

@@ -51,6 +51,8 @@ pub struct AppState {
     pub debug_mode: std::sync::atomic::AtomicBool,
     /// Semaphore to limit concurrent arXiv HTML fetch tasks.
     pub html_fetch_semaphore: Arc<tokio::sync::Semaphore>,
+    /// Shared HTTP client built with proxy settings from config.
+    pub http_client: reqwest::Client,
 }
 
 pub fn make_filter(debug: bool) -> EnvFilter {
@@ -160,6 +162,11 @@ pub fn run() {
             // Give the buffer layer access to the app handle for event emission
             buffer_layer.set_app_handle(app.handle().clone());
 
+            // Build shared HTTP client with proxy settings
+            let http_client = zoro_core::http_client::build_http_client(&config.proxy)
+                .build()
+                .expect("Failed to build HTTP client");
+
             // Enable sync tracking on the database if sync is configured
             let mut db = db;
             if config.sync.enabled && !config.sync.device_id.is_empty() {
@@ -182,6 +189,7 @@ pub fn run() {
                 html_fetch_semaphore: Arc::new(tokio::sync::Semaphore::new(
                     config.general.html_fetch_concurrency.max(1) as usize,
                 )),
+                http_client,
             });
 
             // Initialize sync state
@@ -198,7 +206,7 @@ pub fn run() {
             app.manage(commands::chat::ChatState::new());
 
             // Initialize Lab (free LLM) state
-            let lab_state = commands::lab::LabState::new(&data_dir);
+            let lab_state = commands::lab::LabState::new(&data_dir, &config.proxy);
             let lab_enabled = {
                 let svc = lab_state.service.blocking_lock();
                 svc.is_enabled() && svc.has_configured_providers()
@@ -259,6 +267,7 @@ pub fn run() {
             // Auto-start Lab proxy if enabled and has configured providers
             if lab_enabled {
                 let app_handle_lab = app.handle().clone();
+                let lab_network_proxy = config.proxy.clone();
                 tauri::async_runtime::spawn(async move {
                     let lab_state = app_handle_lab.state::<commands::lab::LabState>();
                     // Refresh stale model caches first
@@ -270,7 +279,7 @@ pub fn run() {
                     let svc = lab_state.service.lock().await;
                     let proxy_config = svc.to_proxy_config();
                     drop(svc);
-                    match zoro_llm_proxy::ProxyServer::start(proxy_config).await {
+                    match zoro_llm_proxy::ProxyServer::start(proxy_config, &lab_network_proxy).await {
                         Ok(server) => {
                             tracing::info!(port = server.port(), "Lab LLM proxy auto-started");
                             *lab_state.proxy.lock().await = Some(server);
@@ -403,6 +412,7 @@ pub fn run() {
             commands::library::update_paper,
             commands::library::update_paper_authors,
             commands::library::add_attachment_files,
+            commands::library::delete_attachment,
             commands::library::get_paper_pdf_path,
             commands::library::copy_paper_pdf_to_clipboard,
             commands::library::get_paper_html_path,
@@ -491,6 +501,9 @@ commands::debug::push_frontend_log,
                 commands::debug::get_html_fetch_config,
                 commands::debug::update_html_fetch_config,
                 commands::debug::fetch_all_missing_arxiv_html,
+                commands::debug::get_proxy_config,
+                commands::debug::update_proxy_config,
+                commands::debug::test_proxy_connection,
             // Sync
             commands::sync::test_webdav_connection,
             commands::sync::save_sync_config,
@@ -541,6 +554,7 @@ commands::debug::push_frontend_log,
             commands::browser::browser_go_forward,
             commands::browser::browser_reload,
             commands::browser::browser_get_url,
+            commands::browser::browser_set_dark_mode,
             // Papers.cool
             commands::papers_cool::papers_cool_index,
             commands::papers_cool::papers_cool_browse_arxiv,

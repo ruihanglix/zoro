@@ -42,6 +42,14 @@ pub async fn fetch_arxiv_html(
         (aid, row.title.clone(), dir, db_path)
     };
 
+    let proxy_config = {
+        let config = state
+            .config
+            .lock()
+            .map_err(|e| format!("Config lock error: {}", e))?;
+        config.proxy.clone()
+    };
+
     let pid = paper_id.clone();
     tokio::spawn(async move {
         let task_id = format!("html-{}", pid);
@@ -59,7 +67,7 @@ pub async fn fetch_arxiv_html(
             }),
         );
 
-        match zoro_arxiv::fetch::fetch_and_save(&arxiv_id, &html_path).await {
+        match zoro_arxiv::fetch::fetch_and_save(&proxy_config, &arxiv_id, &html_path).await {
             Ok(()) => {
                 let _ = zoro_arxiv::clean::clean_html_file(&html_path, &[]).await;
                 let file_size = html_path.metadata().map(|m| m.len() as i64).ok();
@@ -147,7 +155,15 @@ pub async fn fix_paper_html_style(
 ) -> Result<(), String> {
     let html_path = resolve_html_path(&state, &paper_id)?;
 
-    zoro_arxiv::style::fix_html_file_style(&html_path)
+    let proxy_config = {
+        let config = state
+            .config
+            .lock()
+            .map_err(|e| format!("Config lock error: {}", e))?;
+        config.proxy.clone()
+    };
+
+    zoro_arxiv::style::fix_html_file_style(&proxy_config, &html_path)
         .await
         .map_err(|e| format!("Failed to fix HTML style: {}", e))
 }
@@ -255,6 +271,7 @@ pub async fn translate_paper_html(
 
     let active_translations = std::sync::Arc::clone(&state.active_html_translations);
     let pid = paper_id.clone();
+    let http_client = state.http_client.clone();
 
     tokio::spawn(async move {
         let task_id = format!("html-translate-{}", pid);
@@ -296,6 +313,7 @@ pub async fn translate_paper_html(
             usr_owned.as_deref(),
             glossary_prompt.as_deref(),
             concurrency,
+            http_client,
             move |progress| {
                 let _ = app_progress.emit(
                     "html-translation-progress",

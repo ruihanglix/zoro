@@ -423,6 +423,7 @@ pub async fn translate_html<F, G>(
     html_user_prompt: Option<&str>,
     glossary_prompt: Option<&str>,
     concurrency: usize,
+    http_client: reqwest::Client,
     on_progress: F,
     mut on_inserted: G,
 ) -> Result<(String, TranslateResult), ArxivError>
@@ -474,9 +475,12 @@ where
     let user_template = render_prompt(usr_template, target_lang);
 
     let client = Arc::new(ChatClient::new(
+        http_client,
         &ai_config.base_url,
         &ai_config.api_key,
         &ai_config.model,
+        ai_config.resolved_format,
+        ai_config.resolved_headers.clone(),
     ));
 
     {
@@ -615,6 +619,7 @@ pub async fn translate_html_file<F, G>(
     html_user_prompt: Option<&str>,
     glossary_prompt: Option<&str>,
     concurrency: usize,
+    http_client: reqwest::Client,
     on_progress: F,
     mut on_inserted: G,
 ) -> Result<TranslateResult, ArxivError>
@@ -638,6 +643,7 @@ where
         html_user_prompt,
         glossary_prompt,
         concurrency,
+        http_client,
         on_progress,
         wrapped,
     )

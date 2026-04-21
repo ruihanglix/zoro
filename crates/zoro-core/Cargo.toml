@@ -13,3 +13,4 @@ uuid = { workspace = true }
 thiserror = { workspace = true }
 sha2 = { workspace = true }
 slug = { workspace = true }
+reqwest = { workspace = true }

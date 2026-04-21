@@ -13,6 +13,7 @@ import { MetadataSearchDialog } from "@/components/library/MetadataSearchDialog"
 import * as commands from "@/lib/commands";
 import { useKeybindings } from "@/hooks/useKeybindings";
 import { useMenuEvents } from "@/hooks/useMenuEvents";
+import { useMountedTabs } from "@/hooks/useMountedTabs";
 import i18n from "@/lib/i18n";
 import { injectPluginSharedDeps } from "@/plugins/PluginSharedDeps";
 import { usePluginStore } from "@/plugins/pluginStore";
@@ -281,6 +282,7 @@ export default function App() {
 	const noteTabs = tabs.filter((t) => t.type === "note");
 	const webviewTabs = tabs.filter((t) => t.type === "webview");
 	const hasSettings = tabs.some((t) => t.type === "settings");
+	const mountedIds = useMountedTabs(activeTabId);
 
 	// On every tab switch, hide ALL native browser webviews first.
 	// Each active component (Webview / BrowserPanel) will then re-show its own.
@@ -329,48 +331,57 @@ export default function App() {
 					</div>
 				)}
 
-				{/* Reader tabs — kept mounted but hidden for state preservation */}
-				{readerTabs.map((tab) => (
-					<div
-						key={tab.id}
-						className="absolute inset-0"
-						style={{ display: activeTabId === tab.id ? "flex" : "none" }}
-					>
-						<Reader
-							tabId={tab.id}
-							paperId={tab.paperId ?? null}
-							feedItem={tab.feedItem ?? null}
-							readerMode={tab.readerMode ?? "pdf"}
-							pdfFilename={tab.pdfFilename}
-						/>
-					</div>
-				))}
+				{/* Reader tabs — mounted while active or recently used, evicted after 5 min idle */}
+				{readerTabs.map((tab) => {
+					if (!mountedIds.has(tab.id)) return null;
+					return (
+						<div
+							key={tab.id}
+							className="absolute inset-0"
+							style={{ display: activeTabId === tab.id ? "flex" : "none" }}
+						>
+							<Reader
+								tabId={tab.id}
+								paperId={tab.paperId ?? null}
+								feedItem={tab.feedItem ?? null}
+								readerMode={tab.readerMode ?? "pdf"}
+								pdfFilename={tab.pdfFilename}
+							/>
+						</div>
+					);
+				})}
 
 				{/* Note tabs */}
-				{noteTabs.map((tab) => (
-					<div
-						key={tab.id}
-						className="absolute inset-0"
-						style={{ display: activeTabId === tab.id ? "flex" : "none" }}
-					>
-						<StandaloneNoteEditor paperId={tab.paperId ?? ""} tabId={tab.id} />
-					</div>
-				))}
+				{noteTabs.map((tab) => {
+					if (!mountedIds.has(tab.id)) return null;
+					return (
+						<div
+							key={tab.id}
+							className="absolute inset-0"
+							style={{ display: activeTabId === tab.id ? "flex" : "none" }}
+						>
+							<StandaloneNoteEditor paperId={tab.paperId ?? ""} tabId={tab.id} />
+						</div>
+					);
+				})}
 
 				{/* Webview tabs */}
-				{webviewTabs.map((tab) => (
-					<div
-						key={tab.id}
-						className="absolute inset-0"
-						style={{ display: activeTabId === tab.id ? "flex" : "none" }}
-					>
-						<Webview
-							url={tab.url ?? ""}
-							feedItem={tab.feedItem}
-							isActive={activeTabId === tab.id}
-						/>
-					</div>
-				))}
+				{webviewTabs.map((tab) => {
+					if (!mountedIds.has(tab.id)) return null;
+					return (
+						<div
+							key={tab.id}
+							className="absolute inset-0"
+							style={{ display: activeTabId === tab.id ? "flex" : "none" }}
+						>
+							<Webview
+								url={tab.url ?? ""}
+								feedItem={tab.feedItem}
+								isActive={activeTabId === tab.id}
+							/>
+						</div>
+					);
+				})}
 			</div>
 
 			<FileDropZone />

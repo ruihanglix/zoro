@@ -46,7 +46,10 @@ pub struct ProxyServer {
 impl ProxyServer {
     /// Start the proxy server with the given configuration.
     /// Returns once the server is listening; call `shutdown()` to stop.
-    pub async fn start(config: ProxyConfig) -> Result<Self, ProxyError> {
+    pub async fn start(
+        config: ProxyConfig,
+        network_proxy: &zoro_core::models::ProxyConfig,
+    ) -> Result<Self, ProxyError> {
         let health = HealthTracker::new();
 
         // Initialize health records for all providers
@@ -60,7 +63,7 @@ impl ProxyServer {
             health,
             max_retries: config.max_retries,
             access_token: RwLock::new(config.access_token),
-            http_client: reqwest::Client::builder()
+            http_client: zoro_core::http_client::build_http_client(network_proxy)
                 .timeout(std::time::Duration::from_secs(300))
                 .build()
                 .unwrap_or_default(),
@@ -342,6 +345,7 @@ async fn forward_request(
     match provider.format {
         ApiFormat::OpenAI => forward_openai(client, provider, req).await,
         ApiFormat::Gemini => forward_gemini(client, provider, req).await,
+        ApiFormat::Anthropic => forward_anthropic(client, provider, req).await,
     }
 }
 
@@ -494,6 +498,263 @@ async fn forward_gemini(
             .body(Body::from(converted))
             .unwrap())
     }
+}
+
+// ── Anthropic format forwarding ──────────────────────────────────────────────
+
+/// Forward to an Anthropic /v1/messages endpoint with format conversion.
+async fn forward_anthropic(
+    client: &reqwest::Client,
+    provider: &UpstreamProvider,
+    req: &ChatCompletionRequest,
+) -> Result<Response, ProxyError> {
+    let api_key = provider.next_api_key();
+    let url = format!("{}/messages", provider.base_url.trim_end_matches('/'));
+
+    // Extract system messages and user/assistant messages
+    let (system_text, messages) = convert_messages_to_anthropic(&req.messages);
+
+    let max_tokens = req.rest.get("max_tokens")
+        .and_then(|v| v.as_u64())
+        .unwrap_or(4096) as u32;
+
+    let mut body = serde_json::json!({
+        "model": &req.model,
+        "messages": messages,
+        "max_tokens": max_tokens,
+        "stream": req.stream,
+    });
+
+    if !system_text.is_empty() {
+        body["system"] = serde_json::json!(system_text);
+    }
+
+    // Forward temperature if present
+    if let Some(temp) = req.rest.get("temperature") {
+        body["temperature"] = temp.clone();
+    }
+
+    // Convert tool definitions from OpenAI format to Anthropic format
+    if let Some(tools) = req.rest.get("tools") {
+        if let Some(tools_arr) = tools.as_array() {
+            let anthropic_tools: Vec<serde_json::Value> = tools_arr.iter().filter_map(|tool| {
+                let func = tool.get("function")?;
+                Some(serde_json::json!({
+                    "name": func.get("name")?,
+                    "description": func.get("description").unwrap_or(&serde_json::Value::Null),
+                    "input_schema": func.get("parameters").unwrap_or(&serde_json::json!({"type": "object", "properties": {}})),
+                }))
+            }).collect();
+            if !anthropic_tools.is_empty() {
+                body["tools"] = serde_json::json!(anthropic_tools);
+            }
+        }
+    }
+
+    let upstream_resp = client
+        .post(&url)
+        .header("x-api-key", api_key)
+        .header("anthropic-version", "2023-06-01")
+        .header("Content-Type", "application/json")
+        .json(&body)
+        .timeout(std::time::Duration::from_secs(300))
+        .send()
+        .await
+        .map_err(ProxyError::Http)?;
+
+    let status = upstream_resp.status();
+    if !status.is_success() {
+        let body_text = upstream_resp.text().await.unwrap_or_default();
+        return Err(ProxyError::Upstream {
+            status: status.as_u16(),
+            body: body_text,
+        });
+    }
+
+    if req.stream {
+        // Stream: convert Anthropic SSE events to OpenAI SSE format
+        let stream = upstream_resp.bytes_stream();
+        let model = req.model.clone();
+        let mapped = stream.map(move |chunk_result| {
+            match chunk_result {
+                Ok(bytes) => {
+                    let text = String::from_utf8_lossy(&bytes);
+                    let converted = convert_anthropic_sse_to_openai(&text, &model);
+                    Ok::<_, std::io::Error>(axum::body::Bytes::from(converted))
+                }
+                Err(e) => Err(std::io::Error::new(std::io::ErrorKind::Other, e)),
+            }
+        });
+        let body = Body::from_stream(mapped);
+        Ok(Response::builder()
+            .status(StatusCode::OK)
+            .header("Content-Type", "text/event-stream")
+            .header("Cache-Control", "no-cache")
+            .body(body)
+            .unwrap())
+    } else {
+        // Non-streaming: convert Anthropic response to OpenAI format
+        let raw_body = upstream_resp.text().await.unwrap_or_default();
+        let converted = convert_anthropic_response_to_openai(&raw_body, &req.model);
+        Ok(Response::builder()
+            .status(StatusCode::OK)
+            .header("Content-Type", "application/json")
+            .body(Body::from(converted))
+            .unwrap())
+    }
+}
+
+// ── Anthropic format converters ─────────────────────────────────────────────
+
+/// Extract system messages to a single string and convert remaining messages to Anthropic format.
+fn convert_messages_to_anthropic(messages: &[serde_json::Value]) -> (String, Vec<serde_json::Value>) {
+    let mut system_parts = Vec::new();
+    let mut converted = Vec::new();
+
+    for msg in messages {
+        let role = msg.get("role").and_then(|r| r.as_str()).unwrap_or("user");
+        let content = msg.get("content").and_then(|c| c.as_str()).unwrap_or("");
+
+        if role == "system" {
+            system_parts.push(content.to_string());
+        } else {
+            let anthropic_role = if role == "assistant" { "assistant" } else { "user" };
+            converted.push(serde_json::json!({
+                "role": anthropic_role,
+                "content": content,
+            }));
+        }
+    }
+
+    (system_parts.join("\n"), converted)
+}
+
+/// Convert a non-streaming Anthropic response to OpenAI format.
+fn convert_anthropic_response_to_openai(raw: &str, model: &str) -> String {
+    let parsed: serde_json::Value = match serde_json::from_str(raw) {
+        Ok(v) => v,
+        Err(_) => return raw.to_string(),
+    };
+
+    // Extract text from content[0].text
+    let text = parsed.get("content")
+        .and_then(|c| c.as_array())
+        .and_then(|arr| {
+            // Find first text block
+            arr.iter().find_map(|block| {
+                if block.get("type").and_then(|t| t.as_str()) == Some("text") {
+                    block.get("text").and_then(|t| t.as_str())
+                } else {
+                    None
+                }
+            })
+        })
+        .unwrap_or("");
+
+    let stop_reason = parsed.get("stop_reason")
+        .and_then(|r| r.as_str())
+        .unwrap_or("end_turn");
+
+    let finish_reason = match stop_reason {
+        "end_turn" => "stop",
+        "tool_use" => "tool_calls",
+        "max_tokens" => "length",
+        _ => "stop",
+    };
+
+    let id = format!("chatcmpl-{}", uuid_simple());
+
+    serde_json::json!({
+        "id": id,
+        "object": "chat.completion",
+        "model": model,
+        "choices": [{
+            "index": 0,
+            "message": {
+                "role": "assistant",
+                "content": text,
+            },
+            "finish_reason": finish_reason,
+        }],
+    }).to_string()
+}
+
+/// Convert Anthropic SSE events to OpenAI SSE format (line-by-line).
+fn convert_anthropic_sse_to_openai(chunk: &str, model: &str) -> String {
+    let mut output = String::new();
+    let mut current_event = String::new();
+
+    for line in chunk.split('\n') {
+        let line = line.trim_end();
+
+        if let Some(event_type) = line.strip_prefix("event: ") {
+            current_event = event_type.trim().to_string();
+            continue;
+        }
+
+        if let Some(data) = line.strip_prefix("data: ") {
+            let data = data.trim();
+            if data.is_empty() {
+                continue;
+            }
+
+            let parsed: serde_json::Value = match serde_json::from_str(data) {
+                Ok(v) => v,
+                Err(_) => continue,
+            };
+
+            match current_event.as_str() {
+                "content_block_delta" => {
+                    if let Some(delta) = parsed.get("delta") {
+                        if delta.get("type").and_then(|t| t.as_str()) == Some("text_delta") {
+                            if let Some(text) = delta.get("text").and_then(|t| t.as_str()) {
+                                let openai_chunk = serde_json::json!({
+                                    "id": format!("chatcmpl-{}", uuid_simple()),
+                                    "object": "chat.completion.chunk",
+                                    "model": model,
+                                    "choices": [{
+                                        "index": 0,
+                                        "delta": { "content": text },
+                                        "finish_reason": null,
+                                    }],
+                                });
+                                output.push_str(&format!("data: {}\n\n", openai_chunk));
+                            }
+                        }
+                    }
+                }
+                "message_delta" => {
+                    if let Some(delta) = parsed.get("delta") {
+                        if let Some(stop_reason) = delta.get("stop_reason").and_then(|r| r.as_str()) {
+                            let finish_reason = match stop_reason {
+                                "end_turn" => "stop",
+                                "tool_use" => "tool_calls",
+                                "max_tokens" => "length",
+                                _ => "stop",
+                            };
+                            let openai_chunk = serde_json::json!({
+                                "id": format!("chatcmpl-{}", uuid_simple()),
+                                "object": "chat.completion.chunk",
+                                "model": model,
+                                "choices": [{
+                                    "index": 0,
+                                    "delta": {},
+                                    "finish_reason": finish_reason,
+                                }],
+                            });
+                            output.push_str(&format!("data: {}\n\n", openai_chunk));
+                        }
+                    }
+                }
+                "message_stop" => {
+                    output.push_str("data: [DONE]\n\n");
+                }
+                _ => {}
+            }
+        }
+    }
+
+    output
 }
 
 // ── Gemini format converters ─────────────────────────────────────────────────

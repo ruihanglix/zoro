@@ -37,10 +37,10 @@ pub async fn start_poller(app: AppHandle) {
 
             match sub.source_type.as_str() {
                 "huggingface-daily" => {
-                    let source = HuggingFaceDailyPapers::new();
+                    let source = HuggingFaceDailyPapers::new(app_state.http_client.clone());
                     // Resolve the latest date first, then fetch by date so
                     // poller results are consistent with the date-based API.
-                    let latest_date = match zoro_subscriptions::fetch_latest_date().await {
+                    let latest_date = match zoro_subscriptions::fetch_latest_date(&app_state.http_client).await {
                         Ok(Some(d)) => d,
                         Ok(None) => chrono::Utc::now().format("%Y-%m-%d").to_string(),
                         Err(e) => {
@@ -128,9 +128,11 @@ pub async fn start_poller(app: AppHandle) {
                             // Background-cache thumbnail images for offline access
                             if !thumbnail_urls.is_empty() {
                                 let data_dir = app_state.data_dir.clone();
+                                let thumb_client = app_state.http_client.clone();
                                 tokio::spawn(async move {
                                     for url in thumbnail_urls {
                                         let _ = crate::commands::subscription::download_and_cache_thumbnail_bg(
+                                            &thumb_client,
                                             data_dir.clone(),
                                             url,
                                         )

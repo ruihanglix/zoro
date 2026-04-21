@@ -7,10 +7,10 @@ use std::path::Path;
 
 /// Download a file from URL and save to the paper directory.
 pub async fn download_file(
+    client: &reqwest::Client,
     url: &str,
     save_path: &Path,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    let client = reqwest::Client::new();
     let response = client
         .get(url)
         .header("User-Agent", "Zoro/0.1.0")

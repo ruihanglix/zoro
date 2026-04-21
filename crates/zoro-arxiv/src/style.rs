@@ -15,7 +15,9 @@ fn cache() -> &'static Mutex<Option<String>> {
     CSS_CACHE.get_or_init(|| Mutex::new(None))
 }
 
-async fn fetch_ar5iv_css() -> Result<String, ArxivError> {
+async fn fetch_ar5iv_css(
+    proxy: &zoro_core::models::ProxyConfig,
+) -> Result<String, ArxivError> {
     {
         let guard = cache().lock().await;
         if let Some(ref cached) = *guard {
@@ -23,7 +25,7 @@ async fn fetch_ar5iv_css() -> Result<String, ArxivError> {
         }
     }
 
-    let client = reqwest::Client::builder()
+    let client = zoro_core::http_client::build_http_client(proxy)
         .timeout(std::time::Duration::from_secs(30))
         .build()
         .unwrap_or_default();
@@ -44,8 +46,11 @@ async fn fetch_ar5iv_css() -> Result<String, ArxivError> {
 
 /// Inject ar5iv CSS into an HTML string for better rendering.
 /// Replaces any existing ar5iv style block.
-pub async fn fix_html_style(html: &str) -> Result<String, ArxivError> {
-    let css_text = fetch_ar5iv_css().await?;
+pub async fn fix_html_style(
+    proxy: &zoro_core::models::ProxyConfig,
+    html: &str,
+) -> Result<String, ArxivError> {
+    let css_text = fetch_ar5iv_css(proxy).await?;
 
     let mut result = html.to_string();
 
@@ -88,9 +93,12 @@ pub async fn fix_html_style(html: &str) -> Result<String, ArxivError> {
 }
 
 /// Fix the style of an HTML file in place.
-pub async fn fix_html_file_style(path: &std::path::Path) -> Result<(), ArxivError> {
+pub async fn fix_html_file_style(
+    proxy: &zoro_core::models::ProxyConfig,
+    path: &std::path::Path,
+) -> Result<(), ArxivError> {
     let html = tokio::fs::read_to_string(path).await?;
-    let fixed = fix_html_style(&html).await?;
+    let fixed = fix_html_style(proxy, &html).await?;
     tokio::fs::write(path, &fixed).await?;
     Ok(())
 }

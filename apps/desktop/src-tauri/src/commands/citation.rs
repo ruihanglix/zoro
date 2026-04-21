@@ -62,6 +62,7 @@ pub async fn enrich_paper_metadata(
 
     // Call enrichment pipeline with title fallback (network calls, do NOT hold DB lock)
     let enrichment = match zoro_metadata::enrich_paper_with_title(
+        &state.http_client,
         doi.as_deref(),
         arxiv_id.as_deref(),
         Some(&row.title),
@@ -139,6 +140,11 @@ pub async fn enrich_paper_metadata(
             let html_title = row.title.clone();
             let html_aid = aid.to_string();
             let html_paper_dir = state.data_dir.join("library").join(&current.dir_path);
+            let html_proxy = state
+                .config
+                .lock()
+                .map(|c| c.proxy.clone())
+                .unwrap_or_default();
             tokio::spawn(async move {
                 crate::connector::handlers::fetch_arxiv_html_background(
                     &html_app,
@@ -147,6 +153,7 @@ pub async fn enrich_paper_metadata(
                     &html_title,
                     &html_aid,
                     &html_paper_dir,
+                    &html_proxy,
                 )
                 .await;
             });
@@ -167,6 +174,7 @@ pub async fn enrich_paper_metadata(
                 let title = row.title.clone();
                 let dbp = state.data_dir.join("library.db");
                 let task_app = app.clone();
+                let dl_client = state.http_client.clone();
                 emit_task(
                     &app,
                     &BackgroundTaskEvent {
@@ -180,7 +188,7 @@ pub async fn enrich_paper_metadata(
                 );
                 drop(db);
                 tokio::spawn(async move {
-                    match storage::attachments::download_file(&pdf_url_clone, &pdf_path).await {
+                    match storage::attachments::download_file(&dl_client, &pdf_url_clone, &pdf_path).await {
                         Ok(()) => {
                             let file_size = storage::attachments::get_file_size(&pdf_path);
                             if let Ok(db) = zoro_db::Database::open(&dbp) {
@@ -269,9 +277,10 @@ pub async fn enrich_paper_metadata(
 /// Returns a list of candidates for the user to pick from.
 #[tauri::command]
 pub async fn search_metadata_candidates(
+    state: State<'_, AppState>,
     params: zoro_metadata::MetadataSearchParams,
 ) -> Result<Vec<zoro_metadata::MetadataCandidate>, String> {
-    Ok(zoro_metadata::search_metadata_candidates(&params).await)
+    Ok(zoro_metadata::search_metadata_candidates(&state.http_client, &params).await)
 }
 
 /// Apply a selected metadata candidate to a paper.
@@ -286,7 +295,7 @@ pub async fn apply_metadata_candidate(
     arxiv_id: Option<String>,
 ) -> Result<PaperResponse, String> {
     // If the candidate has a DOI or arXiv, run the full enrichment pipeline
-    let enrichment = zoro_metadata::enrich_paper(doi.as_deref(), arxiv_id.as_deref())
+    let enrichment = zoro_metadata::enrich_paper(&state.http_client, doi.as_deref(), arxiv_id.as_deref())
         .await
         .map_err(|e| format!("Enrichment failed: {}", e))?;
 
@@ -395,7 +404,7 @@ pub async fn get_formatted_citation(
         .as_deref()
         .ok_or_else(|| "No DOI available for citation lookup".to_string())?;
 
-    let response = fetch_citation_from_doi(doi, &style).await?;
+    let response = fetch_citation_from_doi(&state.http_client, doi, &style).await?;
 
     save_citation_cache(&state, &paper_id, &response)?;
 
@@ -427,7 +436,7 @@ pub async fn get_paper_bibtex(
             .ok_or_else(|| "No DOI available for BibTeX lookup".to_string())?
     };
 
-    let response = fetch_citation_from_doi(&doi, "bibtex").await?;
+    let response = fetch_citation_from_doi(&state.http_client, &doi, "bibtex").await?;
 
     save_citation_cache(&state, &paper_id, &response)?;
 
@@ -484,9 +493,9 @@ fn save_citation_cache(
     Ok(())
 }
 
-async fn fetch_citation_from_doi(doi: &str, style: &str) -> Result<CitationResponse, String> {
+async fn fetch_citation_from_doi(client: &reqwest::Client, doi: &str, style: &str) -> Result<CitationResponse, String> {
     if style == "bibtex" {
-        let (text, debug) = doi_content_negotiation::fetch_bibtex_debug(doi)
+        let (text, debug) = doi_content_negotiation::fetch_bibtex_debug(client, doi)
             .await
             .map_err(|e| format!("Failed to fetch BibTeX: {}", e))?;
         return Ok(CitationResponse {
@@ -505,7 +514,7 @@ async fn fetch_citation_from_doi(doi: &str, style: &str) -> Result<CitationRespo
     }
 
     let csl_style = doi_content_negotiation::normalize_style_name(style);
-    let (text, debug) = doi_content_negotiation::fetch_formatted_citation_debug(doi, csl_style)
+    let (text, debug) = doi_content_negotiation::fetch_formatted_citation_debug(client, doi, csl_style)
         .await
         .map_err(|e| format!("Failed to fetch citation: {}", e))?;
     let accept = format!("text/x-bibliography; style={}", csl_style);

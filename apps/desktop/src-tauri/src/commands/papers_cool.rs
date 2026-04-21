@@ -101,7 +101,7 @@ pub async fn papers_cool_index(
         }
     }
 
-    let client = papers_cool::PapersCool::new();
+    let client = papers_cool::PapersCool::new(state.http_client.clone());
     let index = client
         .fetch_index()
         .await
@@ -134,7 +134,7 @@ pub async fn papers_cool_browse_arxiv(
         }
     }
 
-    let client = papers_cool::PapersCool::new();
+    let client = papers_cool::PapersCool::new(state.http_client.clone());
     let page = client
         .browse_arxiv(&category, date.as_deref())
         .await
@@ -173,7 +173,7 @@ pub async fn papers_cool_browse_venue(
         }
     }
 
-    let client = papers_cool::PapersCool::new();
+    let client = papers_cool::PapersCool::new(state.http_client.clone());
     let page = client
         .browse_venue(&venue_key, group.as_deref())
         .await
@@ -203,7 +203,7 @@ pub async fn papers_cool_search(
         }
     }
 
-    let client = papers_cool::PapersCool::new();
+    let client = papers_cool::PapersCool::new(state.http_client.clone());
     let page = client
         .search(&query)
         .await

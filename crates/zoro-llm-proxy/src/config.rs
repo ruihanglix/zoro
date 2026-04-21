@@ -4,6 +4,9 @@
 
 use serde::{Deserialize, Serialize};
 
+// Re-export ApiFormat from zoro-core (shared across crates).
+pub use zoro_core::models::ApiFormat;
+
 /// Configuration for the local LLM proxy server.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ProxyConfig {
@@ -181,17 +184,6 @@ where
     }
 
     deserializer.deserialize_any(ApiKeysVisitor)
-}
-
-/// API format of an upstream provider.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
-#[serde(rename_all = "lowercase")]
-pub enum ApiFormat {
-    /// Standard OpenAI /v1/chat/completions
-    #[default]
-    OpenAI,
-    /// Google Gemini generateContent API — proxy converts on the fly
-    Gemini,
 }
 
 /// Strategy for selecting which upstream provider to route a request to.

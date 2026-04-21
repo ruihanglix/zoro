@@ -3,6 +3,8 @@
 // See LICENSE file in the project root for full license information.
 
 use std::collections::HashMap;
+use tauri::State;
+use crate::AppState;
 
 /// Generic HTTP GET proxy — lets the frontend bypass browser CORS restrictions
 /// by routing the request through the Rust backend (reqwest).
@@ -17,21 +19,15 @@ pub struct ProxyResponse {
 
 #[tauri::command]
 pub async fn http_proxy_get(
+    state: State<'_, AppState>,
     url: String,
     headers: Option<HashMap<String, String>>,
 ) -> Result<ProxyResponse, String> {
     tracing::debug!(url = %url, "http_proxy_get: starting request");
 
-    let client = reqwest::Client::builder()
-        .timeout(std::time::Duration::from_secs(15))
-        .build()
-        .map_err(|e| {
-            let msg = format!("Failed to build HTTP client: {}", e);
-            tracing::warn!(%msg, "http_proxy_get: client build failed");
-            msg
-        })?;
+    let client = &state.http_client;
 
-    let mut req = client.get(&url);
+    let mut req = client.get(&url).timeout(std::time::Duration::from_secs(15));
 
     if let Some(ref h) = headers {
         // Log header keys (not values, to avoid leaking secrets)

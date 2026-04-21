@@ -78,6 +78,7 @@ fn build_glossary_prompt(entries: &[GlossaryEntry]) -> String {
 /// appropriate prompt templates. `glossary` entries matching the source text
 /// are appended to the system prompt for consistent terminology.
 pub async fn translate_text(
+    client: &reqwest::Client,
     config: &AiConfig,
     prompts: &TranslationPrompts,
     field_type: &str,
@@ -158,7 +159,7 @@ pub async fn translate_text(
         "Translating field"
     );
 
-    let client = ChatClient::new(&config.base_url, &config.api_key, &config.model);
+    let client = ChatClient::new(client.clone(), &config.base_url, &config.api_key, &config.model, config.resolved_format, config.resolved_headers.clone());
     let result = client.chat(&system_prompt, &user_prompt, 0.3, None).await?;
 
     tracing::debug!(
@@ -175,6 +176,7 @@ pub async fn translate_text(
 /// Extract technical terms and their translations from academic text using an LLM.
 /// Returns a list of (source_term, translated_term) pairs.
 pub async fn extract_glossary_terms(
+    http_client: &reqwest::Client,
     config: &AiConfig,
     text: &str,
     target_lang: &str,
@@ -204,7 +206,7 @@ pub async fn extract_glossary_terms(
         lang_name
     );
 
-    let client = ChatClient::new(&config.base_url, &config.api_key, &config.model);
+    let client = ChatClient::new(http_client.clone(), &config.base_url, &config.api_key, &config.model, config.resolved_format, config.resolved_headers.clone());
     let result = client.chat(&system_prompt, text, 0.3, None).await?;
 
     parse_extracted_terms(&result)

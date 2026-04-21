@@ -3,6 +3,7 @@
 // See LICENSE file in the project root for full license information.
 
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { confirmAction } from "@/lib/utils";
 import { useNoteStore } from "@/stores/noteStore";
 import { ArrowLeft, Loader2, Plus, StickyNote, Trash2 } from "lucide-react";
 import { useCallback, useEffect } from "react";
@@ -42,10 +43,10 @@ export function NotesPanel({ paperId, onCitationJump }: NotesPanelProps) {
 	const handleDelete = useCallback(
 		async (e: React.MouseEvent, noteId: string) => {
 			e.stopPropagation();
-			if (!confirm(t("reader.deleteNoteConfirm"))) return;
+			if (!(await confirmAction(t("reader.deleteNoteConfirm")))) return;
 			await deleteNote(noteId, paperId);
 		},
-		[paperId, deleteNote],
+		[paperId, deleteNote, t],
 	);
 
 	const handleSave = useCallback(

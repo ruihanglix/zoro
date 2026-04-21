@@ -536,6 +536,45 @@ export const updateHtmlFetchConfig = (
 export const fetchAllMissingArxivHtml = () =>
 	invoke<number>("fetch_all_missing_arxiv_html");
 
+// Proxy
+export interface ProxyConfigResponse {
+	enabled: boolean;
+	url: string;
+	noProxy: string;
+}
+
+export const getProxyConfig = () =>
+	invoke<ProxyConfigResponse>("get_proxy_config");
+
+export const updateProxyConfig = (
+	enabled?: boolean,
+	url?: string,
+	noProxy?: string,
+) =>
+	invoke<void>("update_proxy_config", {
+		enabled: enabled ?? null,
+		url: url ?? null,
+		noProxy: noProxy ?? null,
+	});
+
+export interface ProxyTestResult {
+	success: boolean;
+	status: number | null;
+	latencyMs: number;
+	error: string | null;
+}
+
+export const testProxyConnection = (
+	url: string,
+	proxyUrl: string,
+	noProxy: string,
+) =>
+	invoke<ProxyTestResult>("test_proxy_connection", {
+		url,
+		proxyUrl,
+		noProxy,
+	});
+
 // Citation
 export const enrichPaperMetadata = (paperId: string) =>
 	invoke<PaperResponse>("enrich_paper_metadata", { paperId });
@@ -713,6 +752,9 @@ export const saveReaderState = (
 // Attachments
 export const addAttachmentFiles = (paperId: string, filePaths: string[]) =>
 	invoke<PaperResponse>("add_attachment_files", { paperId, filePaths });
+
+export const deleteAttachment = (paperId: string, attachmentId: string) =>
+	invoke<void>("delete_attachment", { paperId, attachmentId });
 
 // File access
 export const getPaperPdfPath = (paperId: string) =>
@@ -903,6 +945,8 @@ export interface AiProviderResponse {
 	baseUrl: string;
 	apiKeySet: boolean;
 	models: string[];
+	format: "openai" | "gemini" | "anthropic";
+	headers: Record<string, string>;
 }
 
 export interface AiConfigResponse {
@@ -1000,6 +1044,8 @@ export interface UpdateAiProviderInput {
 	baseUrl: string;
 	apiKey?: string;
 	models: string[];
+	format?: "openai" | "gemini" | "anthropic";
+	headers?: Record<string, string>;
 }
 
 export const getTranslations = (entityType: string, entityId: string) =>
@@ -1267,6 +1313,9 @@ export const browserReload = (label: string) =>
 
 export const browserGetUrl = (label: string) =>
 	invoke<string>("browser_get_url", { label });
+
+export const browserSetDarkMode = (dark: boolean) =>
+	invoke<void>("browser_set_dark_mode", { dark });
 
 // ── ACP Agent ──────────────────────────────────────────────────────────────
 

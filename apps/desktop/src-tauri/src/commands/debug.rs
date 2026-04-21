@@ -150,7 +150,7 @@ pub async fn fetch_all_missing_arxiv_html(
 ) -> Result<i32, String> {
     use zoro_db::queries::papers;
 
-    let (rows, data_dir, semaphore, delay_secs) = {
+    let (rows, data_dir, semaphore, delay_secs, proxy_config) = {
         let db = state
             .db
             .lock()
@@ -173,11 +173,17 @@ pub async fn fetch_all_missing_arxiv_html(
             .lock()
             .map(|c| c.general.html_fetch_delay_secs)
             .unwrap_or(3);
+        let proxy_config = state
+            .config
+            .lock()
+            .map(|c| c.proxy.clone())
+            .unwrap_or_default();
         (
             rows,
             state.data_dir.clone(),
             state.html_fetch_semaphore.clone(),
             delay,
+            proxy_config,
         )
     };
 
@@ -204,6 +210,7 @@ pub async fn fetch_all_missing_arxiv_html(
             &row.title,
             arxiv_id,
             &paper_dir,
+            proxy_config.clone(),
         );
         count += 1;
     }
@@ -263,4 +270,111 @@ pub async fn update_html_fetch_config(
         .map_err(|e| format!("Failed to save config: {}", e))?;
 
     Ok(())
+}
+
+/// Response for the proxy configuration.
+#[derive(Debug, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ProxyConfigResponse {
+    pub enabled: bool,
+    pub url: String,
+    pub no_proxy: String,
+}
+
+/// Get the current network proxy configuration.
+#[tauri::command]
+pub async fn get_proxy_config(state: State<'_, AppState>) -> Result<ProxyConfigResponse, String> {
+    let config = state
+        .config
+        .lock()
+        .map_err(|e| format!("Config lock error: {}", e))?;
+    Ok(ProxyConfigResponse {
+        enabled: config.proxy.enabled,
+        url: config.proxy.url.clone(),
+        no_proxy: config.proxy.no_proxy.clone(),
+    })
+}
+
+/// Update the network proxy configuration. Changes take effect after restart.
+#[tauri::command]
+pub async fn update_proxy_config(
+    state: State<'_, AppState>,
+    enabled: Option<bool>,
+    url: Option<String>,
+    no_proxy: Option<String>,
+) -> Result<(), String> {
+    let mut config = state
+        .config
+        .lock()
+        .map_err(|e| format!("Config lock error: {}", e))?;
+
+    if let Some(v) = enabled {
+        config.proxy.enabled = v;
+    }
+    if let Some(v) = url {
+        config.proxy.url = v;
+    }
+    if let Some(v) = no_proxy {
+        config.proxy.no_proxy = v;
+    }
+
+    crate::storage::config::save_config(&state.data_dir, &config)
+        .map_err(|e| format!("Failed to save config: {}", e))?;
+
+    Ok(())
+}
+
+/// Response for the proxy connection test.
+#[derive(Debug, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ProxyTestResult {
+    pub success: bool,
+    pub status: Option<u16>,
+    pub latency_ms: u64,
+    pub error: Option<String>,
+}
+
+/// Test the proxy connection by sending a request through the configured proxy.
+/// Uses the provided (unsaved) proxy settings so the user can test before committing.
+#[tauri::command]
+pub async fn test_proxy_connection(
+    url: String,
+    proxy_url: String,
+    no_proxy: String,
+) -> Result<ProxyTestResult, String> {
+    use zoro_core::models::ProxyConfig;
+
+    let proxy_cfg = ProxyConfig {
+        enabled: true,
+        url: proxy_url,
+        no_proxy,
+    };
+
+    let client = zoro_core::http_client::build_http_client(&proxy_cfg)
+        .timeout(std::time::Duration::from_secs(10))
+        .build()
+        .map_err(|e| format!("Failed to build proxy client: {}", e))?;
+
+    let start = std::time::Instant::now();
+    match client.get(&url).send().await {
+        Ok(resp) => {
+            let latency_ms = start.elapsed().as_millis() as u64;
+            let status = resp.status().as_u16();
+            Ok(ProxyTestResult {
+                success: resp.status().is_success() || resp.status().is_redirection(),
+                status: Some(status),
+                latency_ms,
+                error: None,
+            })
+        }
+        Err(e) => {
+            let latency_ms = start.elapsed().as_millis() as u64;
+            Ok(ProxyTestResult {
+                success: false,
+                status: None,
+                latency_ms,
+                error: Some(e.to_string()),
+            })
+        }
+    }
 }

@@ -3,6 +3,20 @@
 // See LICENSE file in the project root for full license information.
 
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
+
+/// API format of a provider endpoint.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "lowercase")]
+pub enum ApiFormat {
+    /// Standard OpenAI /v1/chat/completions
+    #[default]
+    OpenAI,
+    /// Google Gemini generateContent API
+    Gemini,
+    /// Anthropic /v1/messages API
+    Anthropic,
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Paper {
@@ -200,6 +214,20 @@ pub struct Translation {
     pub modified_date: String,
 }
 
+/// Network proxy configuration.
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct ProxyConfig {
+    /// Whether the proxy is enabled.
+    #[serde(default)]
+    pub enabled: bool,
+    /// Proxy URL, e.g. "http://host:port" or "socks5://host:port".
+    #[serde(default)]
+    pub url: String,
+    /// Comma-separated list of hosts that bypass the proxy.
+    #[serde(default)]
+    pub no_proxy: String,
+}
+
 /// Config for the app (config.toml)
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AppConfig {
@@ -215,6 +243,8 @@ pub struct AppConfig {
     pub chat: ChatConfig,
     #[serde(default)]
     pub updater: UpdaterConfig,
+    #[serde(default)]
+    pub proxy: ProxyConfig,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -321,9 +351,17 @@ pub struct AiConfig {
     /// Falls back to the main `model` field when a task model is empty.
     #[serde(default)]
     pub task_model_defaults: TaskModelDefaults,
+    /// Resolved API format — transient, not persisted to config file.
+    /// Set by `resolve_for_model()` based on the matched provider's format.
+    #[serde(skip)]
+    pub resolved_format: ApiFormat,
+    /// Resolved custom headers — transient, not persisted to config file.
+    /// Set by `resolve_for_model()` based on the matched provider's headers.
+    #[serde(skip)]
+    pub resolved_headers: HashMap<String, String>,
 }
 
-/// An additional OpenAI-compatible AI provider that can be selected per-message.
+/// An additional AI provider that can be selected per-message.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AiProvider {
     pub id: String,
@@ -333,6 +371,12 @@ pub struct AiProvider {
     pub api_key: String,
     #[serde(default)]
     pub models: Vec<String>,
+    /// API format for this provider (OpenAI, Gemini, or Anthropic).
+    #[serde(default)]
+    pub format: ApiFormat,
+    /// Custom HTTP headers to include in API requests.
+    #[serde(default)]
+    pub headers: HashMap<String, String>,
 }
 
 impl AiConfig {
@@ -348,6 +392,7 @@ impl AiConfig {
     pub fn resolve_for_model(&self, model: &str) -> AiConfig {
         let mut cfg = self.clone();
         cfg.model = model.to_string();
+        cfg.resolved_format = ApiFormat::OpenAI; // default
 
         if model.is_empty() {
             return cfg;
@@ -364,6 +409,8 @@ impl AiConfig {
                         cfg.base_url = p.base_url.clone();
                     }
                     cfg.api_key = "acp-proxy".to_string();
+                    cfg.resolved_format = p.format;
+                    cfg.resolved_headers = p.headers.clone();
                     return cfg;
                 }
             }
@@ -382,6 +429,8 @@ impl AiConfig {
                 if !p.api_key.is_empty() {
                     cfg.api_key = p.api_key.clone();
                 }
+                cfg.resolved_format = p.format;
+                cfg.resolved_headers = p.headers.clone();
                 break;
             }
         }
@@ -689,11 +738,14 @@ impl Default for AppConfig {
                 glossary_threshold: default_glossary_threshold(),
                 providers: Vec::new(),
                 task_model_defaults: TaskModelDefaults::default(),
+                resolved_format: ApiFormat::OpenAI,
+                resolved_headers: HashMap::new(),
             },
             sync: SyncConfig::default(),
             mcp: McpConfig::default(),
             chat: ChatConfig::default(),
             updater: UpdaterConfig::default(),
+            proxy: ProxyConfig::default(),
         }
     }
 }

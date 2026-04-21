@@ -26,6 +26,8 @@ export interface Tab {
 	url?: string;
 	/** Display title for the tab */
 	title: string;
+	/** Timestamp of when this tab was last activated (for idle eviction) */
+	lastActiveAt?: number;
 }
 
 interface TabState {
@@ -77,7 +79,11 @@ export const useTabStore = create<TabState>((set, get) => ({
 				activeTabId: id,
 				tabs: tabs.map((t) =>
 					t.id === id
-						? { ...t, readerMode: tabInput.readerMode ?? t.readerMode }
+						? {
+								...t,
+								readerMode: tabInput.readerMode ?? t.readerMode,
+								lastActiveAt: Date.now(),
+							}
 						: t,
 				),
 			});
@@ -85,7 +91,7 @@ export const useTabStore = create<TabState>((set, get) => ({
 		}
 
 		// Create new tab
-		const newTab: Tab = { ...tabInput, id };
+		const newTab: Tab = { ...tabInput, id, lastActiveAt: Date.now() };
 		set({
 			tabs: [...tabs, newTab],
 			activeTabId: id,
@@ -118,7 +124,12 @@ export const useTabStore = create<TabState>((set, get) => ({
 	},
 
 	setActiveTab: (id) => {
-		set({ activeTabId: id });
+		set((s) => ({
+			activeTabId: id,
+			tabs: s.tabs.map((t) =>
+				t.id === id ? { ...t, lastActiveAt: Date.now() } : t,
+			),
+		}));
 	},
 
 	updateTab: (id, partial) => {

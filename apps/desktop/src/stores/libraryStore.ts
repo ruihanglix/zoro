@@ -105,6 +105,7 @@ interface LibraryState {
 
 	// Attachments
 	addAttachmentFiles: (paperId: string, filePaths: string[]) => Promise<void>;
+	deleteAttachment: (paperId: string, attachmentId: string) => Promise<void>;
 
 	// Import/Export
 	importBibtex: (content: string) => Promise<number>;
@@ -436,6 +437,25 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
 		const { selectedPaper } = get();
 		if (selectedPaper?.id === paperId) {
 			await get().fetchPaper(paperId);
+		}
+	},
+
+	deleteAttachment: async (paperId, attachmentId) => {
+		await commands.deleteAttachment(paperId, attachmentId);
+		const { papers, selectedPaper } = get();
+		const updated = papers.map((p) =>
+			p.id === paperId
+				? { ...p, attachments: p.attachments.filter((a) => a.id !== attachmentId) }
+				: p,
+		);
+		set({ papers: updated });
+		if (selectedPaper?.id === paperId) {
+			set({
+				selectedPaper: {
+					...selectedPaper,
+					attachments: selectedPaper.attachments.filter((a) => a.id !== attachmentId),
+				},
+			});
 		}
 	},
 

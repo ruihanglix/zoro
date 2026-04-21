@@ -220,7 +220,7 @@ In the subscription poller (or wherever sources are instantiated), add the new s
 // In the subscription poller
 match subscription.source_type.as_str() {
     "huggingface-daily" => {
-        let source = HuggingFaceDailyPapers::new();
+        let source = HuggingFaceDailyPapers::new(client.clone());
         source.fetch(&config, since).await
     }
     "arxiv-rss" => {
@@ -443,7 +443,7 @@ mod tests {
     #[tokio::test]
     #[ignore] // Requires network access
     async fn test_fetch_daily_papers() {
-        let source = HuggingFaceDailyPapers::new();
+        let source = HuggingFaceDailyPapers::new(client.clone());
         let config = source.default_config();
         let items = source.fetch(&config, None).await.unwrap();
         assert!(!items.is_empty(), "Should fetch at least one paper");

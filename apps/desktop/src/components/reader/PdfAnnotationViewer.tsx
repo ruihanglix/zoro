@@ -1757,24 +1757,19 @@ export function PdfAnnotationViewer({
 					isDark
 						? `
         .page canvas {
-          filter: invert(0.88) hue-rotate(180deg);
+          filter: invert(0.82) hue-rotate(180deg);
           will-change: filter, transform;
         }
         .pdfViewer {
-          background-color: #1a1a1a !important;
+          background-color: #272727 !important;
         }
         .page {
-          background-color: #1a1a1a !important;
-          box-shadow: 0 0 8px rgba(0,0,0,0.5) !important;
+          background-color: #2e3440 !important;
+          box-shadow: 0 0 6px rgba(0,0,0,0.4) !important;
           contain: layout style paint;
         }
         [class*='_container_'] {
-          background-color: #1a1a1a !important;
-        }
-        /* Dark-mode highlight: counter-invert the highlight layer so that
-           colours appear vivid on the inverted canvas, matching Zotero. */
-        .PdfHighlighter__highlight-layer {
-          filter: invert(0.88) hue-rotate(180deg);
+          background-color: #272727 !important;
         }
         .pdf-underline .Highlight__part {
           border-bottom-width: 3px !important;
@@ -1849,7 +1844,7 @@ function AnnotationColorStyles({
 							} else {
 								part.style.setProperty(
 									"background",
-									hexToRgba(ann.color, 0.4),
+									hexToRgba(ann.color, 0.5),
 									"important",
 								);
 							}

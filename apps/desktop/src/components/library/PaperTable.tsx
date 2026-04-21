@@ -22,7 +22,7 @@ import { COLUMN_DEFS, COLUMN_DEF_MAP } from "@/lib/columnConfig";
 import type { AttachmentResponse, PaperResponse } from "@/lib/commands";
 import * as commands from "@/lib/commands";
 import { startPaperDrag } from "@/lib/dragState";
-import { cn } from "@/lib/utils";
+import { cn, confirmAction } from "@/lib/utils";
 import { useLibraryStore } from "@/stores/libraryStore";
 import { useTabStore } from "@/stores/tabStore";
 import {
@@ -45,6 +45,7 @@ import {
 	Globe,
 	Star,
 	StickyNote,
+	Trash2,
 } from "lucide-react";
 import {
 	type PointerEvent as ReactPointerEvent,
@@ -159,13 +160,10 @@ export function PaperTable() {
 
 	// Expand/collapse state
 	const [expandedPapers, setExpandedPapers] = useState<Set<string>>(new Set());
-	const papersRef = useRef(papers);
+	const paperIdsKey = useMemo(() => papers.map((p) => p.id).join(","), [papers]);
 	useEffect(() => {
-		if (papersRef.current !== papers) {
-			papersRef.current = papers;
-			setExpandedPapers(new Set());
-		}
-	}, [papers]);
+		setExpandedPapers(new Set());
+	}, [paperIdsKey]);
 
 	const toggleExpand = useCallback((paperId: string) => {
 		setExpandedPapers((prev) => {
@@ -452,15 +450,10 @@ export function PaperTable() {
 											title: paper.title,
 										});
 									} else {
-										// Find the primary PDF: first local PDF attachment
-										const primaryPdf = paper.attachments.find(
-											(a) => a.file_type === "pdf" && a.is_local,
-										);
 										openTab({
 											type: "reader",
 											paperId: paper.id,
 											readerMode: paper.has_pdf ? "pdf" : "html",
-											pdfFilename: primaryPdf?.filename,
 											title: paper.title,
 										});
 									}
@@ -601,6 +594,8 @@ function AttachmentRow({
 }) {
 	const { t } = useTranslation();
 	const openTab = useTabStore((s) => s.openTab);
+	const deleteAttachment = useLibraryStore((s) => s.deleteAttachment);
+	const confirmBeforeDelete = useUiStore((s) => s.confirmBeforeDelete);
 	const createdDate = new Date(attachment.created_date).toLocaleDateString(
 		undefined,
 		{ month: "short", day: "numeric" },
@@ -655,6 +650,22 @@ function AttachmentRow({
 		} catch (err) {
 			console.error("Failed to show in folder:", err);
 		}
+	};
+
+	const handleDelete = () => {
+		setTimeout(async () => {
+			if (
+				confirmBeforeDelete &&
+				!(await confirmAction(t("contextMenu.deleteAttachmentConfirm")))
+			) {
+				return;
+			}
+			try {
+				await deleteAttachment(paperId, attachment.id);
+			} catch (err) {
+				console.error("Failed to delete attachment:", err);
+			}
+		}, 0);
 	};
 
 	const isMac = navigator.platform.toUpperCase().includes("MAC");
@@ -717,6 +728,14 @@ function AttachmentRow({
 				<ContextMenuItem onSelect={handleCopyFilename}>
 					<Copy className="mr-2 h-4 w-4" />
 					{t("contextMenu.copyFilename")}
+				</ContextMenuItem>
+				<ContextMenuSeparator />
+				<ContextMenuItem
+					onSelect={handleDelete}
+					className="text-destructive focus:text-destructive"
+				>
+					<Trash2 className="mr-2 h-4 w-4" />
+					{t("common.delete")}
 				</ContextMenuItem>
 			</ContextMenuContent>
 		</ContextMenu>

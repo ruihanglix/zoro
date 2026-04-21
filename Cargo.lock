@@ -7520,6 +7520,7 @@ name = "zoro-core"
 version = "0.1.0"
 dependencies = [
  "chrono",
+ "reqwest 0.12.28",
  "serde",
  "serde_json",
  "sha2",
@@ -7619,6 +7620,7 @@ dependencies = [
  "thiserror 2.0.18",
  "tokio",
  "tracing",
+ "zoro-core",
  "zoro-llm-proxy",
 ]
 
@@ -7634,6 +7636,7 @@ dependencies = [
  "thiserror 2.0.18",
  "tokio",
  "tracing",
+ "zoro-core",
 ]
 
 [[package]]
@@ -7644,6 +7647,7 @@ dependencies = [
  "axum",
  "chrono",
  "clap",
+ "reqwest 0.12.28",
  "rmcp",
  "schemars 1.2.1",
  "serde",

@@ -190,6 +190,7 @@ pub async fn translate_fields(
         all_original_text.push('\n');
 
         let translated = zoro_ai::translate::translate_text(
+            &state.http_client,
             &task_ai_config,
             &ai_config.translation_prompts,
             field,
@@ -237,8 +238,10 @@ pub async fn translate_fields(
         );
         let lang = target_lang.clone();
         let eid = entity_id.clone();
+        let glossary_http = state.http_client.clone();
         tokio::spawn(async move {
             match zoro_ai::translate::extract_glossary_terms(
+                &glossary_http,
                 &glossary_ai,
                 &all_original_text,
                 &lang,
@@ -337,6 +340,12 @@ pub async fn get_ai_config(
                     base_url: p.base_url.clone(),
                     api_key_set: !p.api_key.is_empty(),
                     models: p.models.clone(),
+                    format: match p.format {
+                        zoro_core::models::ApiFormat::Gemini => "gemini".to_string(),
+                        zoro_core::models::ApiFormat::Anthropic => "anthropic".to_string(),
+                        _ => "openai".to_string(),
+                    },
+                    headers: p.headers.clone(),
                 })
                 .collect();
 
@@ -348,6 +357,8 @@ pub async fn get_ai_config(
                     base_url: format!("http://127.0.0.1:{}/v1", port),
                     api_key_set: true, // No real key needed
                     models: vec!["Zoro-ACP-Proxy".to_string()],
+                    format: "openai".to_string(),
+                    headers: std::collections::HashMap::new(),
                 });
             }
 
@@ -397,6 +408,8 @@ pub struct AiProviderResponse {
     pub base_url: String,
     pub api_key_set: bool,
     pub models: Vec<String>,
+    pub format: String,
+    pub headers: std::collections::HashMap<String, String>,
 }
 
 #[derive(Debug, Serialize)]
@@ -533,12 +546,16 @@ pub async fn update_ai_config(
             .filter(|p| p.id != "__acp_proxy__")
             .map(|p| {
                 // Preserve existing api_key if no new one is provided
-                let existing_key = config
+                let existing = config
                     .ai
                     .providers
                     .iter()
-                    .find(|ep| ep.id == p.id)
+                    .find(|ep| ep.id == p.id);
+                let existing_key = existing
                     .map(|ep| ep.api_key.clone())
+                    .unwrap_or_default();
+                let existing_headers = existing
+                    .map(|ep| ep.headers.clone())
                     .unwrap_or_default();
                 zoro_core::models::AiProvider {
                     id: p.id,
@@ -549,6 +566,12 @@ pub async fn update_ai_config(
                         _ => existing_key,
                     },
                     models: p.models,
+                    format: match p.format.as_deref() {
+                        Some("gemini") => zoro_core::models::ApiFormat::Gemini,
+                        Some("anthropic") => zoro_core::models::ApiFormat::Anthropic,
+                        _ => zoro_core::models::ApiFormat::OpenAI,
+                    },
+                    headers: p.headers.unwrap_or_else(|| existing_headers),
                 }
             })
             .collect();
@@ -623,6 +646,10 @@ pub struct UpdateAiProviderInput {
     pub api_key: Option<String>,
     #[serde(default)]
     pub models: Vec<String>,
+    #[serde(default)]
+    pub format: Option<String>,
+    #[serde(default)]
+    pub headers: Option<std::collections::HashMap<String, String>>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -672,7 +699,7 @@ pub async fn test_ai_connection(state: State<'_, AppState>) -> Result<String, St
     }
 
     let client =
-        zoro_ai::client::ChatClient::new(&resolved.base_url, &resolved.api_key, &resolved.model);
+        zoro_ai::client::ChatClient::new(state.http_client.clone(), &resolved.base_url, &resolved.api_key, &resolved.model, resolved.resolved_format, resolved.resolved_headers.clone());
 
     client
         .test_connection()
@@ -737,6 +764,7 @@ pub async fn translate_selection(
     };
 
     let translated = zoro_ai::translate::translate_text(
+        &state.http_client,
         &quick_config,
         &ai_config.translation_prompts,
         "abstract_text",

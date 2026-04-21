@@ -82,7 +82,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Build initial library-index.json
     zoro_storage::sync::rebuild_library_index(&db, &data_dir);
 
-    let state = Arc::new(AppState::new(db, data_dir));
+    // Load config and build shared HTTP client
+    let config_path = data_dir.join("config.toml");
+    let config: zoro_core::models::AppConfig = std::fs::read_to_string(&config_path)
+        .ok()
+        .and_then(|s| toml::from_str(&s).ok())
+        .unwrap_or_default();
+    let http_client = zoro_core::http_client::build_http_client(&config.proxy)
+        .build()
+        .expect("Failed to build HTTP client");
+
+    let state = Arc::new(AppState::new(db, data_dir, http_client));
     let server = ZoroMcpServer::new(state);
 
     match args.transport {

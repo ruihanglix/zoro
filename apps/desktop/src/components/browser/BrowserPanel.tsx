@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import * as commands from "@/lib/commands";
 import { cn } from "@/lib/utils";
 import { loadSetting, saveSetting } from "@/stores/uiStore";
+import { useIsDarkMode } from "@/stores/uiStore";
 import { listen } from "@tauri-apps/api/event";
 import { open } from "@tauri-apps/plugin-shell";
 import {
@@ -43,6 +44,7 @@ interface BrowserPanelProps {
 
 export function BrowserPanel({ storageKey, isActive, paperId }: BrowserPanelProps) {
 	const { t } = useTranslation();
+	const isDark = useIsDarkMode();
 	const lsKey = `zoro-browser-tabs-${storageKey}`;
 
 	// Load persisted state
@@ -70,9 +72,11 @@ export function BrowserPanel({ storageKey, isActive, paperId }: BrowserPanelProp
 	const containerRefs = useRef<Map<string, HTMLDivElement>>(new Map());
 	const resizeObservers = useRef<Map<string, ResizeObserver>>(new Map());
 	const panelRef = useRef<HTMLDivElement>(null);
-	// Keep a ref to isActive so async callbacks can read the latest value
+	// Keep refs so async callbacks can read the latest values
 	const isActiveRef = useRef(isActive);
 	isActiveRef.current = isActive;
+	const tabsRef = useRef(tabs);
+	tabsRef.current = tabs;
 
 	const activeTab = tabs.find((tab) => tab.id === activeTabId) ?? null;
 
@@ -80,6 +84,11 @@ export function BrowserPanel({ storageKey, isActive, paperId }: BrowserPanelProp
 	useEffect(() => {
 		saveSetting(lsKey, { tabs, activeTabId });
 	}, [tabs, activeTabId, lsKey]);
+
+	// Sync dark mode to browser webviews
+	useEffect(() => {
+		commands.browserSetDarkMode(isDark).catch(() => {});
+	}, [isDark]);
 
 	// Update URL bar when active tab changes
 	useEffect(() => {
@@ -104,6 +113,7 @@ export function BrowserPanel({ storageKey, isActive, paperId }: BrowserPanelProp
 				setTabs((prev) =>
 					prev.map((tab) => {
 						if (getLabel(tab.id) === label) {
+							if (tab.url === url) return tab;
 							return { ...tab, url };
 						}
 						return tab;
@@ -111,7 +121,7 @@ export function BrowserPanel({ storageKey, isActive, paperId }: BrowserPanelProp
 				);
 				// Update URL bar if this is the active tab
 				setActiveTabId((currentActiveId) => {
-					const matchingTab = tabs.find(
+					const matchingTab = tabsRef.current.find(
 						(tab) => getLabel(tab.id) === label,
 					);
 					if (matchingTab && matchingTab.id === currentActiveId) {
@@ -124,7 +134,7 @@ export function BrowserPanel({ storageKey, isActive, paperId }: BrowserPanelProp
 		return () => {
 			unlisten.then((fn) => fn());
 		};
-	}, [getLabel, tabs]);
+	}, [getLabel]);
 
 	// Listen for page info events to update tab title and favicon
 	useEffect(() => {
@@ -135,11 +145,10 @@ export function BrowserPanel({ storageKey, isActive, paperId }: BrowserPanelProp
 				setTabs((prev) =>
 					prev.map((tab) => {
 						if (getLabel(tab.id) === label) {
-							return {
-								...tab,
-								...(title ? { title } : {}),
-								...(favicon ? { favicon } : {}),
-							};
+							const newTitle = title || tab.title;
+							const newFavicon = favicon || tab.favicon;
+							if (tab.title === newTitle && tab.favicon === newFavicon) return tab;
+							return { ...tab, title: newTitle, favicon: newFavicon };
 						}
 						return tab;
 					}),
@@ -176,9 +185,10 @@ export function BrowserPanel({ storageKey, isActive, paperId }: BrowserPanelProp
 
 	// Show/hide all webviews based on panel visibility
 	useEffect(() => {
+		const currentTabs = tabsRef.current;
 		if (!isActive) {
 			// Hide all this panel's webviews
-			for (const tab of tabs) {
+			for (const tab of currentTabs) {
 				const label = getLabel(tab.id);
 				commands.hideBrowserWebview(label).catch(() => {});
 			}
@@ -190,7 +200,8 @@ export function BrowserPanel({ storageKey, isActive, paperId }: BrowserPanelProp
 			// Guard: panel might have become inactive while awaiting
 			if (!isActiveRef.current) return;
 
-			for (const tab of tabs) {
+			const latestTabs = tabsRef.current;
+			for (const tab of latestTabs) {
 				const label = getLabel(tab.id);
 				if (tab.id === activeTabId && createdWebviews.current.has(label)) {
 					const container = containerRefs.current.get(tab.id);
@@ -210,7 +221,7 @@ export function BrowserPanel({ storageKey, isActive, paperId }: BrowserPanelProp
 				}
 			}
 		}).catch(() => {});
-	}, [isActive, activeTabId, tabs, getLabel]);
+	}, [isActive, activeTabId, getLabel]);
 
 	// Re-sync webview position on window resize (ResizeObserver misses position-only changes)
 	useEffect(() => {

@@ -21,7 +21,7 @@ import type {
 import { supportedLanguages } from "@/lib/i18n";
 import type { SupportedLanguage } from "@/lib/i18n";
 import { logger } from "@/lib/logger";
-import { cn } from "@/lib/utils";
+import { cn, confirmAction } from "@/lib/utils";
 import { createPluginSDK } from "@/plugins/PluginManager";
 import { usePluginStore } from "@/plugins/pluginStore";
 import { useAcpProxyStore } from "@/stores/acpProxyStore";
@@ -78,7 +78,7 @@ import {
 	X,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 type SettingsSection =
@@ -288,7 +288,7 @@ function GlossarySection({
 	};
 
 	const handleClear = async () => {
-		if (!confirm(t("settings.clearGlossaryConfirm"))) return;
+		if (!(await confirmAction(t("settings.clearGlossaryConfirm")))) return;
 		try {
 			await commands.clearGlossary();
 			await loadTerms();
@@ -644,6 +644,32 @@ export function Settings() {
 	const [logRetentionDays, setLogRetentionDays] = useState(7);
 	const [logConfigLoaded, setLogConfigLoaded] = useState(false);
 
+	// Network proxy config
+	const [proxyEnabled, setProxyEnabled] = useState(false);
+	const [proxyUrl, setProxyUrl] = useState("");
+	const [proxyNoProxy, setProxyNoProxy] = useState("");
+	const [proxyConfigLoaded, setProxyConfigLoaded] = useState(false);
+	const proxyUrlTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+	const noProxyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+	const aiSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+	const pdfSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+	const chatSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+	const mcpSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+	const retentionSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+	const aiConfigLoadedRef = useRef(false);
+	const chatConfigLoadedRef = useRef(false);
+	const mcpConfigLoadedRef = useRef(false);
+	const storageInfoLoadedRef = useRef(false);
+	const pdfConfigLoadedRef = useRef(false);
+	const [proxyTestUrl, setProxyTestUrl] = useState("https://www.google.com");
+	const [proxyTesting, setProxyTesting] = useState(false);
+	const [proxyTestResult, setProxyTestResult] = useState<{
+		success: boolean;
+		status: number | null;
+		latencyMs: number;
+		error: string | null;
+	} | null>(null);
+
 	// HTML fetch config
 	const [autoFetchArxivHtml, setAutoFetchArxivHtml] = useState(false);
 	const [htmlFetchConcurrency, setHtmlFetchConcurrency] = useState(2);
@@ -711,7 +737,7 @@ export function Settings() {
 		null,
 	);
 	const [retentionDays, setRetentionDays] = useState(7);
-	const [retentionSaving, setRetentionSaving] = useState(false);
+	const [, setRetentionSaving] = useState(false);
 	const [clearingCache, setClearingCache] = useState(false);
 	const [changingDataDir, setChangingDataDir] = useState(false);
 	const [zoteroImportOpen, setZoteroImportOpen] = useState(false);
@@ -755,7 +781,7 @@ export function Settings() {
 		ok: boolean;
 		msg: string;
 	} | null>(null);
-	const [aiSaving, setAiSaving] = useState(false);
+	const [, setAiSaving] = useState(false);
 	// Unified provider list — includes the "main" config as a virtual provider
 	const [aiProviders, setAiProviders] = useState<
 		(AiProviderResponse & { isDefault?: boolean })[]
@@ -768,6 +794,8 @@ export function Settings() {
 		baseUrl: string;
 		apiKey: string;
 		models: string;
+		format: "openai" | "gemini" | "anthropic";
+		headers: Record<string, string>;
 	} | null>(null);
 	// Track pending API keys for providers that haven't been saved yet
 	const [pendingProviderKeys, setPendingProviderKeys] = useState<
@@ -803,7 +831,7 @@ export function Settings() {
 	const [pdfCustomModel, setPdfCustomModel] = useState("");
 	const [pdfQps, setPdfQps] = useState(4);
 	const [pdfExtraArgs, setPdfExtraArgs] = useState("--no-dual");
-	const [pdfSaving, setPdfSaving] = useState(false);
+	const [, setPdfSaving] = useState(false);
 	const [pdfTesting, setPdfTesting] = useState(false);
 	const [pdfTestResult, setPdfTestResult] = useState<{
 		ok: boolean;
@@ -816,13 +844,12 @@ export function Settings() {
 	);
 	const [chatActivePreset, setChatActivePreset] = useState("");
 	const [chatConfirmToolCalls, setChatConfirmToolCalls] = useState(true);
-	const [chatSaving, setChatSaving] = useState(false);
 
 	// MCP Server state
 	const [mcpStatus, setMcpStatus] = useState<McpStatusResponse | null>(null);
 	const [mcpPort, setMcpPort] = useState(23121);
 	const [mcpTransport, setMcpTransport] = useState("http");
-	const [mcpSaving, setMcpSaving] = useState(false);
+	const [, setMcpSaving] = useState(false);
 	const [mcpStarting, setMcpStarting] = useState(false);
 
 	// CLI state
@@ -846,6 +873,7 @@ export function Settings() {
 			const info = await commands.getStorageInfo();
 			setStorageInfo(info);
 			setRetentionDays(info.feed_cache_retention_days);
+			storageInfoLoadedRef.current = true;
 		} catch (err) {
 			logger.error("settings", "Failed to fetch storage info", err);
 		}
@@ -941,6 +969,7 @@ export function Settings() {
 				baseUrl: config.baseUrl,
 				apiKeySet: config.apiKeySet,
 				models: mainModels,
+				format: savedMainProvider?.format || "openai",
 				isDefault: false,
 			};
 			const additionalProviders = (config.providers || [])
@@ -984,6 +1013,8 @@ export function Settings() {
 			} else {
 				setCustomNativeLang("");
 			}
+			aiConfigLoadedRef.current = true;
+			pdfConfigLoadedRef.current = true;
 		} catch (err) {
 			logger.error("settings", "Failed to load AI config", err);
 		}
@@ -995,6 +1026,7 @@ export function Settings() {
 			setChatPresets(config.presets);
 			setChatActivePreset(config.activePreset);
 			setChatConfirmToolCalls(config.confirmToolCalls);
+			chatConfigLoadedRef.current = true;
 		} catch (err) {
 			logger.error("settings", "Failed to load chat config", err);
 		}
@@ -1006,6 +1038,7 @@ export function Settings() {
 			setMcpStatus(status);
 			setMcpPort(status.port);
 			setMcpTransport(status.transport);
+			mcpConfigLoadedRef.current = true;
 		} catch (err) {
 			logger.error("settings", "Failed to load MCP status", err);
 		}
@@ -1027,6 +1060,12 @@ export function Settings() {
 			setLogRetentionDays(cfg.logRetentionDays);
 			setLogConfigLoaded(true);
 		}).catch((e: unknown) => logger.error("settings", "Failed to load log config", e));
+		commands.getProxyConfig().then((cfg) => {
+			setProxyEnabled(cfg.enabled);
+			setProxyUrl(cfg.url);
+			setProxyNoProxy(cfg.noProxy);
+			setProxyConfigLoaded(true);
+		}).catch((e: unknown) => logger.error("settings", "Failed to load proxy config", e));
 		commands.getHtmlFetchConfig().then((cfg) => {
 			setAutoFetchArxivHtml(cfg.autoFetchArxivHtml);
 			setHtmlFetchConcurrency(cfg.htmlFetchConcurrency);
@@ -1162,6 +1201,8 @@ export function Settings() {
 							baseUrl: p.baseUrl,
 							apiKey: undefined, // tells backend to keep existing key
 							models: p.models,
+							format: p.format,
+							headers: p.headers,
 						})),
 						// Append lab proxy if available
 						...(labProxy ? [labProxy] : []),
@@ -1209,6 +1250,61 @@ export function Settings() {
 			setLogRetentionDays(days);
 		} catch (err) {
 			logger.error("settings", "Failed to update log retention", err);
+		}
+	};
+
+	const handleProxyEnabledToggle = async (enabled: boolean) => {
+		try {
+			await commands.updateProxyConfig(enabled, undefined, undefined);
+			setProxyEnabled(enabled);
+		} catch (err) {
+			logger.error("settings", "Failed to update proxy config", err);
+		}
+	};
+
+	const handleProxyUrlChange = (value: string) => {
+		setProxyUrl(value);
+		if (proxyUrlTimerRef.current) clearTimeout(proxyUrlTimerRef.current);
+		proxyUrlTimerRef.current = setTimeout(async () => {
+			try {
+				await commands.updateProxyConfig(undefined, value, undefined);
+			} catch (err) {
+				logger.error("settings", "Failed to update proxy URL", err);
+			}
+		}, 500);
+	};
+
+	const handleNoProxyChange = (value: string) => {
+		setProxyNoProxy(value);
+		if (noProxyTimerRef.current) clearTimeout(noProxyTimerRef.current);
+		noProxyTimerRef.current = setTimeout(async () => {
+			try {
+				await commands.updateProxyConfig(undefined, undefined, value);
+			} catch (err) {
+				logger.error("settings", "Failed to update no-proxy list", err);
+			}
+		}, 500);
+	};
+
+	const handleTestProxyConnection = async () => {
+		setProxyTesting(true);
+		setProxyTestResult(null);
+		try {
+			const result = await commands.testProxyConnection(
+				proxyTestUrl,
+				proxyUrl,
+				proxyNoProxy,
+			);
+			setProxyTestResult(result);
+		} catch (err) {
+			setProxyTestResult({
+				success: false,
+				status: null,
+				latencyMs: 0,
+				error: String(err),
+			});
+		} finally {
+			setProxyTesting(false);
 		}
 	};
 
@@ -1281,9 +1377,9 @@ export function Settings() {
 
 	const handleClearCache = async () => {
 		if (
-			!confirm(
+			!(await confirmAction(
 				"Delete all cached feed items that haven't been added to your library?",
-			)
+			))
 		) {
 			return;
 		}
@@ -1489,6 +1585,8 @@ export function Settings() {
 									baseUrl: mainP.baseUrl,
 									apiKey: pendingProviderKeys[mainP.id] || undefined,
 									models: mainP.models,
+									format: mainP.format,
+									headers: mainP.headers,
 								},
 							]
 						: []),
@@ -1499,6 +1597,8 @@ export function Settings() {
 						baseUrl: p.baseUrl,
 						apiKey: pendingProviderKeys[p.id] || undefined,
 						models: p.models,
+						format: p.format,
+						headers: p.headers,
 					})),
 					// Auto-inject lab proxy provider (when lab is enabled and proxy is running)
 					...(labEnabled && labProxyStatus?.running && labProxyModels.length > 0
@@ -1625,6 +1725,78 @@ export function Settings() {
 		}
 	};
 
+	// Auto-save: AI General + Translation (debounce 1500ms)
+	useEffect(() => {
+		if (!aiConfigLoadedRef.current) return;
+		if (aiSaveTimerRef.current) clearTimeout(aiSaveTimerRef.current);
+		aiSaveTimerRef.current = setTimeout(() => {
+			handleAiSave();
+		}, 1500);
+		return () => {
+			if (aiSaveTimerRef.current) clearTimeout(aiSaveTimerRef.current);
+		};
+	}, [aiNativeLang, customNativeLang, aiAutoTranslate, globalDefaultModel,
+		taskQuickModel, taskNormalModel, taskHeavyModel, taskGlossaryModel,
+		promptTitleSystem, promptTitleUser, promptAbstractSystem, promptAbstractUser,
+		htmlConcurrency, aiProviders, glossaryEnabled, glossaryThreshold]);
+
+	// Auto-save: PDF Translation (debounce 1500ms)
+	useEffect(() => {
+		if (!pdfConfigLoadedRef.current) return;
+		if (pdfSaveTimerRef.current) clearTimeout(pdfSaveTimerRef.current);
+		pdfSaveTimerRef.current = setTimeout(() => {
+			handlePdfTranslationSave();
+		}, 1500);
+		return () => {
+			if (pdfSaveTimerRef.current) clearTimeout(pdfSaveTimerRef.current);
+		};
+	}, [pdfEnabled, pdfBabeldocCmd, pdfUseAiConfig, pdfCustomApiKey,
+		pdfCustomBaseUrl, pdfCustomModel, pdfQps, pdfExtraArgs]);
+
+	// Auto-save: Chat (debounce 1500ms)
+	useEffect(() => {
+		if (!chatConfigLoadedRef.current) return;
+		if (chatSaveTimerRef.current) clearTimeout(chatSaveTimerRef.current);
+		chatSaveTimerRef.current = setTimeout(async () => {
+			try {
+				await commands.chatUpdateConfig({
+					activePreset: chatActivePreset,
+					confirmToolCalls: chatConfirmToolCalls,
+					presets: chatPresets,
+				});
+			} catch (err) {
+				logger.error("settings", "Failed to save chat config", err);
+			}
+		}, 1500);
+		return () => {
+			if (chatSaveTimerRef.current) clearTimeout(chatSaveTimerRef.current);
+		};
+	}, [chatActivePreset, chatConfirmToolCalls, chatPresets]);
+
+	// Auto-save: MCP (debounce 1500ms)
+	useEffect(() => {
+		if (!mcpConfigLoadedRef.current) return;
+		if (mcpSaveTimerRef.current) clearTimeout(mcpSaveTimerRef.current);
+		mcpSaveTimerRef.current = setTimeout(() => {
+			handleMcpSave();
+		}, 1500);
+		return () => {
+			if (mcpSaveTimerRef.current) clearTimeout(mcpSaveTimerRef.current);
+		};
+	}, [mcpTransport, mcpPort]);
+
+	// Auto-save: Storage retention (debounce 1500ms)
+	useEffect(() => {
+		if (!storageInfoLoadedRef.current) return;
+		if (retentionSaveTimerRef.current) clearTimeout(retentionSaveTimerRef.current);
+		retentionSaveTimerRef.current = setTimeout(() => {
+			handleRetentionSave();
+		}, 1500);
+		return () => {
+			if (retentionSaveTimerRef.current) clearTimeout(retentionSaveTimerRef.current);
+		};
+	}, [retentionDays]);
+
 	const handleMcpToggle = async (enabled: boolean) => {
 		setMcpStarting(true);
 		try {
@@ -1744,9 +1916,9 @@ export function Settings() {
 
 	const handleClearTranslations = async () => {
 		if (
-			!confirm(
+			!(await confirmAction(
 				"Delete all cached translations? They will be re-generated on next view.",
-			)
+			))
 		) {
 			return;
 		}
@@ -1821,9 +1993,9 @@ export function Settings() {
 				<ScrollArea className="flex-1">
 					<div className="p-6">
 						{section === "general" && (
-							<div className="space-y-5">
+							<div className="grid grid-cols-1 lg:grid-cols-2 2xl:grid-cols-3 gap-4 items-start">
 								{/* Appearance */}
-								<div className="space-y-1.5">
+								<div className="rounded-lg border bg-card/50 p-4 space-y-1.5">
 									<p className="text-xs font-medium">
 										{t("settings.appearance")}
 									</p>
@@ -1911,10 +2083,8 @@ export function Settings() {
 									</div>
 								</div>
 
-								<Separator />
-
 								{/* Startup defaults */}
-								<div className="space-y-3">
+								<div className="rounded-lg border bg-card/50 p-4 space-y-3">
 									<p className="text-xs font-medium">
 										{t("settings.startupDefaults")}
 									</p>
@@ -2004,10 +2174,8 @@ export function Settings() {
 									</p>
 								</div>
 
-								<Separator />
-
 								{/* Behavior */}
-								<div className="space-y-2">
+								<div className="rounded-lg border bg-card/50 p-4 space-y-2">
 									<p className="text-xs font-medium">
 										{t("settings.behavior")}
 									</p>
@@ -2031,10 +2199,8 @@ export function Settings() {
 									</label>
 								</div>
 
-								<Separator />
-
 								{/* Downloads */}
-								<div className="space-y-2">
+								<div className="rounded-lg border bg-card/50 p-4 space-y-2">
 									<p className="text-xs font-medium">
 										{t("settings.downloads")}
 									</p>
@@ -2117,10 +2283,8 @@ export function Settings() {
 									</p>
 								</div>
 
-								<Separator />
-
 								{/* Reader */}
-								<div className="space-y-2">
+								<div className="rounded-lg border bg-card/50 p-4 space-y-2">
 									<p className="text-xs font-medium">{t("settings.reader")}</p>
 									<div>
 										<label
@@ -2182,10 +2346,8 @@ export function Settings() {
 									</div>
 								</div>
 
-								<Separator />
-
 								{/* HTML Reader Typography */}
-								<div className="space-y-3">
+								<div className="rounded-lg border bg-card/50 p-4 space-y-3 lg:col-span-2 2xl:col-span-2">
 									<div>
 										<p className="text-xs font-medium">
 											{t("settings.htmlTypography")}
@@ -2422,10 +2584,8 @@ export function Settings() {
 									</Button>
 								</div>
 
-								<Separator />
-
 								{/* Column layout */}
-								<div className="space-y-2">
+								<div className="rounded-lg border bg-card/50 p-4 space-y-2">
 									<p className="text-xs font-medium">
 										{t("settings.columnLayout")}
 									</p>
@@ -2438,10 +2598,112 @@ export function Settings() {
 									</Button>
 								</div>
 
-								<Separator />
+								{/* Network Proxy */}
+								<div className="rounded-lg border bg-card/50 p-4 space-y-2">
+									<p className="text-xs font-medium">
+										{t("settings.networkProxy")}
+									</p>
+									<label className="flex items-center gap-2 text-sm cursor-pointer">
+										<input
+											type="checkbox"
+											checked={proxyEnabled}
+											onChange={(e) => handleProxyEnabledToggle(e.target.checked)}
+											disabled={!proxyConfigLoaded}
+											className="rounded"
+										/>
+										{t("settings.enableProxy")}
+									</label>
+									{proxyEnabled && (
+										<>
+											<div className="ml-5 space-y-1.5">
+												<label className="text-xs text-muted-foreground">
+													{t("settings.proxyUrl")}
+												</label>
+												<input
+													type="text"
+													value={proxyUrl}
+													onChange={(e) => handleProxyUrlChange(e.target.value)}
+													placeholder={t("settings.proxyUrlPlaceholder")}
+													className="w-full rounded border bg-background px-2 py-1 text-xs"
+												/>
+												<p className="text-[11px] text-muted-foreground">
+													{t("settings.proxyUrlDesc")}
+												</p>
+											</div>
+											<div className="ml-5 space-y-1.5">
+												<label className="text-xs text-muted-foreground">
+													{t("settings.noProxy")}
+												</label>
+												<input
+													type="text"
+													value={proxyNoProxy}
+													onChange={(e) => handleNoProxyChange(e.target.value)}
+													placeholder={t("settings.noProxyPlaceholder")}
+													className="w-full rounded border bg-background px-2 py-1 text-xs"
+												/>
+												<p className="text-[11px] text-muted-foreground">
+													{t("settings.noProxyDesc")}
+												</p>
+											</div>
+											<p className="ml-5 text-[11px] text-muted-foreground">
+												{t("settings.proxyRestartHint")}
+											</p>
+											<div className="ml-5 space-y-1.5 pt-1">
+												<label className="text-xs text-muted-foreground">
+													{t("settings.testConnectionUrl")}
+												</label>
+												<div className="flex items-center gap-2">
+													<input
+														type="text"
+														value={proxyTestUrl}
+														onChange={(e) => setProxyTestUrl(e.target.value)}
+														placeholder="https://www.google.com"
+														className="flex-1 rounded border bg-background px-2 py-1 text-xs"
+													/>
+													<Button
+														variant="outline"
+														size="sm"
+														className="h-7 text-xs"
+														disabled={proxyTesting || !proxyUrl}
+														onClick={handleTestProxyConnection}
+													>
+														{proxyTesting ? (
+															<>
+																<Loader2 className="mr-1 h-3 w-3 animate-spin" />
+																{t("settings.testConnectionTesting")}
+															</>
+														) : (
+															t("settings.testConnection")
+														)}
+													</Button>
+												</div>
+												{proxyTestResult && (
+													<p
+														className={cn(
+															"text-[11px]",
+															proxyTestResult.success
+																? "text-green-600 dark:text-green-400"
+																: "text-red-600 dark:text-red-400",
+														)}
+													>
+														{proxyTestResult.success
+															? t("settings.testConnectionSuccess", {
+																	status: proxyTestResult.status,
+																	latency: proxyTestResult.latencyMs,
+																})
+															: t("settings.testConnectionFailed", {
+																	error:
+																		proxyTestResult.error ?? "Unknown error",
+																})}
+													</p>
+												)}
+											</div>
+										</>
+									)}
+								</div>
 
 								{/* Developer */}
-								<div className="space-y-2">
+								<div className="rounded-lg border bg-card/50 p-4 space-y-2">
 									<p className="text-xs font-medium">
 										{t("settings.developer")}
 									</p>
@@ -2527,10 +2789,8 @@ export function Settings() {
 									)}
 								</div>
 
-								<Separator />
-
 								{/* Restart Onboarding */}
-								<div className="space-y-2">
+								<div className="rounded-lg border bg-card/50 p-4 space-y-2">
 									<p className="text-xs font-medium">
 										{t("settings.restartOnboarding")}
 									</p>
@@ -2651,6 +2911,8 @@ export function Settings() {
 													baseUrl: "",
 													apiKey: "",
 													models: "",
+													format: "openai",
+													headers: {},
 												})
 											}
 										>
@@ -2675,6 +2937,11 @@ export function Settings() {
 															<span className="text-sm font-medium truncate">
 																{p.name || t("settings.unnamed")}
 															</span>
+															{p.format && p.format !== "openai" && (
+																<span className="inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-medium bg-muted text-muted-foreground">
+																	{p.format === "anthropic" ? "Anthropic" : "Gemini"}
+																</span>
+															)}
 														</div>
 														<div className="text-[11px] text-muted-foreground truncate">
 															<>
@@ -2714,6 +2981,8 @@ export function Settings() {
 																		baseUrl: p.baseUrl,
 																		apiKey: "",
 																		models: p.models.join(", "),
+																		format: p.format || "openai",
+																		headers: p.headers || {},
 																	})
 																}
 															>
@@ -2777,6 +3046,28 @@ export function Settings() {
 													}
 													className="mt-1 h-8 w-full rounded-md border bg-transparent px-2 text-sm"
 												/>
+											</div>
+											<div>
+												<label className="text-xs font-medium">
+													{t("settings.apiFormat")}
+												</label>
+												<select
+													value={editingProvider.format}
+													onChange={(e) =>
+														setEditingProvider({
+															...editingProvider,
+															format: e.target.value as "openai" | "gemini" | "anthropic",
+														})
+													}
+													className="mt-1 h-8 w-full rounded-md border bg-transparent px-2 text-sm"
+												>
+													<option value="openai">OpenAI</option>
+													<option value="gemini">Gemini</option>
+													<option value="anthropic">Anthropic</option>
+												</select>
+												<p className="mt-0.5 text-[11px] text-muted-foreground">
+													{t("settings.apiFormatDesc")}
+												</p>
 											</div>
 											<div>
 												<label className="text-xs font-medium">
@@ -2897,8 +3188,19 @@ export function Settings() {
 																const headers: Record<string, string> = {
 																	"Content-Type": "application/json",
 																};
-																if (apiKey) {
+																if (editingProvider.format === "anthropic") {
+																	if (apiKey) {
+																		headers["x-api-key"] = apiKey;
+																	}
+																	headers["anthropic-version"] = "2023-06-01";
+																} else if (apiKey) {
 																	headers.Authorization = `Bearer ${apiKey}`;
+																}
+																// Merge custom headers (override system defaults)
+																if (editingProvider.headers) {
+																	for (const [k, v] of Object.entries(editingProvider.headers)) {
+																		if (k.trim()) headers[k.trim()] = v;
+																	}
 																}
 																const fetchUrl = `${baseUrl}/models`;
 															logger.info("settings", `fetchModels requesting: ${fetchUrl} (apiKey: ${apiKey ? "yes" : "none"})`);
@@ -2995,6 +3297,94 @@ export function Settings() {
 													)}
 												</div>
 											</div>
+											{/* Custom Headers */}
+											<div>
+												<label className="text-xs font-medium">
+													Custom Headers
+												</label>
+												<p className="text-[11px] text-muted-foreground mb-1">
+													Custom HTTP headers sent with every API request. Can override defaults like Authorization.
+												</p>
+												<div className="space-y-1.5">
+													{Object.entries(editingProvider.headers).map(
+														([key, value]) => (
+															<div
+																key={key}
+																className="flex items-center gap-1.5"
+															>
+																<input
+																	type="text"
+																	placeholder="Header name"
+																	value={key}
+																	onChange={(e) => {
+																		const newHeaders = {
+																			...editingProvider.headers,
+																		};
+																		const val = newHeaders[key];
+																		delete newHeaders[key];
+																		newHeaders[e.target.value] =
+																			val;
+																		setEditingProvider({
+																			...editingProvider,
+																			headers: newHeaders,
+																		});
+																	}}
+																	className="h-7 w-[40%] rounded-md border bg-transparent px-2 text-xs font-mono"
+																/>
+																<input
+																	type="text"
+																	placeholder="Value"
+																	value={value}
+																	onChange={(e) => {
+																		setEditingProvider({
+																			...editingProvider,
+																			headers: {
+																				...editingProvider.headers,
+																				[key]: e.target.value,
+																			},
+																		});
+																	}}
+																	className="h-7 flex-1 rounded-md border bg-transparent px-2 text-xs font-mono"
+																/>
+																<Button
+																	variant="ghost"
+																	size="sm"
+																	className="h-7 w-7 p-0 text-destructive"
+																	onClick={() => {
+																		const newHeaders = {
+																			...editingProvider.headers,
+																		};
+																		delete newHeaders[key];
+																		setEditingProvider({
+																			...editingProvider,
+																			headers: newHeaders,
+																		});
+																	}}
+																>
+																	<Trash2 className="h-3 w-3" />
+																</Button>
+															</div>
+														),
+													)}
+													<Button
+														variant="outline"
+														size="sm"
+														className="h-7 text-xs"
+														onClick={() => {
+															setEditingProvider({
+																...editingProvider,
+																headers: {
+																	...editingProvider.headers,
+																	"": "",
+																},
+															});
+														}}
+													>
+														<Plus className="mr-1 h-3 w-3" />
+														Add Header
+													</Button>
+												</div>
+											</div>
 											<div className="flex items-center gap-2 pt-1">
 												<Button
 													variant="default"
@@ -3007,6 +3397,11 @@ export function Settings() {
 															.split(",")
 															.map((m) => m.trim())
 															.filter(Boolean);
+														// Clean headers: remove entries with empty keys
+														const cleanHeaders: Record<string, string> = {};
+														for (const [k, v] of Object.entries(editingProvider.headers)) {
+															if (k.trim()) cleanHeaders[k.trim()] = v;
+														}
 														// Store pending API key if provided
 														if (editingProvider.apiKey) {
 															setPendingProviderKeys((prev) => ({
@@ -3030,6 +3425,8 @@ export function Settings() {
 																					? true
 																					: p.apiKeySet,
 																				models,
+																				format: editingProvider.format,
+																				headers: cleanHeaders,
 																			}
 																		: p,
 																),
@@ -3044,6 +3441,8 @@ export function Settings() {
 																	baseUrl: editingProvider.baseUrl,
 																	apiKeySet: !!editingProvider.apiKey,
 																	models,
+																	format: editingProvider.format,
+																	headers: cleanHeaders,
 																},
 															]);
 														}
@@ -3244,21 +3643,6 @@ export function Settings() {
 											t("settings.testConnection")
 										)}
 									</Button>
-									<Button
-										variant="default"
-										size="sm"
-										onClick={handleAiSave}
-										disabled={aiSaving}
-									>
-										{aiSaving ? (
-											<>
-												<Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
-												{t("common.saving")}
-											</>
-										) : (
-											t("common.save")
-										)}
-									</Button>
 								</div>
 							</div>
 						)}
@@ -3407,25 +3791,6 @@ export function Settings() {
 									onSaveGlossaryConfig={handleGlossaryConfigSave}
 								/>
 
-								<Separator className="my-4" />
-
-								<div className="flex items-center gap-2 flex-wrap">
-									<Button
-										variant="default"
-										size="sm"
-										onClick={handleAiSave}
-										disabled={aiSaving}
-									>
-										{aiSaving ? (
-											<>
-												<Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
-												{t("common.saving")}
-											</>
-										) : (
-											t("common.save")
-										)}
-									</Button>
-								</div>
 							</div>
 						)}
 
@@ -3624,21 +3989,6 @@ export function Settings() {
 														</>
 													) : (
 														t("common.test")
-													)}
-												</Button>
-												<Button
-													variant="default"
-													size="sm"
-													onClick={handlePdfTranslationSave}
-													disabled={pdfSaving}
-												>
-													{pdfSaving ? (
-														<>
-															<Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
-															{t("common.saving")}
-														</>
-													) : (
-														t("settings.savePdfSettings")
 													)}
 												</Button>
 											</div>
@@ -3854,33 +4204,6 @@ export function Settings() {
 									</div>
 								</div>
 
-								<Separator />
-
-								<div className="flex items-center gap-2">
-									<Button
-										onClick={async () => {
-											setChatSaving(true);
-											try {
-												await commands.chatUpdateConfig({
-													activePreset: chatActivePreset,
-													confirmToolCalls: chatConfirmToolCalls,
-													presets: chatPresets,
-												});
-											} catch (err) {
-											logger.error("settings", "Failed to save chat config", err);
-											} finally {
-												setChatSaving(false);
-											}
-										}}
-										disabled={chatSaving}
-										size="sm"
-									>
-										{chatSaving ? (
-											<Loader2 className="mr-1 h-3 w-3 animate-spin" />
-										) : null}
-										{t("common.save")}
-									</Button>
-								</div>
 							</div>
 						)}
 
@@ -4046,25 +4369,6 @@ export function Settings() {
 											/>
 										</div>
 									</div>
-									<Button
-										variant="outline"
-										size="sm"
-										onClick={handleMcpSave}
-										disabled={
-											mcpSaving ||
-											(mcpPort === mcpStatus?.port &&
-												mcpTransport === mcpStatus?.transport)
-										}
-									>
-										{mcpSaving ? (
-											<>
-												<Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
-												{t("common.saving")}
-											</>
-										) : (
-											t("settings.saveConfiguration")
-										)}
-									</Button>
 								</div>
 
 								<Separator />
@@ -4382,18 +4686,6 @@ export function Settings() {
 										<span className="text-xs text-muted-foreground">
 											{t("settings.days")}
 										</span>
-										<Button
-											variant="outline"
-											size="sm"
-											className="h-8"
-											onClick={handleRetentionSave}
-											disabled={
-												retentionSaving ||
-												retentionDays === storageInfo.feed_cache_retention_days
-											}
-										>
-											{retentionSaving ? t("common.saving") : t("common.save")}
-										</Button>
 									</div>
 									<p className="text-[11px] text-muted-foreground">
 										{t("settings.itemsNeverDeleted")}

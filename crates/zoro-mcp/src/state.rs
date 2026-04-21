@@ -11,13 +11,15 @@ use zoro_db::Database;
 pub struct AppState {
     pub db: Mutex<Database>,
     pub data_dir: PathBuf,
+    pub http_client: reqwest::Client,
 }
 
 impl AppState {
-    pub fn new(db: Database, data_dir: PathBuf) -> Self {
+    pub fn new(db: Database, data_dir: PathBuf, http_client: reqwest::Client) -> Self {
         Self {
             db: Mutex::new(db),
             data_dir,
+            http_client,
         }
     }
 

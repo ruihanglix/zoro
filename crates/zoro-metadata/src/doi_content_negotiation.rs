@@ -19,14 +19,14 @@ pub struct HttpDebugInfo {
 /// Fetch BibTeX for a DOI via content negotiation.
 ///
 /// Sends `Accept: application/x-bibtex` to `https://doi.org/{doi}`.
-pub async fn fetch_bibtex(doi: &str) -> Result<String, MetadataError> {
-    let (text, _) = fetch_doi_content(doi, "application/x-bibtex").await?;
+pub async fn fetch_bibtex(client: &reqwest::Client, doi: &str) -> Result<String, MetadataError> {
+    let (text, _) = fetch_doi_content(client, doi, "application/x-bibtex").await?;
     Ok(text)
 }
 
 /// Like `fetch_bibtex` but also returns raw HTTP debug info.
-pub async fn fetch_bibtex_debug(doi: &str) -> Result<(String, HttpDebugInfo), MetadataError> {
-    fetch_doi_content(doi, "application/x-bibtex").await
+pub async fn fetch_bibtex_debug(client: &reqwest::Client, doi: &str) -> Result<(String, HttpDebugInfo), MetadataError> {
+    fetch_doi_content(client, doi, "application/x-bibtex").await
 }
 
 /// Fetch a formatted citation for a DOI via content negotiation.
@@ -36,29 +36,28 @@ pub async fn fetch_bibtex_debug(doi: &str) -> Result<(String, HttpDebugInfo), Me
 /// Supported styles: `apa`, `ieee`, `modern-language-association`,
 /// `chicago-author-date`, `chicago-fullnote-bibliography`, `vancouver`,
 /// `harvard-cite-them-right`, `nature`, `science`, and any CSL style name.
-pub async fn fetch_formatted_citation(doi: &str, style: &str) -> Result<String, MetadataError> {
+pub async fn fetch_formatted_citation(client: &reqwest::Client, doi: &str, style: &str) -> Result<String, MetadataError> {
     let accept = format!("text/x-bibliography; style={}", style);
-    let (text, _) = fetch_doi_content(doi, &accept).await?;
+    let (text, _) = fetch_doi_content(client, doi, &accept).await?;
     Ok(text)
 }
 
 /// Like `fetch_formatted_citation` but also returns raw HTTP debug info.
 pub async fn fetch_formatted_citation_debug(
+    client: &reqwest::Client,
     doi: &str,
     style: &str,
 ) -> Result<(String, HttpDebugInfo), MetadataError> {
     let accept = format!("text/x-bibliography; style={}", style);
-    fetch_doi_content(doi, &accept).await
+    fetch_doi_content(client, doi, &accept).await
 }
 
 async fn fetch_doi_content(
+    client: &reqwest::Client,
     doi: &str,
     accept: &str,
 ) -> Result<(String, HttpDebugInfo), MetadataError> {
     let url = format!("https://doi.org/{}", doi);
-    let client = reqwest::Client::builder()
-        .redirect(reqwest::redirect::Policy::limited(10))
-        .build()?;
 
     let mut request_headers = BTreeMap::new();
     request_headers.insert("Accept".into(), accept.to_string());

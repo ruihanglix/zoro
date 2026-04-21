@@ -195,7 +195,7 @@ pub async fn tool_get_formatted_citation(
     if let Some(ref doi) = row.doi {
         let csl_style = doi_content_negotiation::normalize_style_name(&input.style);
         if let Ok(citation) =
-            doi_content_negotiation::fetch_formatted_citation(doi, csl_style).await
+            doi_content_negotiation::fetch_formatted_citation(&state.http_client, doi, csl_style).await
         {
             return Ok(CallToolResult::success(vec![Content::text(citation)]));
         }
@@ -224,7 +224,7 @@ pub async fn tool_get_paper_bibtex(
 
     // Try DOI content negotiation for richer BibTeX
     if let Some(ref doi) = row.doi {
-        if let Ok(bibtex) = doi_content_negotiation::fetch_bibtex(doi).await {
+        if let Ok(bibtex) = doi_content_negotiation::fetch_bibtex(&state.http_client, doi).await {
             return Ok(CallToolResult::success(vec![Content::text(bibtex)]));
         }
     }

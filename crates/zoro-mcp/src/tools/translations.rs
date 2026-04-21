@@ -193,6 +193,7 @@ pub async fn tool_translate_paper(
 
     // Translate title
     let translated_title = zoro_ai::translate::translate_text(
+        &state.http_client,
         &task_config,
         prompts,
         "title",
@@ -210,6 +211,7 @@ pub async fn tool_translate_paper(
         if !abs.trim().is_empty() {
             Some(
                 zoro_ai::translate::translate_text(
+                    &state.http_client,
                     &task_config,
                     prompts,
                     "abstract_text",
@@ -360,6 +362,7 @@ pub async fn tool_translate_feed_item(
 
     // Translate title
     let translated_title = zoro_ai::translate::translate_text(
+        &state.http_client,
         &task_config,
         prompts,
         "title",
@@ -377,6 +380,7 @@ pub async fn tool_translate_feed_item(
         if !abs.trim().is_empty() {
             Some(
                 zoro_ai::translate::translate_text(
+                    &state.http_client,
                     &task_config,
                     prompts,
                     "abstract_text",

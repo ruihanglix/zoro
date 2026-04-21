@@ -109,7 +109,7 @@ pub struct LabService {
 
 impl LabService {
     /// Create a new LabService, loading persisted config and cache from disk.
-    pub fn new(data_dir: &Path) -> Self {
+    pub fn new(data_dir: &Path, network_proxy: &zoro_core::models::ProxyConfig) -> Self {
         let config = load_lab_config(data_dir);
         let model_cache = load_model_cache(data_dir);
 
@@ -117,7 +117,7 @@ impl LabService {
             config,
             model_cache,
             data_dir: data_dir.to_path_buf(),
-            http_client: reqwest::Client::builder()
+            http_client: zoro_core::http_client::build_http_client(network_proxy)
                 .timeout(std::time::Duration::from_secs(30))
                 .build()
                 .unwrap_or_default(),

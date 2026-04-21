@@ -195,7 +195,7 @@ pub async fn save_item(
                 let app = app_handle.clone();
                 let title = paper_title.clone();
                 let task_id = format!("pdf-{}", pid);
-                emit_task(
+                let dl_client = app_state.http_client.clone();                emit_task(
                     &app,
                     &BackgroundTaskEvent {
                         task_id: task_id.clone(),
@@ -207,7 +207,7 @@ pub async fn save_item(
                     },
                 );
                 tokio::spawn(async move {
-                    match crate::storage::attachments::download_file(&pdf_url_clone, &pdf_path)
+                    match crate::storage::attachments::download_file(&dl_client, &pdf_url_clone, &pdf_path)
                         .await
                     {
                         Ok(()) => {
@@ -261,9 +261,10 @@ pub async fn save_item(
                 let pid = paper_id.clone();
                 let dbp = db_path.clone();
                 let html_app = app_handle.clone();
+                let dl_client_html = app_state.http_client.clone();
                 tokio::spawn(async move {
                     if let Ok(()) =
-                        crate::storage::attachments::download_file(&html_url_clone, &html_path)
+                        crate::storage::attachments::download_file(&dl_client_html, &html_url_clone, &html_path)
                             .await
                     {
                         let file_size = crate::storage::attachments::get_file_size(&html_path);
@@ -295,6 +296,12 @@ pub async fn save_item(
                 let enrich_app = app_handle.clone();
                 let enrich_title = paper_title.clone();
                 let enrich_task_id = format!("enrich-{}", enrich_id);
+                let enrich_client = app_state.http_client.clone();
+                let enrich_proxy = app_state
+                    .config
+                    .lock()
+                    .map(|c| c.proxy.clone())
+                    .unwrap_or_default();
                 emit_task(
                     &enrich_app,
                     &BackgroundTaskEvent {
@@ -308,6 +315,7 @@ pub async fn save_item(
                 );
                 tokio::spawn(async move {
                     match zoro_metadata::enrich_paper_with_title(
+                        &enrich_client,
                         enrich_doi.as_deref(),
                         enrich_arxiv.as_deref(),
                         Some(&enrich_title),
@@ -369,7 +377,7 @@ pub async fn save_item(
                                         let pdf_path = enrich_paper_dir.join("paper.pdf");
                                         if !pdf_path.exists() {
                                             match crate::storage::attachments::download_file(
-                                                pdf_url, &pdf_path,
+                                                &enrich_client, pdf_url, &pdf_path,
                                             )
                                             .await
                                             {
@@ -430,6 +438,7 @@ pub async fn save_item(
                                     &enrich_title,
                                     aid,
                                     &enrich_paper_dir,
+                                    &enrich_proxy,
                                 )
                                 .await;
                             }
@@ -571,6 +580,7 @@ pub async fn fetch_arxiv_html_background(
     paper_title: &str,
     arxiv_id: &str,
     paper_dir: &std::path::Path,
+    proxy: &zoro_core::models::ProxyConfig,
 ) {
     let html_path = paper_dir.join("paper.html");
     if html_path.exists() {
@@ -590,7 +600,7 @@ pub async fn fetch_arxiv_html_background(
         },
     );
 
-    match zoro_arxiv::fetch::fetch_and_save(arxiv_id, &html_path).await {
+    match zoro_arxiv::fetch::fetch_and_save(proxy, arxiv_id, &html_path).await {
         Ok(()) => {
             let _ = zoro_arxiv::clean::clean_html_file(&html_path, &[]).await;
             let file_size = crate::storage::attachments::get_file_size(&html_path);
@@ -663,6 +673,7 @@ pub fn enqueue_html_fetch(
     paper_title: &str,
     arxiv_id: &str,
     paper_dir: &std::path::Path,
+    proxy: zoro_core::models::ProxyConfig,
 ) {
     let app = app.clone();
     let db_path = db_path.to_path_buf();
@@ -686,6 +697,7 @@ pub fn enqueue_html_fetch(
             &paper_title,
             &arxiv_id,
             &paper_dir,
+            &proxy,
         )
         .await;
     });
@@ -713,7 +725,7 @@ pub fn maybe_enqueue_html_fetch(
         return;
     }
 
-    let (enabled, delay_secs) = {
+    let (enabled, delay_secs, proxy_config) = {
         let config = match state.config.lock() {
             Ok(c) => c,
             Err(_) => return,
@@ -721,6 +733,7 @@ pub fn maybe_enqueue_html_fetch(
         (
             config.general.auto_fetch_arxiv_html,
             config.general.html_fetch_delay_secs,
+            config.proxy.clone(),
         )
     };
 
@@ -737,6 +750,7 @@ pub fn maybe_enqueue_html_fetch(
         paper_title,
         arxiv_id,
         paper_dir,
+        proxy_config,
     );
 }
 

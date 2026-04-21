@@ -13,6 +13,7 @@ import {
 	ContextMenuTrigger,
 } from "@/components/ui/context-menu";
 import * as commands from "@/lib/commands";
+import { confirmAction } from "@/lib/utils";
 import { useLibraryStore } from "@/stores/libraryStore";
 import { useUiStore } from "@/stores/uiStore";
 import { writeText } from "@tauri-apps/plugin-clipboard-manager";
@@ -143,7 +144,7 @@ export function MultiSelectContextMenu({
 		setTimeout(async () => {
 			if (
 				confirmBeforeDelete &&
-				!confirm(t("contextMenu.deleteMultipleConfirm", { count }))
+				!(await confirmAction(t("contextMenu.deleteMultipleConfirm", { count })))
 			) {
 				return;
 			}
