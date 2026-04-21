@@ -390,7 +390,8 @@
 		"citationPreview": "Предварительный просмотр цитаты",
 		"cached": "Из кэша",
 		"fetched": "Получено",
-		"browser": "Браузер"
+		"browser": "Браузер",
+		"annotation": "Аннотации"
 	},
 	"agent": {
 		"showHistory": "Показать историю",
@@ -577,6 +578,14 @@
 		"bilingualLayoutSideBySide": "Бок о бок (слева-справа)",
 		"resetColumnLayout": "Сбросить макет столбцов",
 		"resetColumnLayoutNote": "Сбросить ширину, видимость и порядок столбцов таблицы до значений по умолчанию.",
+		"readerPanels": "Панели чтения",
+		"readerPanelsDesc": "Настроить вкладки в боковых панелях",
+		"leftSidebar": "Левая панель",
+		"rightSidebar": "Правая панель",
+		"addTab": "Добавить вкладку...",
+		"moveUp": "Вверх",
+		"moveDown": "Вниз",
+		"removeTab": "Удалить",
 		"themeLight": "Светлая",
 		"themeDark": "Тёмная",
 		"themeSystem": "Системная",

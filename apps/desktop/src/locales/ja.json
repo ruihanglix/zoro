@@ -390,7 +390,8 @@
 		"citationPreview": "引用プレビュー",
 		"cached": "キャッシュ済み",
 		"fetched": "取得済み",
-		"browser": "ブラウザ"
+		"browser": "ブラウザ",
+		"annotation": "注釈"
 	},
 	"agent": {
 		"showHistory": "履歴を表示",
@@ -577,6 +578,14 @@
 		"bilingualLayoutSideBySide": "左右並列",
 		"resetColumnLayout": "列レイアウトをリセット",
 		"resetColumnLayoutNote": "テーブルの列幅、表示、並び順をデフォルトに戻します。",
+		"readerPanels": "リーダーパネル",
+		"readerPanelsDesc": "左右サイドバーに表示するタブを設定",
+		"leftSidebar": "左サイドバー",
+		"rightSidebar": "右サイドバー",
+		"addTab": "タブを追加...",
+		"moveUp": "上へ移動",
+		"moveDown": "下へ移動",
+		"removeTab": "削除",
 		"themeLight": "ライト",
 		"themeDark": "ダーク",
 		"themeSystem": "システム",

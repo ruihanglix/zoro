@@ -35,9 +35,11 @@ import type {
 	BilingualLayout,
 	Theme,
 } from "@/stores/uiStore";
+import { getTabLabel, getAllAvailableTabs } from "@/lib/readerTabs";
 import { listen } from "@tauri-apps/api/event";
 import {
 	AlertCircle,
+	ArrowDown,
 	ArrowUp,
 	Book,
 	Bot,
@@ -693,8 +695,6 @@ export function Settings() {
 	const resetColumns = useUiStore((s) => s.resetColumns);
 	const citationPreviewMode = useUiStore((s) => s.citationPreviewMode);
 	const setCitationPreviewMode = useUiStore((s) => s.setCitationPreviewMode);
-	const showReaderTerminal = useUiStore((s) => s.showReaderTerminal);
-	const setShowReaderTerminal = useUiStore((s) => s.setShowReaderTerminal);
 	const terminalFontSize = useUiStore((s) => s.terminalFontSize);
 	const setTerminalFontSize = useUiStore((s) => s.setTerminalFontSize);
 	const language = useUiStore((s) => s.language);
@@ -2312,15 +2312,6 @@ export function Settings() {
 											{t("settings.citationHoverPreviewDesc")}
 										</p>
 									</div>
-									<label className="flex items-center gap-2 text-sm cursor-pointer">
-										<input
-											type="checkbox"
-											checked={showReaderTerminal}
-											onChange={(e) => setShowReaderTerminal(e.target.checked)}
-											className="rounded"
-										/>
-										{t("settings.showTerminalTab")}
-									</label>
 									<div>
 										<label
 											className="text-xs text-muted-foreground"
@@ -2345,6 +2336,9 @@ export function Settings() {
 										</p>
 									</div>
 								</div>
+
+								{/* Reader Panels */}
+								<ReaderPanelsSettings />
 
 								{/* HTML Reader Typography */}
 								<div className="rounded-lg border bg-card/50 p-4 space-y-3 lg:col-span-2 2xl:col-span-2">
@@ -7062,6 +7056,137 @@ function AboutSection() {
 			<p className="text-xs text-muted-foreground">
 				{t("settings.madeBy")}
 			</p>
+		</div>
+	);
+}
+
+/** Reader Panels configuration card */
+function ReaderPanelsSettings() {
+	const { t } = useTranslation();
+	const config = useUiStore((s) => s.readerSidebarConfig);
+	const addTabToSide = useUiStore((s) => s.addTabToSide);
+	const removeTabFromSide = useUiStore((s) => s.removeTabFromSide);
+	const reorderTabOnSide = useUiStore((s) => s.reorderTabOnSide);
+	const resetReaderSidebarConfig = useUiStore(
+		(s) => s.resetReaderSidebarConfig,
+	);
+
+	const pluginsList = usePluginStore((s) => s.plugins);
+	const loadedModules = usePluginStore((s) => s.loadedModules);
+	const getContributions = usePluginStore((s) => s.getContributionsForSlot);
+	const pluginSidebarTabs = useMemo(() => {
+		void pluginsList;
+		void loadedModules;
+		return getContributions("reader_sidebar");
+	}, [pluginsList, loadedModules, getContributions]);
+
+	const allTabs = useMemo(
+		() => getAllAvailableTabs(pluginSidebarTabs),
+		[pluginSidebarTabs],
+	);
+
+	const renderSideList = (side: "left" | "right") => {
+		const tabIds = config[side];
+		const availableToAdd = allTabs.filter(
+			(tab) => !tabIds.includes(tab.id),
+		);
+
+		return (
+			<div className="flex-1 min-w-[180px]">
+				<p className="text-xs font-medium text-muted-foreground mb-2">
+					{t(`settings.${side}Sidebar`)}
+				</p>
+				<div className="space-y-1">
+					{tabIds.map((tabId, index) => (
+						<div
+							key={tabId}
+							className="flex items-center gap-1 rounded-md border bg-background px-2 py-1.5 text-xs"
+						>
+							<span className="flex-1 truncate">
+								{getTabLabel(tabId, t)}
+							</span>
+							<button
+								type="button"
+								className="p-0.5 text-muted-foreground hover:text-foreground disabled:opacity-30"
+								disabled={index === 0}
+								onClick={() =>
+									reorderTabOnSide(side, index, index - 1)
+								}
+								title={t("settings.moveUp")}
+							>
+								<ArrowUp className="h-3 w-3" />
+							</button>
+							<button
+								type="button"
+								className="p-0.5 text-muted-foreground hover:text-foreground disabled:opacity-30"
+								disabled={index === tabIds.length - 1}
+								onClick={() =>
+									reorderTabOnSide(side, index, index + 1)
+								}
+								title={t("settings.moveDown")}
+							>
+								<ArrowDown className="h-3 w-3" />
+							</button>
+							<button
+								type="button"
+								className="p-0.5 text-muted-foreground hover:text-destructive disabled:opacity-30"
+								disabled={tabIds.length <= 1}
+								onClick={() => removeTabFromSide(side, tabId)}
+								title={t("settings.removeTab")}
+							>
+								<X className="h-3 w-3" />
+							</button>
+						</div>
+					))}
+				</div>
+				{availableToAdd.length > 0 && (
+					<select
+						className="mt-2 h-7 w-full rounded-md border bg-transparent px-2 text-xs"
+						value=""
+						onChange={(e) => {
+							if (e.target.value) {
+								addTabToSide(side, e.target.value);
+								e.target.value = "";
+							}
+						}}
+					>
+						<option value="">{t("settings.addTab")}</option>
+						{availableToAdd.map((tab) => (
+							<option key={tab.id} value={tab.id}>
+								{getTabLabel(tab.id, t)}
+							</option>
+						))}
+					</select>
+				)}
+			</div>
+		);
+	};
+
+	return (
+		<div className="rounded-lg border bg-card/50 p-4 space-y-3">
+			<div className="flex items-center justify-between">
+				<div>
+					<p className="text-xs font-medium">
+						{t("settings.readerPanels")}
+					</p>
+					<p className="text-[11px] text-muted-foreground mt-0.5">
+						{t("settings.readerPanelsDesc")}
+					</p>
+				</div>
+				<Button
+					variant="ghost"
+					size="sm"
+					className="h-7 text-xs"
+					onClick={resetReaderSidebarConfig}
+				>
+					<RotateCcw className="h-3 w-3 mr-1" />
+					{t("common.reset")}
+				</Button>
+			</div>
+			<div className="flex gap-4 flex-wrap">
+				{renderSideList("left")}
+				{renderSideList("right")}
+			</div>
 		</div>
 	);
 }

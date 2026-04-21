@@ -390,7 +390,8 @@
 		"citationPreview": "Citation preview",
 		"cached": "Cached",
 		"fetched": "Fetched",
-		"browser": "Browser"
+		"browser": "Browser",
+		"annotation": "Annotation"
 	},
 	"agent": {
 		"showHistory": "Show history",
@@ -579,6 +580,14 @@
 		"bilingualLayoutSideBySide": "Side by side (left-right)",
 		"resetColumnLayout": "Reset Column Layout",
 		"resetColumnLayoutNote": "Reset table column widths, visibility, and order to defaults.",
+		"readerPanels": "Reader Panels",
+		"readerPanelsDesc": "Configure which tabs appear in the left and right sidebars",
+		"leftSidebar": "Left Sidebar",
+		"rightSidebar": "Right Sidebar",
+		"addTab": "Add tab...",
+		"moveUp": "Move up",
+		"moveDown": "Move down",
+		"removeTab": "Remove",
 		"themeLight": "Light",
 		"themeDark": "Dark",
 		"themeSystem": "System",

@@ -390,7 +390,8 @@
 		"citationPreview": "Zitiervorschau",
 		"cached": "Zwischengespeichert",
 		"fetched": "Abgerufen",
-		"browser": "Browser"
+		"browser": "Browser",
+		"annotation": "Anmerkungen"
 	},
 	"agent": {
 		"showHistory": "Verlauf anzeigen",
@@ -577,6 +578,14 @@
 		"bilingualLayoutSideBySide": "Nebeneinander (links-rechts)",
 		"resetColumnLayout": "Spaltenlayout zurücksetzen",
 		"resetColumnLayoutNote": "Spaltenbreiten, Sichtbarkeit und Reihenfolge auf Standardwerte zurücksetzen.",
+		"readerPanels": "Reader-Panels",
+		"readerPanelsDesc": "Tabs in den linken und rechten Seitenleisten konfigurieren",
+		"leftSidebar": "Linke Seitenleiste",
+		"rightSidebar": "Rechte Seitenleiste",
+		"addTab": "Tab hinzufügen...",
+		"moveUp": "Nach oben",
+		"moveDown": "Nach unten",
+		"removeTab": "Entfernen",
 		"themeLight": "Hell",
 		"themeDark": "Dunkel",
 		"themeSystem": "System",

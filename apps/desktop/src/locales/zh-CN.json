@@ -390,7 +390,8 @@
 		"citationPreview": "引文预览",
 		"cached": "已缓存",
 		"fetched": "已获取",
-		"browser": "浏览器"
+		"browser": "浏览器",
+		"annotation": "批注"
 	},
 	"agent": {
 		"showHistory": "显示历史",
@@ -579,6 +580,14 @@
 		"bilingualLayoutSideBySide": "左右分栏",
 		"resetColumnLayout": "重置列布局",
 		"resetColumnLayoutNote": "将表格列宽、可见性和顺序重置为默认值。",
+		"readerPanels": "阅读器面板",
+		"readerPanelsDesc": "配置左右侧边栏中显示的选项卡",
+		"leftSidebar": "左侧栏",
+		"rightSidebar": "右侧栏",
+		"addTab": "添加选项卡...",
+		"moveUp": "上移",
+		"moveDown": "下移",
+		"removeTab": "移除",
 		"themeLight": "浅色",
 		"themeDark": "深色",
 		"themeSystem": "跟随系统",

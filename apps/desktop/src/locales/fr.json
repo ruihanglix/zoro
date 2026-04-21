@@ -390,7 +390,8 @@
 		"citationPreview": "Aperçu de citation",
 		"cached": "En cache",
 		"fetched": "Récupéré",
-		"browser": "Navigateur"
+		"browser": "Navigateur",
+		"annotation": "Annotation"
 	},
 	"agent": {
 		"showHistory": "Afficher l'historique",
@@ -577,6 +578,14 @@
 		"bilingualLayoutSideBySide": "Côte à côte (gauche-droite)",
 		"resetColumnLayout": "Réinitialiser la disposition des colonnes",
 		"resetColumnLayoutNote": "Réinitialiser la largeur, la visibilité et l'ordre des colonnes du tableau.",
+		"readerPanels": "Panneaux du lecteur",
+		"readerPanelsDesc": "Configurer les onglets des barres latérales",
+		"leftSidebar": "Barre latérale gauche",
+		"rightSidebar": "Barre latérale droite",
+		"addTab": "Ajouter un onglet...",
+		"moveUp": "Monter",
+		"moveDown": "Descendre",
+		"removeTab": "Supprimer",
 		"themeLight": "Clair",
 		"themeDark": "Sombre",
 		"themeSystem": "Système",

@@ -390,7 +390,8 @@
 		"citationPreview": "인용 미리보기",
 		"cached": "캐시됨",
 		"fetched": "가져옴",
-		"browser": "브라우저"
+		"browser": "브라우저",
+		"annotation": "주석"
 	},
 	"agent": {
 		"showHistory": "기록 보기",
@@ -577,6 +578,14 @@
 		"bilingualLayoutSideBySide": "좌우 분할",
 		"resetColumnLayout": "열 레이아웃 초기화",
 		"resetColumnLayoutNote": "테이블 열 너비, 표시 여부, 순서를 기본값으로 초기화합니다.",
+		"readerPanels": "리더 패널",
+		"readerPanelsDesc": "좌우 사이드바에 표시할 탭 설정",
+		"leftSidebar": "왼쪽 사이드바",
+		"rightSidebar": "오른쪽 사이드바",
+		"addTab": "탭 추가...",
+		"moveUp": "위로 이동",
+		"moveDown": "아래로 이동",
+		"removeTab": "제거",
 		"themeLight": "라이트",
 		"themeDark": "다크",
 		"themeSystem": "시스템",

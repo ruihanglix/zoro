@@ -3,33 +3,18 @@
 // See LICENSE file in the project root for full license information.
 
 import { BilingualText } from "@/components/BilingualText";
-import { CollapsibleAuthors } from "@/components/CollapsibleAuthors";
 import { DisplayModeToggle } from "@/components/DisplayModeToggle";
-import { AgentPanel } from "@/components/agent/AgentPanel";
-import { AnnotationSidePanel } from "@/components/reader/AnnotationSidePanel";
 import { AnnotationToolbar } from "@/components/reader/AnnotationToolbar";
 import { BilingualPdfViewer } from "@/components/reader/BilingualPdfViewer";
 import { FeedAnnotationPlaceholder } from "@/components/reader/FeedAnnotationPlaceholder";
 import { HighlightPopup } from "@/components/reader/HighlightPopup";
-import { NotesPanel } from "@/components/reader/NotesPanel";
 import { PageNavigation } from "@/components/reader/PageNavigation";
 import { PdfAnnotationViewer } from "@/components/reader/PdfAnnotationViewer";
 import { PdfSearchBar } from "@/components/reader/PdfSearchBar";
-import { TerminalPanel } from "@/components/reader/TerminalPanel";
-import { BrowserPanel } from "@/components/browser/BrowserPanel";
+import { SidebarTabPanel } from "@/components/reader/SidebarTabPanel";
 import { ZoomControls } from "@/components/reader/ZoomControls";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-	DropdownMenu,
-	DropdownMenuContent,
-	DropdownMenuItem,
-	DropdownMenuSeparator,
-	DropdownMenuSub,
-	DropdownMenuSubContent,
-	DropdownMenuSubTrigger,
-	DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import {
 	ResizableHandle,
 	ResizablePanel,
@@ -43,12 +28,11 @@ import * as commands from "@/lib/commands";
 import type {
 	FeedItemResponse,
 	PaperResponse,
-	TagResponse,
 } from "@/lib/commands";
 import { getHtmlAnnotationScript } from "@/lib/htmlAnnotation";
-import { cn, confirmAction } from "@/lib/utils";
+import { getAllAvailableTabs } from "@/lib/readerTabs";
+import { cn } from "@/lib/utils";
 import {
-	createPluginSDK,
 	emitParagraphHover,
 	emitTextSelected,
 } from "@/plugins/PluginManager";
@@ -76,38 +60,27 @@ import type {
 } from "@/stores/uiStore";
 import { convertFileSrc } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
-import { writeText } from "@tauri-apps/plugin-clipboard-manager";
 import { readFile } from "@tauri-apps/plugin-fs";
 import {
 	ArrowLeft,
 	ArrowRight,
-	BookCheck,
-	BookMarked,
 	BookOpen,
 	Check,
-	Copy,
-	Download,
-	ExternalLink,
 	FileText,
 	Globe,
 	Highlighter,
 	Languages,
 	Link2,
 	Loader2,
-	MoreHorizontal,
 	MousePointer2,
 	PanelLeft,
 	PanelRight,
 	Pen,
-	Plus,
-	RefreshCw,
 	RotateCcw,
 	Search,
 	StickyNote,
-	Trash2,
 	Type,
 	Underline,
-	X,
 } from "lucide-react";
 import { IconFileTypePdf } from "@tabler/icons-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -152,6 +125,33 @@ export function Reader({
 
 	const readerPanelLayout = useUiStore((s) => s.readerPanelLayout);
 	const setReaderPanelLayout = useUiStore((s) => s.setReaderPanelLayout);
+	const readerSidebarConfig = useUiStore((s) => s.readerSidebarConfig);
+
+	// Plugin sidebar tab contributions (shared between left/right panels)
+	const pluginsList = usePluginStore((s) => s.plugins);
+	const loadedModules = usePluginStore((s) => s.loadedModules);
+	const getContributions = usePluginStore((s) => s.getContributionsForSlot);
+	const pluginSidebarTabs = useMemo(() => {
+		void pluginsList;
+		void loadedModules;
+		return getContributions("reader_sidebar");
+	}, [pluginsList, loadedModules, getContributions]);
+
+	// Auto-register new plugin tabs into sidebar config
+	useEffect(() => {
+		const allTabs = getAllAvailableTabs(pluginSidebarTabs);
+		const config = useUiStore.getState().readerSidebarConfig;
+		const knownIds = new Set([...config.left, ...config.right]);
+		const newPluginIds = allTabs
+			.filter((t) => t.isPlugin && !knownIds.has(t.id))
+			.map((t) => t.id);
+		if (newPluginIds.length > 0) {
+			useUiStore.getState().setReaderSidebarConfig({
+				...config,
+				right: [...config.right, ...newPluginIds],
+			});
+		}
+	}, [pluginSidebarTabs]);
 
 	const groupRef = useGroupRef();
 	const leftPanelRef = usePanelRef();
@@ -377,10 +377,14 @@ export function Reader({
 					>
 						{isFeedReaderMode ? (
 							<FeedAnnotationPlaceholder />
-						) : (
-							<AnnotationSidePanel
-								paperId={paperId}
+						) : paper ? (
+							<SidebarTabPanel
+								side="left"
+								tabIds={readerSidebarConfig.left}
+								paper={paper}
+								tabId={tabId}
 								readerMode={readerMode}
+								paperId={paperId}
 								bilingualMode={bilingualMode}
 								translationFile={bilingualTranslationFile}
 								translationAnnotations={translationAnns.annotations}
@@ -395,7 +399,12 @@ export function Reader({
 										? handleNavigateToHtmlAnnotation
 										: undefined
 								}
+								pluginSidebarTabs={pluginSidebarTabs}
 							/>
+						) : (
+							<div className="flex h-full items-center justify-center text-sm text-muted-foreground">
+								Loading...
+							</div>
 						)}
 					</ResizablePanel>
 					<ResizableHandle />
@@ -429,10 +438,28 @@ export function Reader({
 						{isFeedReaderMode && feedItem ? (
 							<FeedReaderMetadataPanel item={feedItem} />
 						) : paper ? (
-							<ReaderMetadataPanel
+							<SidebarTabPanel
+								side="right"
+								tabIds={readerSidebarConfig.right}
 								paper={paper}
 								tabId={tabId}
 								readerMode={readerMode}
+								paperId={paperId}
+								bilingualMode={bilingualMode}
+								translationFile={bilingualTranslationFile}
+								translationAnnotations={translationAnns.annotations}
+								onDeleteTranslationAnnotation={translationAnns.deleteAnnotation}
+								onUpdateTranslationAnnotation={translationAnns.updateAnnotation}
+								onUpdateTranslationAnnotationType={
+									translationAnns.updateAnnotationType
+								}
+								scrollToTranslationHighlight={translationScrollRef}
+								onNavigateToHtmlAnnotation={
+									readerMode !== "html"
+										? handleNavigateToHtmlAnnotation
+										: undefined
+								}
+								pluginSidebarTabs={pluginSidebarTabs}
 							/>
 						) : (
 							<div className="flex h-full items-center justify-center text-sm text-muted-foreground">
@@ -1287,663 +1314,6 @@ function ReaderToolbar({
 				<PanelRight className="h-4 w-4" />
 			</button>
 		</header>
-	);
-}
-
-/** Right panel: paper metadata with tabs */
-function ReaderMetadataPanel({
-	paper,
-	tabId,
-	readerMode,
-}: {
-	paper: PaperResponse;
-	tabId: string;
-	readerMode: "pdf" | "html";
-}) {
-	const showReaderTerminal = useUiStore((s) => s.showReaderTerminal);
-	const topLevelActiveTabId = useTabStore((s) => s.activeTabId);
-	const isReaderTabActive = topLevelActiveTabId === tabId;
-	const { t } = useTranslation();
-	const [activeTab, setActiveTab] = useState<string>("agent");
-	const [terminalMounted, setTerminalMounted] = useState(false);
-	const [browserMounted, setBrowserMounted] = useState(false);
-	const [paperDir, setPaperDir] = useState<string | undefined>();
-
-	// Plugin sidebar tab contributions
-	const pluginsList = usePluginStore((s) => s.plugins);
-	const loadedModules = usePluginStore((s) => s.loadedModules);
-	const getContributions = usePluginStore((s) => s.getContributionsForSlot);
-	const pluginSidebarTabs = useMemo(() => {
-		void pluginsList;
-		void loadedModules;
-		return getContributions("reader_sidebar");
-	}, [pluginsList, loadedModules, getContributions]);
-	const updatePaperStatus = useLibraryStore((s) => s.updatePaperStatus);
-	const deletePaper = useLibraryStore((s) => s.deletePaper);
-	const fetchPaper = useLibraryStore((s) => s.fetchPaper);
-	const addTagToPaper = useLibraryStore((s) => s.addTagToPaper);
-	const removeTagFromPaper = useLibraryStore((s) => s.removeTagFromPaper);
-	const fetchPapers = useLibraryStore((s) => s.fetchPapers);
-	const confirmBeforeDelete = useUiStore((s) => s.confirmBeforeDelete);
-	const openMetadataSearch = useUiStore((s) => s.openMetadataSearchDialog);
-	const translateFields = useTranslationStore((s) => s.translateFields);
-
-	const ensureTranslated = useTranslationStore((s) => s.ensureTranslated);
-	const translatedTitle = useTranslatedText("paper", paper.id, "title");
-	const translatedAbstract = useTranslatedText(
-		"paper",
-		paper.id,
-		"abstract_text",
-	);
-	const translationLoading = useTranslationLoading("paper", paper.id);
-
-	useEffect(() => {
-		commands.acpGetPaperDir(paper.id).then(setPaperDir).catch(console.error);
-	}, [paper.id]);
-
-	useEffect(() => {
-		const fields = ["title"];
-		if (paper.abstract_text) fields.push("abstract_text");
-		ensureTranslated("paper", paper.id, fields);
-	}, [paper.id, paper.abstract_text, ensureTranslated]);
-
-	// Parse labels from extra_json (read-only metadata labels from Zotero, arXiv, etc.)
-	const labels: string[] = (() => {
-		if (!paper.extra_json) return [];
-		try {
-			const extra = JSON.parse(paper.extra_json);
-			return Array.isArray(extra.labels) ? extra.labels : [];
-		} catch {
-			return [];
-		}
-	})();
-
-	const CITATION_STYLES = [
-		{ id: "bibtex", label: "BibTeX" },
-		{ id: "apa", label: "APA" },
-		{ id: "ieee", label: "IEEE" },
-		{ id: "mla", label: "MLA" },
-		{ id: "chicago", label: "Chicago" },
-		{ id: "vancouver", label: "Vancouver" },
-		{ id: "ris", label: "RIS" },
-	];
-
-	const [copiedStyle, setCopiedStyle] = useState<string | null>(null);
-	const [enriching, setEnriching] = useState(false);
-
-	const handleCopyCitation = async (style: string) => {
-		try {
-			const result =
-				style === "bibtex"
-					? await commands.getPaperBibtex(paper.id)
-					: await commands.getFormattedCitation(paper.id, style);
-			await writeText(result.text);
-			setCopiedStyle(style);
-			setTimeout(() => setCopiedStyle(null), 2000);
-		} catch (err) {
-			console.error("Failed to copy citation:", err);
-		}
-	};
-
-	const handleFetchArxivHtml = async () => {
-		if (paper.has_html && !(await confirmAction(t("paper.redownloadHtmlConfirm")))) {
-			return;
-		}
-		try {
-			await commands.fetchArxivHtml(paper.id);
-		} catch (e) {
-			console.error("Failed to fetch arXiv HTML:", e);
-		}
-	};
-
-	const handleEnrich = async () => {
-		setEnriching(true);
-		try {
-			await commands.enrichPaperMetadata(paper.id);
-			await fetchPaper(paper.id);
-		} catch (err) {
-			console.error("Enrichment failed:", err);
-		}
-		setEnriching(false);
-	};
-
-	const handleTranslate = () => {
-		const fields = ["title"];
-		if (paper.abstract_text) fields.push("abstract_text");
-		translateFields("paper", paper.id, fields);
-	};
-
-	const handleDelete = () => {
-		setTimeout(async () => {
-			if (confirmBeforeDelete && !(await confirmAction(t("paper.deleteConfirm")))) {
-				return;
-			}
-			try {
-				await deletePaper(paper.id);
-			} catch (err) {
-				console.error("Failed to delete paper:", err);
-			}
-		}, 0);
-	};
-
-	const cycleReadStatus = () => {
-		const next =
-			paper.read_status === "unread"
-				? "reading"
-				: paper.read_status === "reading"
-					? "read"
-					: "unread";
-		updatePaperStatus(paper.id, next);
-	};
-
-	const statusIcon =
-		paper.read_status === "read" ? (
-			<BookCheck className="h-3.5 w-3.5" />
-		) : paper.read_status === "reading" ? (
-			<BookMarked className="h-3.5 w-3.5" />
-		) : (
-			<BookOpen className="h-3.5 w-3.5" />
-		);
-
-	return (
-		<div className="flex h-full min-w-0 flex-col overflow-hidden">
-			{/* Tab bar */}
-			<div className="flex border-b text-xs">
-				{(
-					[
-						"agent",
-						"notes",
-						"info",
-						"browser",
-						...(showReaderTerminal ? ["terminal" as const] : []),
-					] as const
-				).map((tab) => (
-					<button
-						key={tab}
-						type="button"
-						className={`flex-1 py-2 text-center capitalize transition-colors ${
-							activeTab === tab
-								? "border-b-2 border-primary font-medium text-foreground"
-								: "text-muted-foreground hover:text-foreground"
-						}`}
-						onClick={() => {
-							setActiveTab(tab);
-							if (tab === "terminal") setTerminalMounted(true);
-							if (tab === "browser") setBrowserMounted(true);
-						}}
-					>
-						{tab === "info"
-							? t("reader.info")
-							: tab === "notes"
-								? t("reader.notes")
-								: tab === "terminal"
-									? t("reader.terminal")
-									: tab === "browser"
-										? t("reader.browser")
-										: t("reader.agent")}
-					</button>
-				))}
-
-				{/* Plugin sidebar tabs — each rendered as an individual tab button */}
-				{pluginSidebarTabs.map((contrib) => {
-					const pluginTabId = `plugin-${contrib.pluginId}-${contrib.contribution.id}`;
-					const titleKey =
-						(contrib.contribution as { titleKey?: string }).titleKey ??
-						contrib.contribution.id;
-					// Convert camelCase/PascalCase titleKey to readable label
-					// e.g. "paperSummary" → "Paper Summary", "SDKDemo" → "SDK Demo"
-					// If the titleKey already contains spaces, keep it as-is.
-					const label = titleKey.includes(" ")
-						? titleKey
-						: titleKey
-								.replace(/([A-Z]+)([A-Z][a-z])/g, "$1 $2")
-								.replace(/([a-z\d])([A-Z])/g, "$1 $2")
-								.replace(/^./, (s) => s.toUpperCase())
-								.trim();
-					return (
-						<button
-							key={pluginTabId}
-							type="button"
-							className={`flex-1 py-2 text-center transition-colors text-nowrap px-1 ${
-								activeTab === pluginTabId
-									? "border-b-2 border-primary font-medium text-foreground"
-									: "text-muted-foreground hover:text-foreground"
-							}`}
-							onClick={() => setActiveTab(pluginTabId)}
-						>
-							{label}
-						</button>
-					);
-				})}
-			</div>
-
-			{/* Terminal — lazy-mounted, stays alive once opened */}
-			<div
-				className={cn(
-					"overflow-hidden",
-					activeTab === "terminal" ? "flex-1" : "hidden",
-				)}
-			>
-				{terminalMounted && (
-					<TerminalPanel
-						paperId={paper.id}
-						visible={activeTab === "terminal"}
-					/>
-				)}
-			</div>
-
-			{/* Browser — lazy-mounted, stays alive once opened */}
-			<div
-				className={cn(
-					"overflow-hidden min-h-0",
-					activeTab === "browser" ? "flex-1" : "hidden",
-				)}
-			>
-				{browserMounted && (
-					<BrowserPanel
-						storageKey={paper.id}
-						isActive={activeTab === "browser" && isReaderTabActive}
-						paperId={paper.id}
-					/>
-				)}
-			</div>
-
-			{/* Agent panel */}
-			{activeTab === "agent" && (
-				<div className="flex-1 min-w-0 overflow-hidden">
-					<AgentPanel cwd={paperDir} paperId={paper.id} />
-				</div>
-			)}
-
-			{/* Notes — full-height panel with its own scroll */}
-			{activeTab === "notes" && (
-				<div className="flex-1 overflow-hidden">
-					<NotesPanel
-						paperId={paper.id}
-						onCitationJump={(detail) => {
-							const targetMode = detail.format;
-							const updateTab = useTabStore.getState().updateTab;
-							if (targetMode !== readerMode) {
-								updateTab(tabId, { readerMode: targetMode });
-							}
-							const posJson = atob(detail.position);
-							if (detail.format === "pdf") {
-								const pos = JSON.parse(posJson);
-								const { navigateToPage } = useAnnotationStore.getState();
-								navigateToPage(pos.pageNumber ?? detail.page);
-							} else if (detail.format === "html") {
-								useAnnotationStore
-									.getState()
-									.setPendingHtmlCitationJump(posJson);
-							}
-						}}
-					/>
-				</div>
-			)}
-
-			{/* Info */}
-			<ScrollArea className={cn("flex-1", activeTab !== "info" && "hidden")}>
-				<div className="p-4">
-					<div className="space-y-3">
-						{/* Title */}
-						<BilingualText
-							original={paper.title}
-							translated={translatedTitle}
-							loading={translationLoading}
-							variant="title"
-							className="text-sm"
-						/>
-
-						{/* Authors */}
-						{paper.authors.length > 0 && (
-							<CollapsibleAuthors authors={paper.authors.map((a) => a.name)} />
-						)}
-
-						{/* Read status + display mode + overflow menu */}
-						<div className="flex items-center gap-2">
-							<Button
-								size="sm"
-								variant="outline"
-								className="h-7 text-xs capitalize"
-								onClick={cycleReadStatus}
-							>
-								{statusIcon}
-								<span className="ml-1.5">{paper.read_status}</span>
-							</Button>
-							<DisplayModeToggle />
-
-							{/* Overflow menu (same as PaperDetail sidebar) */}
-							<DropdownMenu>
-								<DropdownMenuTrigger asChild>
-									<Button size="sm" variant="ghost" className="h-7 w-7 p-0">
-										<MoreHorizontal className="h-4 w-4" />
-									</Button>
-								</DropdownMenuTrigger>
-								<DropdownMenuContent align="start">
-									{paper.arxiv_id && (
-										<DropdownMenuItem onClick={handleFetchArxivHtml}>
-											<Download className="h-4 w-4" />
-											{paper.has_html
-												? t("paper.refetchHtml")
-												: t("paper.arxivHtml")}
-										</DropdownMenuItem>
-									)}
-									<DropdownMenuItem
-										onClick={() => {
-											const q = encodeURIComponent(paper.title);
-											window.open(
-												`https://scholar.google.com/scholar?q=${q}`,
-												"_blank",
-											);
-										}}
-									>
-										<ExternalLink className="h-4 w-4" />
-										{t("paper.scholar")}
-									</DropdownMenuItem>
-
-									{/* Cite sub-menu */}
-									<DropdownMenuSub>
-										<DropdownMenuSubTrigger>
-											{copiedStyle ? (
-												<Check className="h-4 w-4 text-green-500" />
-											) : (
-												<Copy className="h-4 w-4" />
-											)}
-											{copiedStyle ? t("common.copied") : t("paper.cite")}
-										</DropdownMenuSubTrigger>
-										<DropdownMenuSubContent>
-											{CITATION_STYLES.map((s) => (
-												<DropdownMenuItem
-													key={s.id}
-													onClick={() => handleCopyCitation(s.id)}
-												>
-													{copiedStyle === s.id ? (
-														<Check className="h-4 w-4 text-green-500" />
-													) : (
-														<Copy className="h-4 w-4 opacity-50" />
-													)}
-													{s.label}
-												</DropdownMenuItem>
-											))}
-										</DropdownMenuSubContent>
-									</DropdownMenuSub>
-
-									{/* Export sub-menu */}
-									{(paper.has_pdf || paper.has_html) && (
-										<DropdownMenuSub>
-											<DropdownMenuSubTrigger>
-												<Download className="h-4 w-4" />
-												{t("paper.export")}
-											</DropdownMenuSubTrigger>
-											<DropdownMenuSubContent>
-												{paper.has_pdf && (
-													<DropdownMenuItem
-														onClick={async () => {
-															try {
-																await commands.exportPdf(paper.id);
-															} catch (e) {
-																console.error("Export PDF failed:", e);
-															}
-														}}
-													>
-														<FileText className="h-4 w-4" />
-														PDF
-													</DropdownMenuItem>
-												)}
-												{paper.has_html && (
-													<DropdownMenuItem
-														onClick={async () => {
-															try {
-																await commands.exportHtml(paper.id);
-															} catch (e) {
-																console.error("Export HTML failed:", e);
-															}
-														}}
-													>
-														<Globe className="h-4 w-4" />
-														HTML
-													</DropdownMenuItem>
-												)}
-												<DropdownMenuSeparator />
-												{paper.has_pdf && (
-													<DropdownMenuItem
-														onClick={async () => {
-															try {
-																await commands.exportAnnotatedPdf(paper.id);
-															} catch (e) {
-																console.error(
-																	"Export annotated PDF failed:",
-																	e,
-																);
-															}
-														}}
-													>
-														<FileText className="h-4 w-4" />
-														{t("paper.pdfWithAnnotations")}
-													</DropdownMenuItem>
-												)}
-												{paper.has_html && (
-													<DropdownMenuItem
-														onClick={async () => {
-															try {
-																await commands.exportAnnotatedHtml(paper.id);
-															} catch (e) {
-																console.error(
-																	"Export annotated HTML failed:",
-																	e,
-																);
-															}
-														}}
-													>
-														<Globe className="h-4 w-4" />
-														{t("paper.htmlWithAnnotations")}
-													</DropdownMenuItem>
-												)}
-											</DropdownMenuSubContent>
-										</DropdownMenuSub>
-									)}
-
-									<DropdownMenuSub>
-										<DropdownMenuSubTrigger>
-											<RefreshCw
-												className={
-													enriching ? "h-4 w-4 animate-spin" : "h-4 w-4"
-												}
-											/>
-											{t("contextMenu.metadata")}
-										</DropdownMenuSubTrigger>
-										<DropdownMenuSubContent>
-											<DropdownMenuItem
-												onClick={handleEnrich}
-												disabled={enriching}
-											>
-												{enriching
-													? t("paper.enriching")
-													: t("contextMenu.autoFetchMetadata")}
-											</DropdownMenuItem>
-											<DropdownMenuItem
-												onClick={() => openMetadataSearch(paper.id)}
-											>
-												{t("contextMenu.manualSearchMetadata")}
-											</DropdownMenuItem>
-										</DropdownMenuSubContent>
-									</DropdownMenuSub>
-
-									<DropdownMenuItem
-										onClick={
-											translatedTitle ? handleTranslate : handleTranslate
-										}
-										disabled={translationLoading}
-									>
-										{translationLoading ? (
-											<Loader2 className="h-4 w-4 animate-spin" />
-										) : (
-											<Languages className="h-4 w-4" />
-										)}
-										{translationLoading
-											? t("paper.translating")
-											: translatedTitle
-												? t("paper.retranslate")
-												: t("paper.translate")}
-									</DropdownMenuItem>
-
-									<DropdownMenuSeparator />
-									<DropdownMenuItem
-										className="text-destructive focus:text-destructive"
-										onSelect={handleDelete}
-									>
-										<Trash2 className="h-4 w-4" />
-										{t("common.delete")}
-									</DropdownMenuItem>
-								</DropdownMenuContent>
-							</DropdownMenu>
-						</div>
-
-						<Separator />
-
-						{/* Metadata grid */}
-						<div className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1.5 text-xs">
-							{paper.doi && (
-								<>
-									<span className="font-medium text-muted-foreground">DOI</span>
-									<span className="truncate">{paper.doi}</span>
-								</>
-							)}
-							{paper.arxiv_id && (
-								<>
-									<span className="font-medium text-muted-foreground">
-										ArXiv
-									</span>
-									<span className="truncate">{paper.arxiv_id}</span>
-								</>
-							)}
-							{paper.published_date && (
-								<>
-									<span className="font-medium text-muted-foreground">
-										{t("paper.published")}
-									</span>
-									<span>{paper.published_date}</span>
-								</>
-							)}
-							<span className="font-medium text-muted-foreground">
-								{t("paper.added")}
-							</span>
-							<span>
-								{new Date(paper.added_date).toLocaleString(undefined, {
-									year: "numeric",
-									month: "short",
-									day: "numeric",
-									hour: "2-digit",
-									minute: "2-digit",
-								})}
-							</span>
-							{paper.source && (
-								<>
-									<span className="font-medium text-muted-foreground">
-										{t("paper.source")}
-									</span>
-									<span>{paper.source}</span>
-								</>
-							)}
-						</div>
-
-						{/* Abstract */}
-						{paper.abstract_text && (
-							<>
-								<Separator />
-								<div>
-									<h4 className="mb-1 text-xs font-medium text-muted-foreground">
-										{t("paper.abstract")}
-									</h4>
-									<BilingualText
-										original={paper.abstract_text}
-										translated={translatedAbstract}
-										loading={translationLoading}
-										variant="abstract"
-										className="text-xs"
-									/>
-								</div>
-							</>
-						)}
-
-						{/* Tags */}
-						<Separator />
-						<div className="space-y-2">
-							<h4 className="text-xs font-medium text-muted-foreground">
-								{t("paper.tags")}
-							</h4>
-							<div className="flex flex-wrap gap-1.5">
-								{paper.tags.map((tag) => (
-									<Badge
-										key={tag.id}
-										variant="secondary"
-										className="text-xs group/tag"
-									>
-										{tag.name}
-										<button
-											type="button"
-											className="ml-0.5 opacity-0 group-hover/tag:opacity-100 transition-opacity"
-											onClick={async () => {
-												await removeTagFromPaper(paper.id, tag.name);
-												await fetchPapers();
-											}}
-										>
-											<X className="h-3 w-3" />
-										</button>
-									</Badge>
-								))}
-								<TagAdder
-									onAdd={async (name) => {
-										await addTagToPaper(paper.id, name);
-										await fetchPapers();
-									}}
-								/>
-							</div>
-							{labels.length > 0 && (
-								<>
-									<h4 className="text-xs font-medium text-muted-foreground">
-										Labels
-									</h4>
-									<div className="flex flex-wrap gap-1.5">
-										{labels.map((label) => (
-											<Badge key={label} variant="outline" className="text-xs">
-												{label}
-											</Badge>
-										))}
-									</div>
-								</>
-							)}
-						</div>
-					</div>
-				</div>
-			</ScrollArea>
-
-			{/* Plugin sidebar tab panels — render whichever is active */}
-			{pluginSidebarTabs.map((contrib) => {
-				const pluginTabId = `plugin-${contrib.pluginId}-${contrib.contribution.id}`;
-				if (activeTab !== pluginTabId) return null;
-				const Component = contrib.component;
-				const pluginInfo = pluginsList.find(
-					(p) => p.manifest.id === contrib.pluginId,
-				);
-				if (!pluginInfo) return null;
-				const sdk = createPluginSDK(pluginInfo, { paperId: paper.id });
-				return (
-					<div key={pluginTabId} className="flex-1 overflow-auto">
-						<Component
-							sdk={sdk}
-							context={{ paperId: paper.id, readerMode, tabId }}
-						/>
-					</div>
-				);
-			})}
-
-			{/* Plugin reader toolbar */}
-			<PluginSlot
-				location="reader_toolbar"
-				context={{ paperId: paper.id, readerMode, tabId }}
-			/>
-		</div>
 	);
 }
 
@@ -3303,124 +2673,6 @@ function FeedReaderMetadataPanel({ item }: { item: FeedItemResponse }) {
 					</div>
 				</div>
 			</ScrollArea>
-		</div>
-	);
-}
-
-function TagAdder({
-	onAdd,
-}: {
-	onAdd: (name: string) => Promise<void>;
-}) {
-	const { t } = useTranslation();
-	const [editing, setEditing] = useState(false);
-	const [value, setValue] = useState("");
-	const [suggestions, setSuggestions] = useState<TagResponse[]>([]);
-	const [selectedIdx, setSelectedIdx] = useState(-1);
-	const inputRef = useRef<HTMLInputElement>(null);
-
-	useEffect(() => {
-		if (editing) inputRef.current?.focus();
-	}, [editing]);
-
-	useEffect(() => {
-		if (!value.trim()) {
-			setSuggestions([]);
-			setSelectedIdx(-1);
-			return;
-		}
-		let cancelled = false;
-		commands.searchTags(value.trim(), 8).then((tags) => {
-			if (!cancelled) {
-				setSuggestions(tags);
-				setSelectedIdx(-1);
-			}
-		});
-		return () => {
-			cancelled = true;
-		};
-	}, [value]);
-
-	const submit = async (name: string) => {
-		const trimmed = name.trim();
-		if (!trimmed) return;
-		await onAdd(trimmed);
-		setValue("");
-		setSuggestions([]);
-		setEditing(false);
-	};
-
-	const handleKeyDown = (e: React.KeyboardEvent) => {
-		if (e.key === "Escape") {
-			setEditing(false);
-			setValue("");
-			setSuggestions([]);
-		} else if (e.key === "Enter") {
-			e.preventDefault();
-			if (selectedIdx >= 0 && selectedIdx < suggestions.length) {
-				submit(suggestions[selectedIdx].name);
-			} else {
-				submit(value);
-			}
-		} else if (e.key === "ArrowDown") {
-			e.preventDefault();
-			setSelectedIdx((i) => Math.min(i + 1, suggestions.length - 1));
-		} else if (e.key === "ArrowUp") {
-			e.preventDefault();
-			setSelectedIdx((i) => Math.max(i - 1, 0));
-		}
-	};
-
-	if (!editing) {
-		return (
-			<button
-				type="button"
-				className="inline-flex items-center gap-0.5 rounded-md border border-dashed px-2 py-0.5 text-xs text-muted-foreground hover:text-foreground hover:border-foreground transition-colors"
-				onClick={() => setEditing(true)}
-			>
-				<Plus className="h-3 w-3" />
-			</button>
-		);
-	}
-
-	return (
-		<div className="relative">
-			<input
-				ref={inputRef}
-				type="text"
-				className="h-6 w-28 rounded-md border bg-background px-2 text-xs outline-none focus:ring-1 focus:ring-primary"
-				placeholder={t("paper.addTag")}
-				value={value}
-				onChange={(e) => setValue(e.target.value)}
-				onKeyDown={handleKeyDown}
-				onBlur={() => {
-					setTimeout(() => {
-						setEditing(false);
-						setValue("");
-						setSuggestions([]);
-					}, 150);
-				}}
-			/>
-			{suggestions.length > 0 && (
-				<div className="absolute top-full left-0 z-50 mt-1 w-40 rounded-md border bg-popover shadow-md">
-					{suggestions.map((tag, i) => (
-						<button
-							key={tag.id}
-							type="button"
-							className={cn(
-								"w-full px-2 py-1 text-left text-xs hover:bg-muted transition-colors",
-								i === selectedIdx && "bg-muted",
-							)}
-							onMouseDown={(e) => {
-								e.preventDefault();
-								submit(tag.name);
-							}}
-						>
-							{tag.name}
-						</button>
-					))}
-				</div>
-			)}
 		</div>
 	);
 }
